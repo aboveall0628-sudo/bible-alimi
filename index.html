@@ -24,6 +24,24 @@
             <p id="loading-status">성경 데이터를 안전하게 불러오고 있습니다.</p>
         </div>
     </div>
+    
+    <!-- 보안 차단(CORS) 감지기 -->
+    <script>
+        window.appStarted = false;
+        setTimeout(function() {
+            if (!window.appStarted) {
+                var overlay = document.getElementById('loading-overlay');
+                if (overlay) {
+                    overlay.innerHTML = '<div class="loading-box" style="color: #ff5f56;">' +
+                        '<h2>🚨 보안 정책 차단됨!</h2>' +
+                        '<p>현재 파일을 내 컴퓨터에서 직접 열었기 때문에(file:///) 보안상 작동이 중지되었습니다.</p>' +
+                        '<p style="margin-top:10px; font-weight:bold;">해결 방법:</p>' +
+                        '<p>1. 깃허브 주소(https://aboveall0628-sudo.github.io/sanctumos)로 접속하시거나,<br>2. VS Code의 Live Server를 사용해서 열어주세요.</p>' +
+                        '</div>';
+                }
+            }
+        }, 3000); // 3초 후에도 시작 안 하면 경고 표시
+    </script>
 
     <div class="main-layout">
         <button id="menu-toggle" class="menu-toggle-btn">

@@ -1,4 +1,5 @@
 // Firebase Configuration (Real config from user)
+window.appStarted = true;
 const firebaseConfig = {
   apiKey: "AIzaSyBz_-F3Gp7bK2DvWBGfwjf6jevSnFaHess",
   authDomain: "biblealimi.firebaseapp.com",
@@ -879,16 +880,6 @@ function handleTouchMove(e) {
             cell.classList.add('selected');
             selectedCells.push(currentIndex);
         }
-    }
-}
-
-/**
- * Google Auth System
- */
-function setupGoogleAuth() {
-    const authBtn = document.getElementById('auth-btn');
-    if (authBtn) {
-        authBtn.addEventListener('click', handleAuthClick);
     }
 }
 
