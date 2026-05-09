@@ -11,7 +11,7 @@ const firebaseConfig = {
 
 // --- Google API Config ---
 const GOOGLE_CLIENT_ID = '760231593146-7gkia8st114oiojjgjljjk0rdduhgafl.apps.googleusercontent.com';
-const GOOGLE_API_KEY = 'YOUR_API_KEY'; // API 키도 발급받으셨다면 여기에 넣어주세요!
+const GOOGLE_API_KEY = 'AIzaSyDdQAmIWoKy5z1I6w4BWE3xK9a1ryBZXHQ'; 
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
 
