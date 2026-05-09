@@ -203,6 +203,7 @@ function finishLoading() {
     renderForDate(today);
     switchView('dashboard'); // Default to Dashboard view
     setupMobileMenu();
+    setupSaveButton();
 }
 
 function setupMobileMenu() {
@@ -368,14 +369,21 @@ function setupMemoAutoResize() {
 
 async function saveMeditationNote(dateStr, content) {
     if (!db) return;
+    const status = document.getElementById('save-status');
+    if (status) status.innerText = "저장 중...";
+
     try {
-        console.log("Saving note for", dateStr);
         await setDoc(doc(db, "memos", dateStr), {
             content: content,
             updatedAt: serverTimestamp()
         });
+        if (status) {
+            status.innerText = "✓ 서버 저장 완료";
+            setTimeout(() => { status.innerText = ""; }, 3000);
+        }
     } catch (e) {
         console.error("Save error:", e);
+        if (status) status.innerText = "❌ 저장 실패";
     }
 }
 
@@ -399,7 +407,18 @@ async function loadMeditationNote(dateStr) {
         memo.style.height = (memo.scrollHeight) + 'px';
     } catch (e) {
         console.error("Load error:", e);
-        memo.value = "불러오기 실패";
+        memo.value = ""; // 에러 시 빈 칸으로 처리하여 사용 방해 안함
+    }
+}
+
+function setupSaveButton() {
+    const saveBtn = document.getElementById('save-memo-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const dateStr = document.getElementById('calendar-input').value;
+            const content = document.getElementById('memo-input').value;
+            saveMeditationNote(dateStr, content);
+        });
     }
 }
 

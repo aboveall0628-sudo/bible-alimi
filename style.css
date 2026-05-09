@@ -435,25 +435,61 @@ h1 {
 
 /* Mobile Menu Toggle */
 .menu-toggle-btn {
-    display: none;
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 1000;
-    background: var(--notion-bg);
-    border: 1px solid var(--notion-border);
-    color: var(--notion-text);
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: none; /* PC에서는 절대 안 보임 */
+}
+
+@media (max-width: 900px) {
+    .menu-toggle-btn {
+        display: flex; /* 모바일에서만 보임 */
+        position: fixed;
+        top: 24px;
+        left: 20px;
+        z-index: 1001;
+        background: var(--notion-bg);
+        border: 1px solid var(--notion-border);
+        color: var(--notion-text);
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
 }
 
 .menu-toggle-btn .icon {
-    font-size: 20px;
+    font-size: 24px;
+}
+
+/* Memo Footer & Save Button */
+.memo-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 15px;
+    margin-top: 12px;
+}
+
+.save-status {
+    font-size: 13px;
+    color: var(--notion-blue);
+    font-weight: 500;
+}
+
+.primary-btn {
+    background: var(--notion-blue);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.primary-btn:hover {
+    background: #1a56db;
 }
 
 /* Overlay for mobile sidebar */
@@ -519,10 +555,6 @@ h1 {
 
 /* Responsive */
 @media (max-width: 900px) {
-    .menu-toggle-btn {
-        display: flex;
-    }
-
     .sidebar {
         transform: translateX(-100%);
         box-shadow: 4px 0 15px rgba(0,0,0,0.1);
