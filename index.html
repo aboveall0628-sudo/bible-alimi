@@ -7,6 +7,12 @@
     <!-- Pretendard Font -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK (v10+) -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+      // Firebase 설정은 script.js에서 연동합니다.
+    </script>
 </head>
 <body>
     <div id="loading-overlay" class="loading-overlay">
@@ -18,7 +24,10 @@
     </div>
 
     <div class="main-layout">
-        <aside class="sidebar">
+        <button id="menu-toggle" class="menu-toggle-btn">
+            <span class="icon">☰</span>
+        </button>
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span class="logo">📖 Bible Alimi</span>
             </div>
@@ -86,6 +95,6 @@
     </div>
 
     <script src="bibleData.js"></script>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

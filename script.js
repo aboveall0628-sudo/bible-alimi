@@ -1,3 +1,21 @@
+// Firebase Configuration (Real config from user)
+const firebaseConfig = {
+  apiKey: "AIzaSyBz_-F3Gp7bK2DvWBGfwjf6jevSnFaHess",
+  authDomain: "biblealimi.firebaseapp.com",
+  projectId: "biblealimi",
+  storageBucket: "biblealimi.firebasestorage.app",
+  messagingSenderId: "407329001149",
+  appId: "1:407329001149:web:ba286301f3d0ad5d55f1d4",
+  measurementId: "G-BG79MS3FZP"
+};
+
+// Initialize Firebase via CDN modules
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 const BIBLE_METADATA = {
     parts: [
         {
@@ -184,6 +202,39 @@ function finishLoading() {
     
     renderForDate(today);
     switchView('dashboard'); // Default to Dashboard view
+    setupMobileMenu();
+}
+
+function setupMobileMenu() {
+    const toggleBtn = document.getElementById('menu-toggle');
+    const layout = document.querySelector('.main-layout');
+    
+    // Add overlay if it doesn't exist
+    if (!document.querySelector('.sidebar-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        layout.appendChild(overlay);
+        
+        overlay.addEventListener('click', () => {
+            layout.classList.remove('sidebar-open');
+        });
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            layout.classList.toggle('sidebar-open');
+        });
+    }
+
+    // Close sidebar when clicking a menu item on mobile
+    const navItems = document.querySelectorAll('.sidebar-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 900) {
+                layout.classList.remove('sidebar-open');
+            }
+        });
+    });
 }
 
 function setupEventListeners() {
@@ -239,13 +290,58 @@ function switchView(viewId) {
     if (activeNav) activeNav.classList.add('active');
 }
 
+let saveTimeout = null;
 function setupMemoAutoResize() {
     const memo = document.getElementById('memo-input');
     if (memo) {
         memo.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
+            
+            // Debounced save to Firestore
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                const dateStr = document.getElementById('calendar-input').value;
+                saveMeditationNote(dateStr, this.value);
+            }, 1000);
         });
+    }
+}
+
+async function saveMeditationNote(dateStr, content) {
+    if (!db) return;
+    try {
+        console.log("Saving note for", dateStr);
+        await setDoc(doc(db, "memos", dateStr), {
+            content: content,
+            updatedAt: serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Save error:", e);
+    }
+}
+
+async function loadMeditationNote(dateStr) {
+    if (!db) return;
+    const memo = document.getElementById('memo-input');
+    if (!memo) return;
+
+    memo.value = "불러오는 중...";
+    try {
+        const docRef = doc(db, "memos", dateStr);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            memo.value = docSnap.data().content;
+        } else {
+            memo.value = "";
+        }
+        // Resize after loading
+        memo.style.height = 'auto';
+        memo.style.height = (memo.scrollHeight) + 'px';
+    } catch (e) {
+        console.error("Load error:", e);
+        memo.value = "불러오기 실패";
     }
 }
 
@@ -305,11 +401,16 @@ function copySelectedVerses() {
     });
 
     const currentContent = memo.value;
-    memo.value = (currentContent ? currentContent + "\n" : "") + resultText;
+    const newContent = (currentContent ? currentContent + "\n" : "") + resultText;
+    memo.value = newContent;
     
     // Auto resize
     memo.style.height = 'auto';
     memo.style.height = (memo.scrollHeight) + 'px';
+
+    // Save to Firestore
+    const dateStr = document.getElementById('calendar-input').value;
+    saveMeditationNote(dateStr, newContent);
 
     // Clear selection
     selectedVerses.clear();
@@ -414,6 +515,10 @@ function renderForDate(date) {
             renderProgressItem(progressContainer, part.name, progress, index + 1, total);
         }
     });
+
+    // Load meditation note for this date
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    loadMeditationNote(dateStr);
 }
 
 function getPartTotalChapters(part) {
