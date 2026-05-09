@@ -434,21 +434,10 @@ async function loadMeditationNote(dateStr) {
         } else {
             editor.innerHTML = "";
         }
+        renderCustomTimeboxEvents(docSnap.data()?.timeboxEvents || []);
     } catch (e) {
         console.error("Load error:", e);
-        editor.innerHTML = ""; // 에러 시 빈 칸으로 처리하여 사용 방해 안함
-    }
-}
-
-function setupSaveButton() {
-    const saveBtn = document.getElementById('save-memo-btn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            const dateStr = document.getElementById('calendar-input').value;
-            const editor = document.getElementById('block-editor');
-            const content = editor ? editor.innerHTML : '';
-            saveMeditationNote(dateStr, content);
-        });
+        editor.innerHTML = ""; 
     }
 }
 
@@ -478,10 +467,9 @@ function updateCopyButtonVisibility() {
 function copySelectedVerses() {
     if (selectedVerses.size === 0) return;
 
-    const memo = document.getElementById('memo-input');
-    if (!memo) return;
+    const editor = document.getElementById('block-editor');
+    if (!editor) return;
 
-    // Group selected verses by book and chapter
     const grouped = {};
     selectedVerses.forEach(verseKey => {
         const [bookChapter, verseNum] = verseKey.split('_');
@@ -491,38 +479,38 @@ function copySelectedVerses() {
         
         if (!grouped[groupKey]) grouped[groupKey] = [];
         
-        // Find the verse text
         const verseElement = document.querySelector(`.verse-item[data-key="${verseKey}"]`);
         const verseText = verseElement.querySelector('.verse-text').textContent;
         grouped[groupKey].push({ num: parseInt(verseNum), text: verseText });
     });
 
-    let resultText = "";
+    let resultHTML = "";
     Object.keys(grouped).forEach(groupKey => {
-        resultText += `${groupKey}\n`;
+        resultHTML += `<div><strong>${groupKey}</strong></div>`;
         grouped[groupKey].sort((a, b) => a.num - b.num);
         grouped[groupKey].forEach(v => {
-            resultText += `${v.num} ${v.text}\n`;
+            resultHTML += `<div>${v.num}절 ${v.text}</div>`;
         });
-        resultText += "\n";
+        resultHTML += `<br>`;
     });
 
-    const currentContent = memo.value;
-    const newContent = (currentContent ? currentContent + "\n" : "") + resultText;
-    memo.value = newContent;
+    editor.innerHTML = (editor.innerHTML === "<div style='color: var(--notion-text-light);'>불러오는 중...</div>" || editor.innerHTML === "") 
+        ? resultHTML 
+        : editor.innerHTML + "<br>" + resultHTML;
     
-    // Auto resize
-    memo.style.height = 'auto';
-    memo.style.height = (memo.scrollHeight) + 'px';
-
-    // Save to Firestore
     const dateStr = document.getElementById('calendar-input').value;
-    saveMeditationNote(dateStr, newContent);
+    saveMeditationNote(dateStr, editor.innerHTML);
 
-    // Clear selection
     selectedVerses.clear();
     document.querySelectorAll('.verse-item.selected').forEach(el => el.classList.remove('selected'));
     updateCopyButtonVisibility();
+
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = "✓ 본문에 추가됨!";
+        setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
+    }
 }
 
 function setupTheme() {
@@ -829,36 +817,49 @@ function setupTimebox() {
     }
 }
 
+let dragStartIndex = -1;
+let currentSelectedCells = [];
+
 function startSelect(e) {
-    isDragging = true;
     const cell = e.target.closest('.time-cell');
     if (!cell) return;
     
-    // 초기화 및 첫 칸 선택
-    cell.classList.toggle('selected');
-    if (cell.classList.contains('selected')) {
-        selectedCells = [parseInt(cell.dataset.index)];
-    } else {
-        selectedCells = [];
+    if (cell.classList.contains('has-event') && cell.classList.contains('custom-event')) {
+        e.stopPropagation();
+        openDeleteModal(cell.dataset.eventId, cell.getAttribute('data-event-title') || '일정');
+        return;
     }
+
+    isDragging = true;
+    dragStartIndex = parseInt(cell.dataset.index);
+    selectedCells = [dragStartIndex];
+    renderSelection();
 }
 
 function updateSelect(e) {
     if (!isDragging) return;
     const cell = e.target.closest('.time-cell');
     if (!cell) return;
+    if (cell.classList.contains('has-event')) return;
 
     const currentIndex = parseInt(cell.dataset.index);
-    if (selectedCells.length > 0) {
-        const lastIndex = selectedCells[selectedCells.length - 1];
-        // 오직 바로 다음 칸이거나 바로 이전 칸일 때만 (연속성 보장)
-        if (Math.abs(currentIndex - lastIndex) === 1) {
-            if (!selectedCells.includes(currentIndex)) {
-                cell.classList.add('selected');
-                selectedCells.push(currentIndex);
-            }
-        }
+    selectedCells = [];
+    const minIdx = Math.min(dragStartIndex, currentIndex);
+    const maxIdx = Math.max(dragStartIndex, currentIndex);
+    for (let i = minIdx; i <= maxIdx; i++) {
+        selectedCells.push(i);
     }
+    renderSelection();
+}
+
+function renderSelection() {
+    document.querySelectorAll('.time-cell.selected').forEach(cell => cell.classList.remove('selected'));
+    selectedCells.forEach(idx => {
+        const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
+        if (cell && !cell.classList.contains('has-event')) {
+            cell.classList.add('selected');
+        }
+    });
 }
 
 function endSelect() {
@@ -875,17 +876,17 @@ function handleTouchMove(e) {
     const touch = e.touches[0];
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     const cell = el?.closest('.time-cell');
-    if (cell) {
+    if (cell && !cell.classList.contains('has-event')) {
         const currentIndex = parseInt(cell.dataset.index);
-        const lastIndex = selectedCells[selectedCells.length - 1];
-        if (Math.abs(currentIndex - lastIndex) === 1 && !selectedCells.includes(currentIndex)) {
-            cell.classList.add('selected');
-            selectedCells.push(currentIndex);
+        selectedCells = [];
+        const minIdx = Math.min(dragStartIndex, currentIndex);
+        const maxIdx = Math.max(dragStartIndex, currentIndex);
+        for (let i = minIdx; i <= maxIdx; i++) {
+            selectedCells.push(i);
         }
+        renderSelection();
     }
 }
-
-let currentSelectedCells = [];
 
 function openTimeboxModal(cells) {
     if (cells.length === 0) return;
@@ -915,42 +916,85 @@ function setupTimeboxModal() {
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => {
             document.getElementById('timebox-modal').classList.add('hidden');
-            currentSelectedCells.forEach(idx => {
-                const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
-                if (cell) cell.classList.remove('selected');
-            });
+            document.querySelectorAll('.time-cell.selected').forEach(cell => cell.classList.remove('selected'));
             selectedCells = [];
             currentSelectedCells = [];
         });
     }
     
     if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', async () => {
             const title = document.getElementById('timebox-event-input').value.trim();
             if (!title) return;
             
+            saveBtn.disabled = true;
             document.getElementById('timebox-modal').classList.add('hidden');
+            
+            const eventId = Date.now().toString();
+            const colorClass = `event-color-${(Math.floor(Math.random() * 5)) + 1}`;
             
             const startIdx = Math.min(...currentSelectedCells);
             currentSelectedCells.forEach(idx => {
                 const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
                 if (cell) {
                     cell.classList.remove('selected');
-                    cell.classList.add('has-event', 'custom-event');
+                    cell.classList.add('has-event', 'custom-event', colorClass);
+                    cell.dataset.eventId = eventId;
                     if (idx === startIdx) {
                         cell.setAttribute('data-event-title', title);
                     }
                 }
             });
             
-            saveTimeboxToFirebase(currentSelectedCells, title);
+            await saveTimeboxToFirebase(currentSelectedCells, title, eventId, colorClass);
+            pushToGoogleCalendar(currentSelectedCells, title);
+            
+            saveBtn.disabled = false;
             selectedCells = [];
             currentSelectedCells = [];
         });
     }
+    
+    setupDeleteModal();
 }
 
-async function saveTimeboxToFirebase(cells, title) {
+let currentDeleteEventId = null;
+
+function openDeleteModal(eventId, title) {
+    currentDeleteEventId = eventId;
+    document.getElementById('timebox-delete-modal-title').innerText = title;
+    document.getElementById('timebox-delete-modal').classList.remove('hidden');
+}
+
+function setupDeleteModal() {
+    const cancelBtn = document.getElementById('timebox-delete-cancel-btn');
+    const deleteBtn = document.getElementById('timebox-delete-btn');
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            document.getElementById('timebox-delete-modal').classList.add('hidden');
+            currentDeleteEventId = null;
+        });
+    }
+    
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            if (!currentDeleteEventId) return;
+            document.getElementById('timebox-delete-modal').classList.add('hidden');
+            
+            document.querySelectorAll(`.time-cell[data-event-id="${currentDeleteEventId}"]`).forEach(cell => {
+                cell.className = 'time-cell'; 
+                cell.removeAttribute('data-event-title');
+                cell.removeAttribute('data-event-id');
+            });
+            
+            await deleteTimeboxFromFirebase(currentDeleteEventId);
+            currentDeleteEventId = null;
+        });
+    }
+}
+
+async function saveTimeboxToFirebase(cells, title, eventId, colorClass) {
     if (!db) return;
     const dateStr = document.getElementById('calendar-input').value;
     const docRef = doc(db, "memos", dateStr);
@@ -960,7 +1004,7 @@ async function saveTimeboxToFirebase(cells, title) {
         let data = docSnap.exists() ? docSnap.data() : { content: '' };
         let events = data.timeboxEvents || [];
         
-        events.push({ indices: cells, title: title });
+        events.push({ id: eventId, indices: cells, title: title, color: colorClass });
         
         await setDoc(docRef, { ...data, timeboxEvents: events, updatedAt: serverTimestamp() });
     } catch (e) {
@@ -968,10 +1012,29 @@ async function saveTimeboxToFirebase(cells, title) {
     }
 }
 
+async function deleteTimeboxFromFirebase(eventId) {
+    if (!db) return;
+    const dateStr = document.getElementById('calendar-input').value;
+    const docRef = doc(db, "memos", dateStr);
+    
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            let data = docSnap.data();
+            let events = data.timeboxEvents || [];
+            events = events.filter(e => e.id !== eventId);
+            await setDoc(docRef, { ...data, timeboxEvents: events, updatedAt: serverTimestamp() });
+        }
+    } catch (e) {
+        console.error("Timebox delete error:", e);
+    }
+}
+
 function renderCustomTimeboxEvents(events) {
     document.querySelectorAll('.time-cell.custom-event').forEach(el => {
-        el.classList.remove('custom-event', 'has-event');
+        el.className = 'time-cell';
         el.removeAttribute('data-event-title');
+        el.removeAttribute('data-event-id');
     });
     
     if (!events) return;
@@ -981,12 +1044,61 @@ function renderCustomTimeboxEvents(events) {
         ev.indices.forEach(idx => {
             const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
             if (cell) {
-                cell.classList.add('has-event', 'custom-event');
+                cell.classList.add('has-event', 'custom-event', ev.color || 'event-color-1');
+                cell.dataset.eventId = ev.id;
                 if (idx === startIdx) {
                     cell.setAttribute('data-event-title', ev.title);
                 }
             }
         });
+    });
+}
+
+function pushToGoogleCalendar(cells, title) {
+    if (!gapiInited || !gapi.client.calendar) return; 
+    if (!gapi.client.getToken()) return;
+
+    const dateStr = document.getElementById('calendar-input').value; 
+    const minIdx = Math.min(...cells);
+    const maxIdx = Math.max(...cells);
+    
+    const startH = Math.floor(minIdx / 4);
+    const startM = (minIdx % 4) * 15;
+    const endH = Math.floor((maxIdx + 1) / 4);
+    const endM = ((maxIdx + 1) % 4) * 15;
+    
+    const startTimeStr = `${dateStr}T${String(startH).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00+09:00`;
+    const endTimeStr = `${dateStr}T${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00+09:00`;
+
+    const event = {
+        'summary': title,
+        'start': {
+            'dateTime': startTimeStr,
+            'timeZone': 'Asia/Seoul'
+        },
+        'end': {
+            'dateTime': endTimeStr,
+            'timeZone': 'Asia/Seoul'
+        },
+        'reminders': {
+            'useDefault': false,
+            'overrides': [
+                {'method': 'popup', 'minutes': 15}
+            ]
+        }
+    };
+
+    const request = gapi.client.calendar.events.insert({
+        'calendarId': 'primary',
+        'resource': event
+    });
+
+    request.execute(function(res) {
+        if (res.error) {
+            console.error("GCal Push Error:", res.error);
+        } else {
+            console.log("Event pushed to Google Calendar:", res.htmlLink);
+        }
     });
 }
 
