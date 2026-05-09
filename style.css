@@ -15,14 +15,8 @@
     --event-3-bg: rgba(242, 153, 74, 0.15);
     --event-3-border: #f2994a;
     --event-3-text: #d35400;
-    --event-4-bg: rgba(155, 81, 224, 0.15);
-    --event-4-border: #9b51e0;
-    --event-4-text: #8e44ad;
-    --event-5-bg: rgba(39, 174, 96, 0.15);
-    --event-5-border: #27ae60;
-    --event-5-text: #16a085;
-}
-
+    
+    /* 이벤트 색상 1~10 한 번만 정의 */
     --event-1-bg: rgba(235, 87, 87, 0.15);
     --event-1-border: #eb5757;
     --event-1-text: #c0392b;
@@ -221,6 +215,7 @@ h1 {
 }
 
 #calendar-input {
+    color-scheme: light;
     border: none;
     background: var(--notion-hover);
     padding: 8px 12px;
@@ -228,10 +223,13 @@ h1 {
     font-family: inherit;
     font-size: 14px;
     color: var(--notion-text);
-    color-scheme: dark;
     cursor: pointer;
     outline: none;
     transition: background 0.2s;
+}
+
+body.dark-mode #calendar-input {
+    color-scheme: dark;
 }
 
 #calendar-input:hover {
@@ -425,6 +423,22 @@ h1 {
     margin-top: 40px;
 }
 
+.quoted-verse-header {
+    font-weight: 700;
+    color: var(--notion-blue);
+    margin-top: 12px;
+    padding: 4px 8px;
+}
+
+.quoted-verse {
+    color: var(--notion-text);
+    padding: 3px 8px 3px 12px;
+    border-left: 2px solid var(--notion-blue);
+    margin: 2px 0;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
 .section-title {
     font-size: 20px;
     font-weight: 600;
@@ -534,16 +548,20 @@ h1 {
 }
 
 .bottom-actions {
+    position: sticky;
+    bottom: 20px;
+    z-index: 50;
     display: flex;
     justify-content: center;
     margin-top: 24px;
-    margin-bottom: -24px; /* 매일성경 링크와 간격 좁히기 */
 }
 
 .bottom-actions .primary-btn {
-    padding: 10px 24px;
+    padding: 12px 28px;
     font-size: 15px;
-    box-shadow: 0 4px 12px rgba(35, 131, 226, 0.2);
+    box-shadow: 0 4px 20px rgba(35, 131, 226, 0.3);
+    border-radius: 50px;
+    backdrop-filter: blur(8px);
 }
 
 /* Mobile Menu Toggle */
@@ -896,6 +914,25 @@ h1 {
     border: none;
     border-top: 1px solid var(--notion-border);
     margin: 80px 0 40px 0; /* 날씨 위젯 위 공간 띄우기 */
+}
+
+.gcal-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--notion-text-light);
+    margin-bottom: 16px;
+    cursor: pointer;
+    padding: 8px 12px;
+    background: var(--notion-hover);
+    border-radius: 6px;
+}
+
+.gcal-checkbox input[type="checkbox"] {
+    accent-color: var(--notion-blue);
+    width: 16px;
+    height: 16px;
 }
 
 /* Modal Overlay */

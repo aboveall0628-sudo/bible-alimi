@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sanctum OS - 묵상 스케줄</title>
+    <title>Sanctum OS</title>
     <!-- Pretendard Font -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="style.css">
@@ -20,8 +20,8 @@
     <div id="loading-overlay" class="loading-overlay">
         <div class="loading-box">
             <div class="spinner"></div>
-            <h2 id="loading-title">데이터 동기화 중...</h2>
-            <p id="loading-status">성경 데이터를 안전하게 불러오고 있습니다.</p>
+            <h2 id="loading-title">준비하고 있어요</h2>
+            <p id="loading-status">말씀을 가져오는 중이에요</p>
         </div>
     </div>
     
@@ -33,10 +33,10 @@
                 var overlay = document.getElementById('loading-overlay');
                 if (overlay) {
                     overlay.innerHTML = '<div class="loading-box" style="color: #ff5f56;">' +
-                        '<h2>🚨 보안 정책 차단됨!</h2>' +
-                        '<p>현재 파일을 내 컴퓨터에서 직접 열었기 때문에(file:///) 보안상 작동이 중지되었습니다.</p>' +
-                        '<p style="margin-top:10px; font-weight:bold;">해결 방법:</p>' +
-                        '<p>1. 깃허브 주소(https://aboveall0628-sudo.github.io/sanctumos)로 접속하시거나,<br>2. VS Code의 Live Server를 사용해서 열어주세요.</p>' +
+                        '<h2>앗, 여기서는 열 수 없어요</h2>' +
+                        '<p>내 컴퓨터에서 직접 열면 보안 정책 때문에 작동하지 않아요.</p>' +
+                        '<p style="margin-top:10px; font-weight:bold;">이렇게 해보세요</p>' +
+                        '<p>1. 깃허브 주소(https://aboveall0628-sudo.github.io/sanctumos)로 접속하거나 2. VS Code Live Server로 열어보세요</p>' +
                         '</div>';
                 }
             }
@@ -53,19 +53,19 @@
             </div>
             <nav class="sidebar-nav">
                 <button class="sidebar-item active" id="nav-dashboard">
-                    <span class="icon">📊</span> 대시보드
+                    <span class="icon">📊</span> 통독 현황
                 </button>
                 <button class="sidebar-item" id="nav-today">
                     <span class="icon">📅</span> 오늘 묵상
                 </button>
                 <button class="sidebar-item" id="nav-past">
-                    <span class="icon">📜</span> 이전 묵상
+                    <span class="icon">📜</span> 지난 묵상
                 </button>
             </nav>
             <div class="sidebar-footer">
                 <button id="theme-toggle-btn">
                     <span class="icon">🌙</span>
-                    <span class="text">다크 모드</span>
+                    <span class="text">어두운 화면</span>
                 </button>
             </div>
         </aside>
@@ -77,50 +77,40 @@
                         <h1 id="current-date-display">로딩 중...</h1>
                         <input type="date" id="calendar-input">
                     </div>
-                    <p class="subtitle">오늘의 묵상 말씀입니다.</p>
+                    <p class="subtitle">오늘 읽을 말씀이에요</p>
                 </header>
 
                 <div class="toolbar">
-                    <button id="toggle-all-btn" class="text-btn">전체 펼치기/접기</button>
+                    <button id="toggle-all-btn" class="text-btn">전체 펼치기 · 접기</button>
                 </div>
 
                 <div id="meditation-content" class="notion-content">
                 </div>
 
                 <div class="bottom-actions">
-                    <button id="copy-btn" class="primary-btn hidden">복사하기</button>
+                    <button id="copy-btn" class="primary-btn hidden">📝 묵상에 추가</button>
                 </div>
 
                 <div class="daily-bible-link-container">
                     <a href="https://sum.su.or.kr:8888/bible/today" target="_blank" class="daily-bible-link">
-                        <span class="icon">🔗</span> 매일성경 바로가기
+                        <span class="icon">🔗</span> 매일성경 열기
                     </a>
                 </div>
 
                 <section class="memo-section">
-                    <h2 class="section-title meditation-title">묵상하기</h2>
-                    <div id="block-editor" class="block-editor" contenteditable="true" data-placeholder="여기에 내용을 입력하거나 크롭한 본문이 자동으로 추가됩니다..."></div>
+                    <h2 class="section-title meditation-title">묵상 노트</h2>
+                    <div id="block-editor" class="block-editor" contenteditable="true" data-placeholder="묵상하며 떠오른 생각을 적어보세요"></div>
                     <div class="memo-footer">
                         <span id="save-status" class="save-status"></span>
-
-                    </div>
-                </section>
-
-                <hr class="section-divider">
-
-                <section class="weather-section">
-                    <h2 class="section-title">날씨</h2>
-                    <div id="weather-container" class="weather-scroll-container">
-                        <div class="loading-state">날씨 정보를 가져오는 중...</div>
                     </div>
                 </section>
 
                 <section class="timebox-section">
                     <div class="section-header-flex">
-                        <h2 class="section-title">🕒 타임박스</h2>
+                        <h2 class="section-title">🕒 오늘의 시간표</h2>
                         <div id="gcal-controls">
-                            <button id="auth-btn" class="text-btn">Google 로그인</button>
-                            <button id="sync-btn" class="text-btn hidden">일정 동기화</button>
+                            <button id="auth-btn" class="text-btn">Google 연결</button>
+                            <button id="sync-btn" class="text-btn hidden">일정 가져오기</button>
                         </div>
                     </div>
                     <div class="timebox-wrapper">
@@ -129,44 +119,57 @@
                         </div>
                     </div>
                 </section>
+
+                <hr class="section-divider">
+
+                <section class="weather-section">
+                    <h2 class="section-title">이번 주 날씨</h2>
+                    <div id="weather-container" class="weather-scroll-container">
+                        <div class="loading-state">날씨를 불러오고 있어요</div>
+                    </div>
+                </section>
             </div>
 
             <div id="view-dashboard" class="view hidden">
                 <header class="notion-header">
-                    <h1>📊 대시보드</h1>
-                    <p class="subtitle">나의 성경 통독 현황입니다.</p>
+                    <h1 id="dashboard-title">📊 통독 현황</h1>
+                <p class="subtitle">지금까지 이만큼 읽었어요</p>
                 </header>
-                <section id="progress-section" class="notion-section">
-                    <h2 class="section-title">파트별 통독률</h2>
+                <section class="notion-section">
+                    <h2 class="section-title">파트별 진행률</h2>
                     <div id="progress-container"></div>
                 </section>
             </div>
 
             <div id="view-past" class="view hidden">
                 <header class="notion-header">
-                    <h1>📜 이전 묵상 기록</h1>
-                    <p class="subtitle">지금까지 기록한 묵상 노트들입니다.</p>
+                    <h1>📜 지난 묵상</h1>
+                <p class="subtitle">그동안 기록한 묵상이에요</p>
                 </header>
                 <div id="past-meditations-list" class="past-list">
                     <!-- 묵상 리스트가 여기에 렌더링됩니다 -->
                 </div>
             </div>
 
-            <footer class="notion-footer">
-                <p>© 2026 Sanctum OS. Notion-inspired Design.</p>
-            </footer>
+            <footer>
+        <p>&copy; 2026 Sanctum OS</p>
+    </footer>
         </main>
     </div>
 
     <!-- Timebox Event Modal -->
     <div id="timebox-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>일정 기록하기</h3>
+            <h3>일정 추가하기</h3>
             <p id="timebox-modal-time" class="modal-time-desc"></p>
-            <input type="text" id="timebox-event-input" placeholder="무엇을 할 계획이신가요?" autocomplete="off" />
+            <input type="text" id="timebox-event-input" placeholder="뭘 할 계획이에요?" autocomplete="off" />
+            <label class="gcal-checkbox" id="gcal-checkbox-wrapper" style="display:none;">
+                <input type="checkbox" id="gcal-sync-check" checked>
+                <span>Google 캘린더에 추가해서 알림 받기</span>
+            </label>
             <div class="modal-actions">
-                <button id="timebox-cancel-btn" class="text-btn">취소</button>
-                <button id="timebox-save-btn" class="primary-btn">저장</button>
+                <button id="timebox-cancel-btn" class="text-btn">닫기</button>
+                <button id="timebox-save-btn" class="primary-btn">추가하기</button>
             </div>
         </div>
     </div>
@@ -178,7 +181,7 @@
             <p id="timebox-delete-modal-title" style="margin-bottom: 20px; font-weight: 500; font-size: 16px;"></p>
             <div class="modal-actions">
                 <button id="timebox-delete-cancel-btn" class="text-btn">닫기</button>
-                <button id="timebox-delete-btn" class="primary-btn" style="background: #ff5f56;">일정 삭제</button>
+                <button id="timebox-delete-btn" class="primary-btn" style="background: #ff5f56;">삭제하기</button>
             </div>
         </div>
     </div>

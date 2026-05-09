@@ -132,29 +132,29 @@ async function saveToCache(data) {
  * App Logic
  */
 let selectedVerses = new Set();
-let isCollapsedAll = true; // Default to collapsed
+let isCollapsedAll = false; // Default to expanded
 
 /**
  * App Logic
  */
 async function init() {
     setupTheme();
-    updateLoadingStatus("초기화 중...", "기본 설정을 구성하고 있습니다.");
+    updateLoadingStatus("준비하고 있어요", "잠깐만 기다려주세요");
     buildFullChapterList();
     setupEventListeners();
     setupMemoAutoResize();
 
     try {
         // 1. Check Cache
-        updateLoadingStatus("브라우저 저장소 확인 중...", "이전에 저장된 데이터를 찾고 있습니다.");
+        updateLoadingStatus("저장된 데이터 확인 중이에요", "이전에 받아둔 말씀을 찾고 있습니다.");
         bibleData = await getCachedData();
 
         if (bibleData) {
             console.log("Loaded from IndexedDB.");
-            updateLoadingStatus("동기화 완료!", "저장된 데이터를 불러왔습니다.");
+            updateLoadingStatus("준비 완료!", "저장해둔 말씀을 불러왔어요");
         } else {
             // 2. Fetch from Remote
-            updateLoadingStatus("데이터 동기화 중...", "GitHub에서 최신 성경 데이터를 가져오고 있습니다 (약 5MB).");
+            updateLoadingStatus("말씀을 가져오고 있어요", "처음이라 조금 걸릴 수 있어요 (약 5MB)");
             
             // 데이터 로드가 너무 오래 걸리면 강제 종료 방지를 위해 타임아웃 설정
             const controller = new AbortController();
@@ -168,7 +168,7 @@ async function init() {
             bibleData = await response.json();
             console.log("Fetched from Remote.");
             
-            updateLoadingStatus("데이터 저장 중...", "다음 실행을 위해 브라우저 창고에 보관합니다.");
+            updateLoadingStatus("저장하고 있어요", "다음에는 바로 열 수 있도록 저장해둘게요");
             await saveToCache(bibleData);
         }
         
@@ -179,7 +179,7 @@ async function init() {
         // 3. Fallback to Local bibleData.js
         if (typeof BIBLE_DATA !== 'undefined') {
             console.log("Falling back to local bibleData.js");
-            updateLoadingStatus("오프라인 모드", "원격 연결에 실패하여 내장 데이터를 사용합니다.");
+            updateLoadingStatus("오프라인이에요", "인터넷 연결 없이 내장 데이터로 열게요");
             bibleData = BIBLE_DATA;
             setTimeout(finishLoading, 1000);
         } else {
@@ -201,7 +201,7 @@ function showError(title, message) {
         <div class="loading-box" style="color: #ff5f56;">
             <h2>${title}</h2>
             <p>${message}</p>
-            <button onclick="location.reload()" style="margin-top: 20px; background: #2383e2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">다시 시도</button>
+            <button onclick="location.reload()" class="primary-btn" style="margin-top: 20px;">다시 열기</button>
         </div>
     `;
 }
@@ -212,6 +212,10 @@ function finishLoading() {
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    if (now.getHours() < 5) today.setDate(today.getDate() - 1);
+
+    switchView('today');
     
     const calendar = document.getElementById('calendar-input');
     const year = today.getFullYear();
@@ -332,48 +336,42 @@ async function loadAllMeditations() {
     const listContainer = document.getElementById('past-meditations-list');
     if (!listContainer || !db) return;
 
-    listContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>묵상 기록을 불러오는 중...</p></div>';
-
+    listContainer.innerHTML = "묵상 기록을 가져오고 있어요";
+    
     try {
-        const q = query(collection(db, "memos"), orderBy("updatedAt", "desc"));
+        const q = query(collection(db, "memos"), orderBy("updatedAt", "desc"), limit(50));
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
-            listContainer.innerHTML = '<p class="subtitle">아직 저장된 묵상이 없습니다.</p>';
+            listContainer.innerHTML = "<div class='no-data'>아직 기록한 묵상이 없어요</div>";
             return;
         }
 
-        listContainer.innerHTML = '';
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const dateStr = docSnap.id;
-            
+        listContainer.innerHTML = "";
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
             const card = document.createElement('div');
             card.className = 'past-card';
-            card.innerHTML = `
-                <div class="past-card-header">
-                    <span class="past-card-date">${dateStr}</span>
-                </div>
-                <div class="past-card-excerpt">${data.content || "내용 없음"}</div>
-            `;
             
-            card.addEventListener('click', () => {
-                // Switch to today's view and load this date
-                const [y, m, d] = dateStr.split('-').map(Number);
+            const date = doc.id;
+            const contentSnippet = data.content ? data.content.substring(0, 100).replace(/<[^>]*>/g, '') + "..." : "작성한 내용이 없어요";
+            
+            card.innerHTML = `
+                <h3>${date}</h3>
+                <p>${contentSnippet}</p>
+            `;
+            card.onclick = () => {
+                const [y, m, d] = date.split('-').map(Number);
                 const targetDate = new Date(y, m - 1, d);
-                
-                const calendar = document.getElementById('calendar-input');
-                if (calendar) calendar.value = dateStr;
-                
+                document.getElementById('calendar-input').value = date;
                 renderForDate(targetDate);
                 switchView('today');
-            });
-            
+            };
             listContainer.appendChild(card);
         });
     } catch (e) {
         console.error("Load all error:", e);
-        listContainer.innerHTML = '<p class="subtitle">데이터를 불러오는 중 오류가 발생했습니다.</p>';
+        listContainer.innerHTML = "묵상을 불러오지 못했어요";
     }
 }
 
@@ -402,20 +400,17 @@ function setupMemoAutoResize() {
 async function saveMeditationNote(dateStr, content) {
     if (!db) return;
     const status = document.getElementById('save-status');
-    if (status) status.innerText = "저장 중...";
-
+    if (status) status.innerText = "저장하는 중이에요";
+    
     try {
-        await setDoc(doc(db, "memos", dateStr), {
-            content: content,
-            updatedAt: serverTimestamp()
-        });
-        if (status) {
-            status.innerText = "✓ 서버 저장 완료";
-            setTimeout(() => { status.innerText = ""; }, 3000);
-        }
+        await setDoc(doc(db, "memos", dateStr), { content, updatedAt: serverTimestamp() }, { merge: true });
+        if (status) status.innerText = "✓ 저장했어요";
     } catch (e) {
         console.error("Save error:", e);
-        if (status) status.innerText = "❌ 저장 실패";
+        if (status) {
+            status.innerText = "❌ 저장하지 못했어요";
+            setTimeout(() => { status.innerText = ""; }, 5000);
+        }
     }
 }
 
@@ -424,7 +419,7 @@ async function loadMeditationNote(dateStr) {
     const editor = document.getElementById('block-editor');
     if (!editor) return;
 
-    editor.innerHTML = "<div style='color: var(--notion-text-light);'>불러오는 중...</div>";
+    editor.innerHTML = "불러오고 있어요";
     try {
         const docRef = doc(db, "memos", dateStr);
         const docSnap = await getDoc(docRef);
@@ -456,9 +451,10 @@ function toggleAllChapters() {
 function updateCopyButtonVisibility() {
     const copyBtn = document.getElementById('copy-btn');
     if (!copyBtn) return;
-    
+
     if (selectedVerses.size > 0) {
         copyBtn.classList.remove('hidden');
+        copyBtn.textContent = `📝 묵상에 추가 (${selectedVerses.size}절)`;
     } else {
         copyBtn.classList.add('hidden');
     }
@@ -486,24 +482,18 @@ function copySelectedVerses() {
 
     let resultHTML = "";
     Object.keys(grouped).forEach(groupKey => {
-        resultHTML += `<div style="background-color: transparent; color: inherit;"><strong>${groupKey}</strong></div>`;
+        resultHTML += `<div class="quoted-verse-header"><strong>${groupKey}</strong></div>`;
         grouped[groupKey].sort((a, b) => a.num - b.num);
         grouped[groupKey].forEach(v => {
-            resultHTML += `<div style="background-color: transparent; color: inherit;">${v.num} ${v.text}</div>`;
+            resultHTML += `<div class="quoted-verse">${v.num} ${v.text}</div>`;
         });
-        resultHTML += `<br style="background-color: transparent;">`;
+        resultHTML += `<br>`;
     });
 
-    editor.innerHTML = (editor.innerHTML === "<div style='color: var(--notion-text-light);'>불러오는 중...</div>" || editor.innerHTML === "") 
+    editor.innerHTML = (editor.innerHTML === "불러오고 있어요" || editor.innerHTML === "") 
         ? resultHTML 
         : editor.innerHTML + "<br>" + resultHTML;
     
-    // 강제로 스타일 초기화 (배경색 제거 등)
-    editor.querySelectorAll('div').forEach(div => {
-        div.style.background = 'transparent';
-        div.style.color = 'inherit';
-    });
-
     const dateStr = document.getElementById('calendar-input').value;
     saveMeditationNote(dateStr, editor.innerHTML);
 
@@ -514,7 +504,7 @@ function copySelectedVerses() {
     const copyBtn = document.getElementById('copy-btn');
     if (copyBtn) {
         const originalText = copyBtn.innerText;
-        copyBtn.innerText = "✓ 본문에 추가됨!";
+        copyBtn.innerText = "✓ 묵상 노트에 추가했어요";
         setTimeout(() => { copyBtn.innerText = originalText; }, 2000);
     }
 }
@@ -533,12 +523,6 @@ function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     updateThemeUI(isDark);
-    
-    // 테마 변경 시 에디터 색상 보정 (복사된 텍스트가 안 보일 수 있으므로)
-    const editor = document.getElementById('block-editor');
-    if (editor) {
-        editor.style.color = isDark ? '#ffffff' : '#37352f';
-    }
 }
 
 function updateThemeUI(isDark) {
@@ -550,10 +534,10 @@ function updateThemeUI(isDark) {
     
     if (isDark) {
         icon.textContent = '☀️';
-        text.textContent = '라이트 모드';
+        text.textContent = '밝은 화면';
     } else {
         icon.textContent = '🌙';
-        text.textContent = '다크 모드';
+        text.textContent = '어두운 화면';
     }
 }
 
@@ -653,7 +637,8 @@ function createPartElement(part, chapterInfo) {
     const div = document.createElement('div');
     div.className = 'reading-part';
     const passageContainer = document.createElement('div');
-    passageContainer.className = 'passage-container' + (isCollapsedAll ? ' collapsed' : '');
+    passageContainer.className = 'passage-container';
+    if (isCollapsedAll) passageContainer.classList.add('collapsed');
 
     const bookName = chapterInfo.full || getFullBookName(chapterInfo.abbr);
     const abbr = chapterInfo.abbr;
@@ -796,11 +781,11 @@ function setupTimebox() {
     grid.innerHTML = '';
 
     // 헤더 행 생성 (빈 칸, 00(삭제), 15, 30, 45)
-    const headers = ['H', '', '15', '30', '45'];
+    const headers = ['시간', '', '15', '30', '45'];
     headers.forEach(h => {
         const div = document.createElement('div');
         div.className = 'timebox-header-cell';
-        if (h !== 'H' && h !== '') {
+        if (h !== '시간' && h !== '') {
             div.innerHTML = `<span>${h}</span>`;
         } else {
             div.textContent = h;
@@ -808,6 +793,9 @@ function setupTimebox() {
         }
         grid.appendChild(div);
     });
+
+    let touchTimer = null;
+    let touchStarted = false;
 
     // 24시간 행 생성
     for (let h = 0; h < 24; h++) {
@@ -829,10 +817,41 @@ function setupTimebox() {
             cell.addEventListener('mouseover', updateSelect);
             cell.addEventListener('mouseup', endSelect);
             
-            // Touch
-            cell.addEventListener('touchstart', (e) => { e.preventDefault(); startSelect(e); }, {passive: false});
-            cell.addEventListener('touchmove', handleTouchMove, {passive: false});
-            cell.addEventListener('touchend', endSelect);
+            // 터치 이벤트 (롱프레스 대응 교체)
+            cell.addEventListener('touchstart', (e) => {
+                touchStarted = false;
+                touchTimer = setTimeout(() => {
+                    touchTimer = null;
+                    touchStarted = true;
+                    e.preventDefault();
+                    startSelect(e);
+                }, 300);
+            }, {passive: false});
+
+            cell.addEventListener('touchmove', (e) => {
+                if (!touchStarted) {
+                    // 아직 long-press 전이면 타이머 취소 → 스크롤 허용
+                    if (touchTimer) {
+                        clearTimeout(touchTimer);
+                        touchTimer = null;
+                    }
+                    return;
+                }
+                // long-press 후 드래그 중이면 셀 선택
+                e.preventDefault();
+                handleTouchMove(e);
+            }, {passive: false});
+
+            cell.addEventListener('touchend', (e) => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+                if (touchStarted) {
+                    endSelect(e);
+                    touchStarted = false;
+                }
+            });
 
             grid.appendChild(cell);
         }
@@ -954,8 +973,6 @@ function setupTimeboxModal() {
             
             const eventId = Date.now().toString();
             
-            // 10가지 색상 중 랜덤 선택 (연속 중복 방지 로직은 render 시점에 처리하거나 저장 시점에 고정)
-            // 여기서는 저장 시점에 색상을 고정하되, 마지막 이벤트와 겹치지 않게 시도
             const dateStr = document.getElementById('calendar-input').value;
             const docRef = doc(db, "memos", dateStr);
             const docSnap = await getDoc(docRef);
@@ -989,7 +1006,31 @@ function setupTimeboxModal() {
             });
             
             await saveTimeboxToFirebase(currentSelectedCells, title, eventId, colorClass);
-            pushToGoogleCalendar(currentSelectedCells, title);
+            
+            // Google 캘린더 연동 로직
+            const syncToGcal = document.getElementById('gcal-sync-check')?.checked;
+            if (syncToGcal && gapi?.client?.calendar) {
+                try {
+                    const minIdx = Math.min(...currentSelectedCells);
+                    const maxIdx = Math.max(...currentSelectedCells);
+                    const startH = Math.floor(minIdx / 4);
+                    const startM = (minIdx % 4) * 15;
+                    const endH = Math.floor((maxIdx + 1) / 4);
+                    const endM = ((maxIdx + 1) % 4) * 15;
+                    const startISO = `${dateStr}T${String(startH).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00`;
+                    const endISO = `${dateStr}T${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00`;
+                    
+                    await gapi.client.calendar.events.insert({
+                        calendarId: 'primary',
+                        resource: {
+                            summary: `[묵상 적용] ${title}`,
+                            start: { dateTime: startISO, timeZone: 'Asia/Seoul' },
+                            end: { dateTime: endISO, timeZone: 'Asia/Seoul' },
+                            reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 5 }] }
+                        }
+                    });
+                } catch (e) { console.warn('캘린더 업로드 실패:', e); }
+            }
             
             saveBtn.disabled = false;
             selectedCells = [];
@@ -1111,54 +1152,6 @@ function renderCustomTimeboxEvents(events) {
     });
 }
 
-function pushToGoogleCalendar(cells, title) {
-    if (!gapiInited || !gapi.client.calendar) return; 
-    if (!gapi.client.getToken()) return;
-
-    const dateStr = document.getElementById('calendar-input').value; 
-    const minIdx = Math.min(...cells);
-    const maxIdx = Math.max(...cells);
-    
-    const startH = Math.floor(minIdx / 4);
-    const startM = (minIdx % 4) * 15;
-    const endH = Math.floor((maxIdx + 1) / 4);
-    const endM = ((maxIdx + 1) % 4) * 15;
-    
-    const startTimeStr = `${dateStr}T${String(startH).padStart(2,'0')}:${String(startM).padStart(2,'0')}:00+09:00`;
-    const endTimeStr = `${dateStr}T${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}:00+09:00`;
-
-    const event = {
-        'summary': title,
-        'start': {
-            'dateTime': startTimeStr,
-            'timeZone': 'Asia/Seoul'
-        },
-        'end': {
-            'dateTime': endTimeStr,
-            'timeZone': 'Asia/Seoul'
-        },
-        'reminders': {
-            'useDefault': false,
-            'overrides': [
-                {'method': 'popup', 'minutes': 15}
-            ]
-        }
-    };
-
-    const request = gapi.client.calendar.events.insert({
-        'calendarId': 'primary',
-        'resource': event
-    });
-
-    request.execute(function(res) {
-        if (res.error) {
-            console.error("GCal Push Error:", res.error);
-        } else {
-            console.log("Event pushed to Google Calendar:", res.htmlLink);
-        }
-    });
-}
-
 /**
  * Google Auth System
  */
@@ -1197,6 +1190,9 @@ async function intializeGapiClient() {
             gapi.client.setToken(token);
             document.getElementById('auth-btn').classList.add('hidden');
             document.getElementById('sync-btn').classList.remove('hidden');
+            
+            const gcalWrapper = document.getElementById('gcal-checkbox-wrapper');
+            if (gcalWrapper) gcalWrapper.style.display = 'flex';
         }
     }
     
@@ -1232,6 +1228,10 @@ function handleAuthClick() {
 
         document.getElementById('auth-btn').classList.add('hidden');
         document.getElementById('sync-btn').classList.remove('hidden');
+        
+        const gcalWrapper = document.getElementById('gcal-checkbox-wrapper');
+        if (gcalWrapper) gcalWrapper.style.display = 'flex';
+        
         await listUpcomingEvents();
     };
 
