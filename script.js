@@ -622,7 +622,12 @@ function renderForDate(date) {
 
     // Load meditation note for this date
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    loadMeditationNote(dateStr);
+    loadMeditationNote(dateStr).then(() => {
+        // 구글 로그인 상태라면 일정도 자동으로 동기화
+        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken()) {
+            listUpcomingEvents();
+        }
+    });
 }
 
 function getPartTotalChapters(part) {
@@ -1271,13 +1276,13 @@ async function listUpcomingEvents() {
 }
 
 function renderEventsOnTimebox(events) {
-    // 기존 표시 제거
-    document.querySelectorAll('.time-cell.has-event').forEach(el => {
+    // 구글 캘린더에서 가져온 이벤트만 골라서 제거 (사용자가 직접 만든 .custom-event는 유지)
+    document.querySelectorAll('.time-cell.has-event:not(.custom-event)').forEach(el => {
         el.classList.remove('has-event');
         el.removeAttribute('data-event-title');
     });
 
-    events.forEach(event => {
+    if (!events) return;
         const start = new Date(event.start.dateTime || event.start.date);
         const end = new Date(event.end.dateTime || event.end.date);
         
