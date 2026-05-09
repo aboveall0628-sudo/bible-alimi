@@ -19,6 +19,7 @@ const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 let tokenClient;
 let gapiInited = false;
 let gisInited = false;
+const TOKEN_KEY = 'gcal_token';
 
 // Initialize Firebase via CDN modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
@@ -485,18 +486,24 @@ function copySelectedVerses() {
 
     let resultHTML = "";
     Object.keys(grouped).forEach(groupKey => {
-        resultHTML += `<div><strong>${groupKey}</strong></div>`;
+        resultHTML += `<div style="background-color: transparent; color: inherit;"><strong>${groupKey}</strong></div>`;
         grouped[groupKey].sort((a, b) => a.num - b.num);
         grouped[groupKey].forEach(v => {
-            resultHTML += `<div>${v.num} ${v.text}</div>`;
+            resultHTML += `<div style="background-color: transparent; color: inherit;">${v.num} ${v.text}</div>`;
         });
-        resultHTML += `<br>`;
+        resultHTML += `<br style="background-color: transparent;">`;
     });
 
     editor.innerHTML = (editor.innerHTML === "<div style='color: var(--notion-text-light);'>불러오는 중...</div>" || editor.innerHTML === "") 
         ? resultHTML 
         : editor.innerHTML + "<br>" + resultHTML;
     
+    // 강제로 스타일 초기화 (배경색 제거 등)
+    editor.querySelectorAll('div').forEach(div => {
+        div.style.background = 'transparent';
+        div.style.color = 'inherit';
+    });
+
     const dateStr = document.getElementById('calendar-input').value;
     saveMeditationNote(dateStr, editor.innerHTML);
 
@@ -526,6 +533,12 @@ function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     updateThemeUI(isDark);
+    
+    // 테마 변경 시 에디터 색상 보정 (복사된 텍스트가 안 보일 수 있으므로)
+    const editor = document.getElementById('block-editor');
+    if (editor) {
+        editor.style.color = isDark ? '#ffffff' : '#37352f';
+    }
 }
 
 function updateThemeUI(isDark) {
@@ -1170,6 +1183,18 @@ async function intializeGapiClient() {
         discoveryDocs: DISCOVERY_DOCS,
     });
     gapiInited = true;
+    
+    // 저장된 토큰 복원 시도
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    if (savedToken) {
+        const token = JSON.parse(savedToken);
+        if (token.expires_at > Date.now()) {
+            gapi.client.setToken(token);
+            document.getElementById('auth-btn').classList.add('hidden');
+            document.getElementById('sync-btn').classList.remove('hidden');
+        }
+    }
+    
     checkBeforeStart();
 }
 
@@ -1194,6 +1219,12 @@ function handleAuthClick() {
         if (resp.error !== undefined) {
             throw (resp);
         }
+        
+        // 토큰에 만료 시간 추가하여 저장
+        const token = gapi.client.getToken();
+        token.expires_at = Date.now() + (resp.expires_in * 1000);
+        localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
+
         document.getElementById('auth-btn').classList.add('hidden');
         document.getElementById('sync-btn').classList.remove('hidden');
         await listUpcomingEvents();
@@ -1209,9 +1240,12 @@ function handleAuthClick() {
 async function listUpcomingEvents() {
     let response;
     try {
-        const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+        const dateStr = document.getElementById('calendar-input').value;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const targetDate = new Date(y, m - 1, d);
+        
+        const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0).toISOString();
+        const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59).toISOString();
 
         response = await gapi.client.calendar.events.list({
             'calendarId': 'primary',
