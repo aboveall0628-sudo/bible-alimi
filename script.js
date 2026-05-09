@@ -14,7 +14,7 @@ const firebaseConfig = {
 const GOOGLE_CLIENT_ID = '760231593146-7gkia8st114oiojjgjljjk0rdduhgafl.apps.googleusercontent.com';
 const GOOGLE_API_KEY = 'AIzaSyDdQAmIWoKy5z1I6w4BWE3xK9a1ryBZXHQ'; 
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
 let tokenClient;
 let gapiInited = false;
@@ -778,7 +778,7 @@ function setupTimebox() {
     grid.innerHTML = '';
 
     // 헤더 행 생성 (빈 칸, 00, 15, 30, 45)
-    const headers = ['', '00', '15', '30', '45'];
+    const headers = ['H', '00', '15', '30', '45'];
     headers.forEach(h => {
         const div = document.createElement('div');
         div.className = 'timebox-header-cell';
@@ -930,7 +930,27 @@ function setupTimeboxModal() {
             document.getElementById('timebox-modal').classList.add('hidden');
             
             const eventId = Date.now().toString();
-            const colorClass = `event-color-${(Math.floor(Math.random() * 5)) + 1}`;
+            
+            // 10가지 색상 중 랜덤 선택 (연속 중복 방지 로직은 render 시점에 처리하거나 저장 시점에 고정)
+            // 여기서는 저장 시점에 색상을 고정하되, 마지막 이벤트와 겹치지 않게 시도
+            const dateStr = document.getElementById('calendar-input').value;
+            const docRef = doc(db, "memos", dateStr);
+            const docSnap = await getDoc(docRef);
+            let lastColor = 0;
+            if (docSnap.exists()) {
+                const events = docSnap.data().timeboxEvents || [];
+                if (events.length > 0) {
+                    const lastEvent = events[events.length - 1];
+                    lastColor = parseInt(lastEvent.color.replace('event-color-', ''));
+                }
+            }
+            
+            let newColorNum;
+            do {
+                newColorNum = Math.floor(Math.random() * 10) + 1;
+            } while (newColorNum === lastColor);
+            
+            const colorClass = `event-color-${newColorNum}`;
             
             const startIdx = Math.min(...currentSelectedCells);
             currentSelectedCells.forEach(idx => {
@@ -1039,12 +1059,27 @@ function renderCustomTimeboxEvents(events) {
     if (!events) return;
     
     events.forEach(ev => {
-        const startIdx = Math.min(...ev.indices);
-        ev.indices.forEach(idx => {
+        const sortedIndices = [...ev.indices].sort((a, b) => a - b);
+        const startIdx = sortedIndices[0];
+        const endIdx = sortedIndices[sortedIndices.length - 1];
+        
+        sortedIndices.forEach((idx, i) => {
             const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
             if (cell) {
                 cell.classList.add('has-event', 'custom-event', ev.color || 'event-color-1');
                 cell.dataset.eventId = ev.id;
+                
+                // 중간 바 제거용 클래스 부여
+                if (sortedIndices.length > 1) {
+                    if (idx === startIdx) {
+                        cell.classList.add('event-start');
+                    } else if (idx === endIdx) {
+                        cell.classList.add('event-end');
+                    } else {
+                        cell.classList.add('event-middle');
+                    }
+                }
+
                 if (idx === startIdx) {
                     cell.setAttribute('data-event-title', ev.title);
                 }
