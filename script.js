@@ -859,8 +859,6 @@ function setupTimebox() {
 }
 
 let dragStartIndex = -1;
-let isDragging = false;
-let selectedCells = [];
 let currentSelectedCells = [];
 
 function startSelect(e) {
