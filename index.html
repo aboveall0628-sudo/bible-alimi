@@ -36,7 +36,7 @@
                     <span class="icon">📊</span> 대시보드
                 </button>
                 <button class="sidebar-item" id="nav-today">
-                    <span class="icon">📅</span> 오늘의 말씀
+                    <span class="icon">📅</span> 오늘 묵상
                 </button>
                 <button class="sidebar-item" id="nav-past">
                     <span class="icon">📜</span> 이전 묵상
@@ -78,11 +78,16 @@
                 </div>
 
                 <section class="memo-section">
-                    <h2 class="section-title">📝 오늘의 메모</h2>
+                    <h2 class="section-title">📝 묵상하기</h2>
                     <textarea id="memo-input" placeholder="여기에 내용을 입력하거나 크롭한 본문이 자동으로 추가됩니다..." spellcheck="false"></textarea>
                     <div class="memo-footer">
-                        <span id="save-status" class="save-status"></span>
-                        <button id="save-memo-btn" class="primary-btn">저장하기</button>
+                        <div class="memo-tools">
+                            <button id="add-checklist-btn" class="text-btn">☑️ 체크리스트</button>
+                        </div>
+                        <div class="memo-actions">
+                            <span id="save-status" class="save-status"></span>
+                            <button id="save-memo-btn" class="primary-btn">저장하기</button>
+                        </div>
                     </div>
                 </section>
             </div>

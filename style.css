@@ -478,10 +478,16 @@ h1 {
 /* Memo Footer & Save Button */
 .memo-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between; /* 양쪽 정렬 */
     align-items: center;
     gap: 15px;
     margin-top: 12px;
+}
+
+.memo-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .save-status {
