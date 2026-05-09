@@ -9,11 +9,11 @@ const firebaseConfig = {
   measurementId: "G-BG79MS3FZP"
 };
 
-// --- Google API Config (사용자가 나중에 채워넣을 부분) ---
-const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
-const GOOGLE_API_KEY = 'YOUR_API_KEY';
+// --- Google API Config ---
+const GOOGLE_CLIENT_ID = '760231593146-7gkia8st114oiojjgjljjk0rdduhgafl.apps.googleusercontent.com';
+const GOOGLE_API_KEY = 'YOUR_API_KEY'; // API 키도 발급받으셨다면 여기에 넣어주세요!
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/calendar.events";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly";
 
 let tokenClient;
 let gapiInited = false;
@@ -856,13 +856,135 @@ function setupGoogleAuth() {
     }
 }
 
+/**
+ * Google Auth System
+ */
+function setupGoogleAuth() {
+    const authBtn = document.getElementById('auth-btn');
+    if (authBtn) {
+        authBtn.addEventListener('click', handleAuthClick);
+    }
+    
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', listUpcomingEvents);
+    }
+
+    // 라이브러리 로드 시작
+    gapiLoaded();
+    gisLoaded();
+}
+
+function gapiLoaded() {
+    gapi.load('client', intializeGapiClient);
+}
+
+async function intializeGapiClient() {
+    await gapi.client.init({
+        apiKey: GOOGLE_API_KEY,
+        discoveryDocs: DISCOVERY_DOCS,
+    });
+    gapiInited = true;
+    checkBeforeStart();
+}
+
+function gisLoaded() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+    });
+    gisInited = true;
+    checkBeforeStart();
+}
+
+function checkBeforeStart() {
+    if (gapiInited && gisInited) {
+        console.log("Google API Ready.");
+    }
+}
+
 function handleAuthClick() {
-    if (GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID.apps.googleusercontent.com') {
-        alert('Google API 설정을 위해 Client ID가 필요합니다. 계획서를 확인해 주세요!');
+    tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+            throw (resp);
+        }
+        document.getElementById('auth-btn').classList.add('hidden');
+        document.getElementById('sync-btn').classList.remove('hidden');
+        await listUpcomingEvents();
+    };
+
+    if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({prompt: 'consent'});
+    } else {
+        tokenClient.requestAccessToken({prompt: ''});
+    }
+}
+
+async function listUpcomingEvents() {
+    let response;
+    try {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+
+        response = await gapi.client.calendar.events.list({
+            'calendarId': 'primary',
+            'timeMin': startOfDay,
+            'timeMax': endOfDay,
+            'showDeleted': false,
+            'singleEvents': true,
+            'maxResults': 10,
+            'orderBy': 'startTime',
+        });
+    } catch (err) {
+        console.error(err);
         return;
     }
-    // 구글 인증 로직 (GIS 라이브러리 연동)
-    tokenClient.requestAccessToken({prompt: 'consent'});
+
+    const events = response.result.items;
+    if (!events || events.length == 0) {
+        alert('오늘 일정이 없습니다.');
+        return;
+    }
+
+    renderEventsOnTimebox(events);
+}
+
+function renderEventsOnTimebox(events) {
+    // 기존 표시 제거
+    document.querySelectorAll('.time-cell.has-event').forEach(el => {
+        el.classList.remove('has-event');
+        el.removeAttribute('data-event-title');
+    });
+
+    events.forEach(event => {
+        const start = new Date(event.start.dateTime || event.start.date);
+        const end = new Date(event.end.dateTime || event.end.date);
+        
+        const startH = start.getHours();
+        const startM = Math.floor(start.getMinutes() / 15);
+        const endH = end.getHours();
+        const endM = Math.floor(end.getMinutes() / 15);
+
+        // 그리드에 표시 (시작부터 끝까지)
+        for (let h = startH; h <= endH; h++) {
+            let mStart = (h === startH) ? startM : 0;
+            let mEnd = (h === endH) ? endM : 3;
+
+            for (let m = mStart; m <= mEnd; m++) {
+                if (h === endH && m === endM && (end.getMinutes() % 15 === 0)) break; // 종료 시각 딱 맞으면 마지막 칸 제외
+
+                const cell = document.querySelector(`.time-cell[data-hour="${h}"][data-min="${m}"]`);
+                if (cell) {
+                    cell.classList.add('has-event');
+                    if (h === startH && m === startM) {
+                        cell.setAttribute('data-event-title', event.summary);
+                    }
+                }
+            }
+        }
+    });
 }
 
 init();
