@@ -788,8 +788,8 @@ h1 {
     font-size: 11px;
     font-weight: 700;
     color: var(--notion-text-light);
-    border-right: 1px solid var(--notion-border);
-    border-bottom: none;
+    border-right: none;
+    border-bottom: 1px solid var(--notion-border);
     position: relative;
     line-height: 1;
 }
