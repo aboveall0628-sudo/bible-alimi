@@ -433,6 +433,19 @@ h1 {
     transform: translateY(-1px);
 }
 
+.bottom-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    margin-bottom: -24px; /* 매일성경 링크와 간격 좁히기 */
+}
+
+.bottom-actions .primary-btn {
+    padding: 10px 24px;
+    font-size: 15px;
+    box-shadow: 0 4px 12px rgba(35, 131, 226, 0.2);
+}
+
 /* Mobile Menu Toggle */
 .menu-toggle-btn {
     display: none; /* PC에서는 절대 안 보임 */
