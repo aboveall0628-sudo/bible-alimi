@@ -1652,8 +1652,6 @@ async function saveQuickReview() {
     }
 }
 
-    }
-}
 
 /**
  * Principles Library Logic
@@ -1745,9 +1743,6 @@ async function togglePinPrinciple(id, pinned) {
             await setDoc(doc(db, "principles", d.id), { pinned: false }, { merge: true });
         }
     }
-    await setDoc(doc(db, "principles", id), { pinned, updatedAt: serverTimestamp() }, { merge: true });
-}
-
     await setDoc(doc(db, "principles", id), { pinned, updatedAt: serverTimestamp() }, { merge: true });
 }
 
