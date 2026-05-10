@@ -47,6 +47,17 @@
     --event-10-bg: rgba(192, 57, 43, 0.15);
     --event-10-border: #c0392b;
     --event-10-text: #96281b;
+
+    /* Dot Collector Colors */
+    --dot-gray: #C7CDD3;
+    --dot-yellow: #F5C84B;
+    --dot-green: #6BBF7B;
+    --dot-orange: #F0935A;
+    --dot-red: #E5654A;
+    --dot-purple: #9B7ED9;
+    
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --card-border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 body.dark-mode {
@@ -85,6 +96,17 @@ body.dark-mode {
     --event-10-bg: rgba(192, 57, 43, 0.2);
     --event-10-border: #c0392b;
     --event-10-text: #ff7675;
+
+    /* Dark Mode Dot Collector Colors (Slightly adjusted for visibility) */
+    --dot-gray: #4A4D51;
+    --dot-yellow: #D4AC0D;
+    --dot-green: #27AE60;
+    --dot-orange: #D35400;
+    --dot-red: #C0392B;
+    --dot-purple: #8E44AD;
+
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --card-border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -546,6 +568,185 @@ body.dark-mode #calendar-input {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.pulse {
+    animation: pulse 2s infinite ease-in-out;
+}
+
+/* Dot Indicator */
+.cell-dot {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    z-index: 5;
+}
+
+.dot-planned { background-color: var(--dot-gray); }
+.dot-pending { background-color: var(--dot-yellow); }
+.dot-success { background-color: var(--dot-green); }
+.dot-partial { background-color: var(--dot-orange); }
+.dot-fail { background-color: var(--dot-red); }
+.dot-spiritual { background-color: var(--dot-purple); }
+
+/* Pinned Principle Banner */
+.pinned-principle-banner {
+    width: 100%;
+    background: var(--notion-hover);
+    border-bottom: 1px solid var(--notion-border);
+    padding: 8px 24px;
+    font-size: 13px;
+    color: var(--notion-text-light);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+}
+
+.pinned-principle-banner .icon { color: var(--dot-purple); }
+
+/* Sidebar Counter */
+.sidebar-counter {
+    margin-top: auto;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--notion-text-light);
+    border-top: 1px solid var(--notion-border);
+}
+
+/* Principle Cards */
+.principle-card {
+    background: var(--notion-bg);
+    border: var(--card-border);
+    box-shadow: var(--card-shadow);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: transform 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.principle-card:hover {
+    transform: translateY(-2px);
+}
+
+.principle-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--notion-border);
+}
+
+.principle-card.pinned::before {
+    background: var(--dot-purple);
+}
+
+.principle-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.principle-body {
+    font-size: 14px;
+    color: var(--notion-text-light);
+    margin-bottom: 12px;
+}
+
+.principle-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--notion-text-light);
+}
+
+/* Quick Review Modal & AI Briefing */
+.modal-content {
+    border-radius: 16px !important;
+}
+
+.label-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.chip {
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--notion-hover);
+    border: 1px solid var(--notion-border);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.chip.selected {
+    background: var(--notion-blue);
+    color: white;
+    border-color: var(--notion-blue);
+}
+
+.ai-briefing-panel {
+    background: rgba(155, 126, 217, 0.05);
+    border: 1px solid rgba(155, 126, 217, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.ai-briefing-item {
+    margin-bottom: 12px;
+}
+
+.ai-briefing-item:last-child {
+    margin-bottom: 0;
+}
+
+.ai-briefing-label {
+    font-weight: 700;
+    color: var(--dot-purple);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Dot Minimap */
+.dot-minimap {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    width: 120px;
+    background: var(--notion-border);
+    padding: 2px;
+    border-radius: 4px;
+}
+
+.mini-dot {
+    aspect-ratio: 1;
+    background: var(--notion-bg);
+    border-radius: 1px;
+}
+
+.mini-dot.filled { background-color: var(--dot-gray); }
 
 .notion-footer {
     margin-top: 100px;

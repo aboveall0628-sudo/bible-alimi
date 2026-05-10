@@ -23,10 +23,16 @@ const TOKEN_KEY = 'gcal_token';
 
 // Initialize Firebase via CDN modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, orderBy, limit, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+import { initializeSeedData } from "./seeds.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+let currentUserId = "anonymous"; // Default
+let userSettings = null;
+let todayDots = [];
+let pinnedPrinciple = null;
 
 const BIBLE_METADATA = {
     parts: [
@@ -230,6 +236,7 @@ function finishLoading() {
     setupWeather();
     setupTimebox();
     setupTimeboxModal();
+    setupQuickReviewModal();
     
     // Google API는 비동기로 별도 처리하여 앱 멈춤 방지
     try {
@@ -301,6 +308,14 @@ function setupEventListeners() {
     if (navPast) {
         navPast.addEventListener('click', () => switchView('past'));
     }
+    const navReflection = document.getElementById('nav-reflection');
+    const navPrinciples = document.getElementById('nav-principles');
+    if (navReflection) {
+        navReflection.addEventListener('click', () => switchView('reflection'));
+    }
+    if (navPrinciples) {
+        navPrinciples.addEventListener('click', () => switchView('principles'));
+    }
 
     // Toolbar
     const toggleAllBtn = document.getElementById('toggle-all-btn');
@@ -330,6 +345,10 @@ function switchView(viewId) {
     // If switching to past view, load data
     if (viewId === 'past') {
         loadAllMeditations();
+    } else if (viewId === 'reflection') {
+        loadReflectionView();
+    } else if (viewId === 'principles') {
+        loadPrinciplesView();
     }
 }
 
@@ -430,6 +449,7 @@ async function loadMeditationNote(dateStr) {
         } else {
             editor.innerHTML = "";
         }
+        await fetchTodayDots(dateStr);
         renderCustomTimeboxEvents(docSnap.data()?.timeboxEvents || []);
     } catch (e) {
         console.error("Load error:", e);
@@ -868,7 +888,15 @@ function startSelect(e) {
     
     if (cell.classList.contains('has-event') && cell.classList.contains('custom-event')) {
         e.stopPropagation();
-        openDeleteModal(cell.dataset.eventId, cell.getAttribute('data-event-title') || '일정');
+        const startIdx = parseInt(cell.dataset.index);
+        const eventId = cell.dataset.eventId;
+        const title = cell.getAttribute('data-event-title') || '일정';
+        
+        if (cell.classList.contains('pending-review') || cell.classList.contains('reviewed')) {
+            openQuickReviewModal(startIdx, eventId, title);
+        } else {
+            openDeleteModal(eventId, title);
+        }
         return;
     }
 
@@ -947,8 +975,70 @@ function openTimeboxModal(cells) {
     
     document.getElementById('timebox-modal-time').innerText = timeStr;
     document.getElementById('timebox-event-input').value = '';
+    document.getElementById('ai-briefing-container').classList.add('hidden');
     document.getElementById('timebox-modal').classList.remove('hidden');
     setTimeout(() => document.getElementById('timebox-event-input').focus(), 100);
+}
+
+let aiDebounceTimer = null;
+function setupAIBriefing() {
+    const input = document.getElementById('timebox-event-input');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        clearTimeout(aiDebounceTimer);
+        aiDebounceTimer = setTimeout(() => {
+            updateAIBriefing(input.value.trim());
+        }, 600);
+    });
+}
+
+async function updateAIBriefing(task) {
+    if (!task || task.length < 2) {
+        document.getElementById('ai-briefing-container').classList.add('hidden');
+        return;
+    }
+
+    const container = document.getElementById('ai-briefing-container');
+    const principlesEl = document.getElementById('ai-principles');
+    const insightsEl = document.getElementById('ai-insights');
+    const scriptureEl = document.getElementById('ai-scripture-check');
+
+    container.classList.remove('hidden');
+    principlesEl.innerHTML = "관련 원칙을 찾는 중...";
+    insightsEl.innerHTML = "데이터 분석 중...";
+    scriptureEl.innerHTML = "묵상 연결 질문 생성 중...";
+
+    try {
+        // 1. Keyword matching with principles
+        const q = query(collection(db, "principles"), where("userId", "==", currentUserId), where("active", "==", true));
+        const snap = await getDocs(q);
+        const allPrinciples = snap.docs.map(doc => doc.data());
+        const matched = allPrinciples.filter(p => 
+            p.triggerKeywords?.some(k => task.includes(k)) || 
+            p.title.includes(task) || 
+            p.body.includes(task)
+        ).slice(0, 3);
+
+        principlesEl.innerHTML = matched.length > 0 
+            ? matched.map(p => `• ${p.title}`).join('<br>') 
+            : "관련된 원칙이 아직 없어요.";
+
+        // 2. Data Insights (Simulated)
+        const pastTasks = todayDots.filter(d => d.plannedTask.includes(task));
+        if (pastTasks.length > 0) {
+            const avgSat = pastTasks.reduce((acc, d) => acc + d.executionSatisfaction, 0) / pastTasks.length;
+            insightsEl.innerHTML = `유사한 과거 일정의 평균 만족도는 ${avgSat.toFixed(1)}점입니다.`;
+        } else {
+            insightsEl.innerHTML = "처음 시도하는 유형의 일정이네요. 응원합니다!";
+        }
+
+        // 3. Scripture Check (Simulated)
+        scriptureEl.innerHTML = `오늘 읽은 말씀의 '핵심'이 이 일정에 어떻게 녹아있나요?`;
+
+    } catch (e) {
+        console.error("AI Briefing error:", e);
+    }
 }
 
 function setupTimeboxModal() {
@@ -1040,6 +1130,7 @@ function setupTimeboxModal() {
     }
     
     setupDeleteModal();
+    setupAIBriefing();
 }
 
 let currentDeleteEventId = null;
@@ -1114,39 +1205,90 @@ async function deleteTimeboxFromFirebase(eventId) {
     }
 }
 
+async function fetchTodayDots(dateStr) {
+    if (!db || !currentUserId) return;
+    try {
+        const q = query(collection(db, "dots"), where("userId", "==", currentUserId), where("date", "==", dateStr));
+        const querySnapshot = await getDocs(q);
+        todayDots = [];
+        querySnapshot.forEach(doc => {
+            todayDots.push({ id: doc.id, ...doc.data() });
+        });
+        updateDotCounter();
+    } catch (e) {
+        console.error("Fetch dots error:", e);
+    }
+}
+
+function updateDotCounter() {
+    const counter = document.getElementById('dot-counter');
+    if (!counter) return;
+    
+    // Count reviewed dots vs planned events
+    // This is a simplified version
+    const reviewedCount = todayDots.filter(d => d.executed).length;
+    counter.textContent = `오늘 도트 ${reviewedCount}개 평가완료`;
+}
+
 function renderCustomTimeboxEvents(events) {
     document.querySelectorAll('.time-cell.custom-event').forEach(el => {
         el.className = 'time-cell';
         el.removeAttribute('data-event-title');
         el.removeAttribute('data-event-id');
+        const oldDot = el.querySelector('.cell-dot');
+        if (oldDot) oldDot.remove();
     });
     
     if (!events) return;
     
+    const now = new Date();
+    const currentH = now.getHours();
+    const currentM = Math.floor(now.getMinutes() / 15);
+    const currentIndex = currentH * 4 + currentM;
+
     events.forEach(ev => {
         const sortedIndices = [...ev.indices].sort((a, b) => a - b);
         const startIdx = sortedIndices[0];
         const endIdx = sortedIndices[sortedIndices.length - 1];
         
+        // Find if this event has a reviewed dot
+        const dotData = todayDots.find(d => d.timeSlot === startIdx);
+
         sortedIndices.forEach((idx, i) => {
             const cell = document.querySelector(`.time-cell[data-index="${idx}"]`);
             if (cell) {
                 cell.classList.add('has-event', 'custom-event', ev.color || 'event-color-1');
                 cell.dataset.eventId = ev.id;
                 
-                // 중간 바 제거용 클래스 부여
                 if (sortedIndices.length > 1) {
-                    if (idx === startIdx) {
-                        cell.classList.add('event-start');
-                    } else if (idx === endIdx) {
-                        cell.classList.add('event-end');
-                    } else {
-                        cell.classList.add('event-middle');
-                    }
+                    if (idx === startIdx) cell.classList.add('event-start');
+                    else if (idx === endIdx) cell.classList.add('event-end');
+                    else cell.classList.add('event-middle');
                 }
 
                 if (idx === startIdx) {
                     cell.setAttribute('data-event-title', ev.title);
+                    
+                    // Add dot indicator
+                    const dot = document.createElement('div');
+                    dot.className = 'cell-dot';
+                    
+                    if (dotData) {
+                        // Reviewed
+                        const satisfaction = dotData.executionSatisfaction || 3;
+                        if (satisfaction >= 4) dot.classList.add('dot-success');
+                        else if (satisfaction >= 2) dot.classList.add('dot-partial');
+                        else dot.classList.add('dot-fail');
+                        cell.classList.add('reviewed');
+                    } else if (idx < currentIndex) {
+                        // Pending
+                        dot.classList.add('dot-yellow', 'pulse');
+                        cell.classList.add('pending-review');
+                    } else {
+                        // Planned
+                        dot.classList.add('dot-gray');
+                    }
+                    cell.appendChild(dot);
                 }
             }
         });
@@ -1264,6 +1406,10 @@ async function loadUserProfile() {
                 avatar.src = userInfo.picture;
                 avatar.style.display = 'block';
             }
+            
+            currentUserId = userInfo.email || userInfo.sub;
+            await initializeSeedData(db, currentUserId);
+            loadPinnedPrinciple();
         }
     } catch (e) {
         console.warn("프로필 정보를 가져오지 못했어요:", e);
@@ -1337,6 +1483,312 @@ function renderEventsOnTimebox(events) {
                 }
             }
         }
+    });
+}
+
+/**
+ * Quick Review Modal
+ */
+let currentReviewIdx = -1;
+let currentReviewEventId = null;
+
+function openQuickReviewModal(idx, eventId, title) {
+    currentReviewIdx = idx;
+    currentReviewEventId = eventId;
+    
+    const dotData = todayDots.find(d => d.timeSlot === idx);
+    
+    document.getElementById('review-modal-task').innerText = title;
+    document.getElementById('quick-review-modal').classList.remove('hidden');
+    
+    // Reset or load existing data
+    const statusBtns = document.querySelectorAll('.status-btn');
+    statusBtns.forEach(btn => btn.classList.remove('selected'));
+    if (dotData?.executed) {
+        const activeBtn = Array.from(statusBtns).find(b => b.dataset.status === dotData.executed);
+        if (activeBtn) activeBtn.classList.add('selected');
+    }
+
+    document.getElementById('slider-execution').value = dotData?.executionSatisfaction || 3;
+    document.getElementById('slider-outcome').value = dotData?.outcomeSatisfaction || 3;
+    document.getElementById('val-execution').innerText = dotData?.executionSatisfaction || 3;
+    document.getElementById('val-outcome').innerText = dotData?.outcomeSatisfaction || 3;
+    document.getElementById('review-reason').value = dotData?.reason || '';
+    
+    renderReviewLabels(dotData?.labels || []);
+}
+
+function renderReviewLabels(selectedLabels) {
+    const container = document.getElementById('review-labels');
+    container.innerHTML = '';
+    
+    const presets = ["영적상태", "에너지", "환경", "인지", "관계"];
+    const labels = [
+        "평안함", "감사함", "메마름", "갈급함",
+        "활기참", "피로함", "집중잘됨", "소란스러움"
+    ]; // Simplified for now
+
+    labels.forEach(label => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        if (selectedLabels.includes(label)) chip.classList.add('selected');
+        chip.innerText = label;
+        chip.onclick = () => {
+            chip.classList.toggle('selected');
+        };
+        container.appendChild(chip);
+    });
+}
+
+function setupQuickReviewModal() {
+    const cancelBtn = document.getElementById('review-cancel-btn');
+    const saveBtn = document.getElementById('review-save-btn');
+    
+    // Status buttons
+    document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        };
+    });
+
+    // Sliders
+    document.getElementById('slider-execution').oninput = (e) => {
+        document.getElementById('val-execution').innerText = e.target.value;
+    };
+    document.getElementById('slider-outcome').oninput = (e) => {
+        document.getElementById('val-outcome').innerText = e.target.value;
+    };
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            document.getElementById('quick-review-modal').classList.add('hidden');
+        };
+    }
+
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            await saveQuickReview();
+        };
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+        if (document.getElementById('quick-review-modal').classList.contains('hidden')) return;
+        
+        if (e.key >= '1' && e.key <= '5') {
+            document.getElementById('slider-execution').value = e.key;
+            document.getElementById('val-execution').innerText = e.key;
+        } else if (e.key === 'Enter') {
+            saveQuickReview();
+        } else if (e.key === 'Escape') {
+            document.getElementById('quick-review-modal').classList.add('hidden');
+        }
+    });
+}
+
+async function saveQuickReview() {
+    if (currentReviewIdx === -1) return;
+    
+    const dateStr = document.getElementById('calendar-input').value;
+    const executed = document.querySelector('.status-btn.selected')?.dataset.status || 'done';
+    const executionSatisfaction = parseInt(document.getElementById('slider-execution').value);
+    const outcomeSatisfaction = parseInt(document.getElementById('slider-outcome').value);
+    const reason = document.getElementById('review-reason').value.trim();
+    const labels = Array.from(document.querySelectorAll('.chip.selected')).map(c => c.innerText);
+    
+    const dotId = `${currentUserId}_${dateStr}_${currentReviewIdx}`;
+    
+    const dotData = {
+        userId: currentUserId,
+        date: dateStr,
+        timeSlot: currentReviewIdx,
+        plannedTask: document.getElementById('review-modal-task').innerText,
+        executed,
+        executionSatisfaction,
+        outcomeSatisfaction,
+        reason,
+        labels,
+        updatedAt: serverTimestamp()
+    };
+
+    try {
+        await setDoc(doc(db, "dots", dotId), dotData, { merge: true });
+        document.getElementById('quick-review-modal').classList.add('hidden');
+        
+        // Refresh UI
+        await fetchTodayDots(dateStr);
+        const docRef = doc(db, "memos", dateStr);
+        const docSnap = await getDoc(docRef);
+        renderCustomTimeboxEvents(docSnap.data()?.timeboxEvents || []);
+    } catch (e) {
+        console.error("Save dot error:", e);
+    }
+}
+
+    }
+}
+
+/**
+ * Principles Library Logic
+ */
+async function loadPinnedPrinciple() {
+    if (!db || !currentUserId) return;
+    try {
+        const q = query(collection(db, "principles"), where("userId", "==", currentUserId), where("pinned", "==", true), limit(1));
+        const snap = await getDocs(q);
+        const banner = document.getElementById('pinned-principle-banner');
+        const text = document.getElementById('pinned-principle-text');
+        
+        if (!snap.empty) {
+            pinnedPrinciple = { id: snap.docs[0].id, ...snap.docs[0].data() };
+            text.innerText = pinnedPrinciple.title;
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    } catch (e) {
+        console.error("Load pinned error:", e);
+    }
+}
+
+async function loadPrinciplesView() {
+    const list = document.getElementById('principles-list');
+    list.innerHTML = "원칙을 불러오고 있어요...";
+    
+    try {
+        const q = query(collection(db, "principles"), where("userId", "==", currentUserId), orderBy("updatedAt", "desc"));
+        const snap = await getDocs(q);
+        
+        renderPrinciples(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (e) {
+        console.error("Load principles error:", e);
+        list.innerHTML = "원칙을 불러오지 못했습니다.";
+    }
+}
+
+function renderPrinciples(principles) {
+    const list = document.getElementById('principles-list');
+    list.innerHTML = '';
+    
+    if (principles.length === 0) {
+        list.innerHTML = '<div class="no-data">아직 등록된 원칙이 없어요.</div>';
+        return;
+    }
+
+    principles.forEach(p => {
+        const card = document.createElement('div');
+        card.className = `principle-card ${p.pinned ? 'pinned' : ''}`;
+        card.innerHTML = `
+            <div class="principle-title">${p.title}</div>
+            <div class="principle-body">${p.body}</div>
+            <div class="principle-meta">
+                <span>📍 ${p.category}</span>
+                <span>📅 ${p.updatedAt?.toDate().toLocaleDateString() || '오늘'}</span>
+            </div>
+            <div class="card-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="text-btn pin-btn">${p.pinned ? '고정 해제' : '상단 고정'}</button>
+                <button class="text-btn delete-btn">삭제</button>
+            </div>
+        `;
+        
+        card.querySelector('.pin-btn').onclick = async () => {
+            await togglePinPrinciple(p.id, !p.pinned);
+            loadPrinciplesView();
+            loadPinnedPrinciple();
+        };
+        
+        card.querySelector('.delete-btn').onclick = async () => {
+            if (confirm('정말 이 원칙을 삭제할까요?')) {
+                await deleteDoc(doc(db, "principles", p.id));
+                loadPrinciplesView();
+                loadPinnedPrinciple();
+            }
+        };
+        
+        list.appendChild(card);
+    });
+}
+
+async function togglePinPrinciple(id, pinned) {
+    // Unpin others if pinning this one
+    if (pinned) {
+        const q = query(collection(db, "principles"), where("userId", "==", currentUserId), where("pinned", "==", true));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+            await setDoc(doc(db, "principles", d.id), { pinned: false }, { merge: true });
+        }
+    }
+    await setDoc(doc(db, "principles", id), { pinned, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+    await setDoc(doc(db, "principles", id), { pinned, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/**
+ * Reflection View Logic
+ */
+async function loadReflectionView() {
+    renderReflectionMinimap();
+    
+    const summaryEl = document.getElementById('reflection-ai-summary');
+    summaryEl.innerHTML = "<p>오늘의 도트 패턴을 분석하고 있어요...</p>";
+    
+    // Simulate AI Summary (In real app, call LLM)
+    setTimeout(() => {
+        const reviewed = todayDots.filter(d => d.executed === 'done').length;
+        const total = todayDots.length;
+        const avgSat = todayDots.reduce((acc, d) => acc + (d.executionSatisfaction || 0), 0) / (total || 1);
+        
+        let msg = `오늘은 총 ${total}개의 일정 중 ${reviewed}개를 완료하셨네요. `;
+        if (avgSat >= 4) msg += "전반적으로 실행 만족도가 매우 높습니다. 계획한 대로 주도적인 하루를 보내셨군요!";
+        else if (avgSat >= 2) msg += "일부 일정에서 어려움이 있었지만, 포기하지 않고 진행하신 점이 귀합니다.";
+        else msg += "오늘의 에너지가 조금 낮았던 것 같아요. 내일은 조금 더 여유 있는 계획을 세워보는 건 어떨까요?";
+        
+        summaryEl.innerHTML = `<p>${msg}</p>`;
+        
+        renderReflectionDiscoveries();
+    }, 1500);
+}
+
+function renderReflectionMinimap() {
+    const container = document.getElementById('reflection-minimap');
+    container.innerHTML = '';
+    
+    for (let i = 0; i < 96; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'mini-dot';
+        const data = todayDots.find(d => d.timeSlot === i);
+        if (data) {
+            dot.classList.add('filled');
+            const sat = data.executionSatisfaction || 3;
+            if (sat >= 4) dot.style.backgroundColor = 'var(--dot-green)';
+            else if (sat >= 2) dot.style.backgroundColor = 'var(--dot-orange)';
+            else dot.style.backgroundColor = 'var(--dot-red)';
+        }
+        container.appendChild(dot);
+    }
+}
+
+function renderReflectionDiscoveries() {
+    const container = document.getElementById('reflection-discoveries');
+    container.innerHTML = '';
+    
+    // Simulated discoveries from patterns
+    const discoveries = [
+        { title: "오후 2시의 집중력 저하", body: "이 시간에는 짧은 산책이나 기도가 도움이 될 것 같아요." },
+        { title: "묵상 후 첫 업무의 높은 몰입도", body: "말씀 묵상 직후에 가장 중요한 업무를 배치하는 원칙을 만들어보세요." }
+    ];
+
+    discoveries.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'principle-card';
+        card.innerHTML = `
+            <div class="principle-title">⭐ ${d.title}</div>
+            <div class="principle-body">${d.body}</div>
+            <button class="primary-btn" style="width: 100%; margin-top: 10px;">원칙으로 등록하기</button>
+        `;
+        container.appendChild(card);
     });
 }
 
