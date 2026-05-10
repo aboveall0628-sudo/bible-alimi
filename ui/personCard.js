@@ -20,8 +20,15 @@
  */
 
 import { savePerson, getAllPersons, deletePerson } from '../data/personRepo.js';
+import { getAllOrganizations } from '../data/orgRepo.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
+
+// 조직 type 메타 (소속 조직 칩 표시용)
+const ORG_TYPE_ICONS = {
+    company: '🏢', church: '⛪', team: '👥',
+    community: '🌐', family: '👨‍👩‍👧', other: '📦',
+};
 
 // ─── 상수 ───
 const STANCE_META = {
@@ -76,6 +83,7 @@ const SLIDER_LEVELS = [0, 25, 50, 75, 100];
 // ─── 모듈 상태 ───
 let _userId = null;
 let _persons = [];
+let _orgsCache = [];       // 소속 조직 표시용
 let _activeFilter = 'all';
 let _searchQuery = '';
 let _editingId = null;     // 모달에 열린 person.id (null이면 새 카드)
@@ -113,12 +121,18 @@ export async function renderPersonsView(userId) {
 
 async function loadPersons() {
     const dek = getDEK();
-    if (!dek) { _persons = []; return; }
+    if (!dek) { _persons = []; _orgsCache = []; return; }
     try {
-        _persons = await getAllPersons(dek, _userId);
+        const [persons, orgs] = await Promise.all([
+            getAllPersons(dek, _userId),
+            getAllOrganizations(dek, _userId).catch(() => []),
+        ]);
+        _persons = persons;
+        _orgsCache = orgs;
     } catch (e) {
         console.error('persons load failed:', e);
         _persons = [];
+        _orgsCache = [];
         showToast('인물 카드를 불러오지 못했어요');
     }
 }
@@ -351,6 +365,7 @@ function renderModal() {
                         ${layer2Html(p)}
                         ${layer3Html(p)}
                         ${layer4Html(p)}
+                        ${belongsHtml(p)}
                         ${layerVerseHtml(p)}
                     </div>
                 </div>
@@ -393,6 +408,8 @@ function bindModalEvents() {
     root.querySelector('#person-notes')?.addEventListener('input', (e) => {
         _editingDraft.notes = e.target.value;
     });
+
+    bindBelongsEvents(root);
 }
 
 // ─── Layer 1 정체성 ───
@@ -649,6 +666,49 @@ function bindLayer4Events(root) {
         row.querySelector('.rel-clear')?.addEventListener('click', () => {
             _editingDraft.relationship[key] = null;
             row.querySelectorAll('.rel-star').forEach(s => s.classList.remove('active'));
+        });
+    });
+}
+
+// ─── 소속 조직 (v3-①-C: 표시 전용, 추가/제거는 조직 카드에서) ───
+function belongsHtml(p) {
+    const personId = p.id;
+    const matched = personId
+        ? _orgsCache.filter(o => Array.isArray(o.memberPersonIds) && o.memberPersonIds.includes(personId))
+        : [];
+    return `
+        <section class="person-layer">
+            <h4 class="person-layer-title">소속 조직</h4>
+            ${matched.length === 0
+                ? `<div class="person-belongs-empty">
+                       ${personId
+                           ? '아직 등록된 소속 조직이 없어요. 조직 카드에서 멤버로 추가해 주세요.'
+                           : '저장 후 조직 카드에서 멤버로 추가하면 여기에 보여요.'}
+                   </div>`
+                : `<div class="person-belongs-list">
+                       ${matched.map(belongsChipHtml).join('')}
+                   </div>`}
+        </section>
+    `;
+}
+
+function belongsChipHtml(o) {
+    const icon = ORG_TYPE_ICONS[o.type] || '📦';
+    return `
+        <button class="person-belongs-chip" data-org-id="${o.id}" type="button">
+            <span>${icon}</span><span>${escapeHtml(o.name || '이름 없음')}</span>
+        </button>
+    `;
+}
+
+function bindBelongsEvents(root) {
+    root.querySelectorAll('.person-belongs-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 인물 모달 닫고 조직 뷰로 이동
+            closeModal();
+            if (typeof window.__sanctumSwitchView === 'function') {
+                window.__sanctumSwitchView('organizations');
+            }
         });
     });
 }

@@ -1590,3 +1590,305 @@ svg.person-radar { display: block; }
         grid-template-columns: 60px 1fr;
     }
 }
+
+/* ═══════════════════════════════════════
+   v3-①-C — 조직 카드 (목록 + 상세 모달 + 멤버 관리)
+   ═══════════════════════════════════════ */
+
+/* ── 툴바 ── */
+.orgs-toolbar {
+    display: grid; gap: var(--sp-3); margin-bottom: var(--sp-4);
+    grid-template-columns: 1fr auto auto; align-items: center;
+}
+.orgs-search input {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg); color: var(--text-primary);
+    font-size: 14px;
+}
+.orgs-search input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.orgs-filter-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.orgs-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-secondary); font-size: 13px; cursor: pointer;
+    transition: all var(--ease);
+}
+.orgs-chip:hover { border-color: var(--accent); color: var(--text-primary); }
+.orgs-chip.active {
+    background: var(--accent); color: white; border-color: var(--accent);
+}
+.orgs-chip-count {
+    background: rgba(255,255,255,0.2);
+    padding: 1px 7px; border-radius: 999px; font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+.orgs-chip:not(.active) .orgs-chip-count {
+    background: var(--bg-card); color: var(--text-secondary);
+}
+.orgs-add-btn { white-space: nowrap; }
+
+/* ── 카드 그리드 ── */
+.orgs-grid {
+    display: grid; gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.org-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--sp-4);
+    cursor: pointer; transition: all var(--ease);
+    display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.org-card:hover {
+    border-color: var(--accent); transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+.org-card-head {
+    display: grid; grid-template-columns: 40px 1fr auto;
+    gap: var(--sp-3); align-items: center;
+}
+.org-type-badge {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; background: var(--bg-elev);
+}
+.org-card-meta { min-width: 0; }
+.org-card-name {
+    font-weight: 600; font-size: 15px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.org-card-sub {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    font-size: 11px; color: var(--text-secondary); margin-top: 2px;
+}
+.org-type-label, .org-member-count {
+    background: var(--bg-elev);
+    padding: 1px 7px; border-radius: 999px;
+}
+.org-stance-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+}
+.org-stance-pill.big { padding: 6px 14px; font-size: 14px; }
+
+.org-card-mini { display: flex; flex-direction: column; gap: 4px; }
+.risk-mini-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    justify-self: start;
+}
+
+/* ── 모달 ── */
+.org-modal-overlay { z-index: 900; }
+.org-modal {
+    width: min(960px, 96vw); max-height: 90vh;
+    display: flex; flex-direction: column;
+}
+.org-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border);
+}
+.org-modal-header h3 { font-size: 18px; font-weight: 600; }
+.org-modal-close {
+    background: transparent; border: 0; font-size: 18px;
+    color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.org-modal-close:hover { background: var(--hover); color: var(--text-primary); }
+.org-modal-body {
+    display: grid; grid-template-columns: 240px 1fr; gap: var(--sp-5);
+    padding: var(--sp-5); overflow-y: auto;
+}
+
+/* 좌측 패널 */
+.org-detail-left {
+    display: flex; flex-direction: column; gap: var(--sp-4);
+    align-items: center;
+    position: sticky; top: 0;
+}
+.org-type-display {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: var(--sp-4); width: 100%;
+    background: var(--bg-elev); border-radius: var(--radius);
+}
+.org-type-display-icon { font-size: 56px; line-height: 1; }
+.org-type-display-label {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+}
+.org-stance-display {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;
+}
+.org-stance-change-btn {
+    background: transparent; border: 1px dashed var(--border);
+    color: var(--text-secondary); padding: 6px 12px; border-radius: 8px;
+    font-size: 11px; cursor: not-allowed;
+}
+.org-member-mini {
+    width: 100%; display: flex; flex-direction: column; gap: 6px;
+    padding: var(--sp-3); background: var(--bg-elev); border-radius: var(--radius);
+}
+.org-member-mini-title {
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+}
+.org-member-mini-empty {
+    font-size: 12px; color: var(--text-secondary); font-style: italic;
+}
+.org-member-mini-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-primary);
+    overflow: hidden;
+}
+.org-member-mini-name {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.org-member-mini-more {
+    font-size: 11px; color: var(--text-secondary);
+    padding-left: 26px;
+}
+
+/* 우측 편집 영역 */
+.org-detail-right {
+    display: flex; flex-direction: column; gap: var(--sp-4);
+}
+.org-layer {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--sp-4);
+}
+.org-layer-title {
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    color: var(--text-primary);
+}
+.org-layer-hint {
+    font-size: 12px; color: var(--text-secondary); margin-bottom: var(--sp-3);
+    line-height: 1.5;
+}
+.org-row {
+    display: grid; grid-template-columns: 100px 1fr; gap: var(--sp-3);
+    align-items: center; margin-bottom: var(--sp-2);
+}
+.org-row label {
+    font-size: 12px; color: var(--text-secondary); font-weight: 500;
+}
+.org-row input[type="text"], .org-row select, .org-row textarea {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text-primary);
+    font-size: 13px; font-family: inherit;
+}
+.org-row textarea { resize: vertical; min-height: 60px; }
+.org-row input:focus, .org-row select:focus, .org-row textarea:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+}
+
+/* ── Layer 3 위험도 칩 ── */
+.risk-chips {
+    display: flex; gap: var(--sp-2); flex-wrap: wrap;
+}
+.risk-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-secondary); font-size: 13px; cursor: pointer;
+    transition: all var(--ease);
+}
+.risk-chip:hover { border-color: var(--risk-color, var(--accent)); color: var(--text-primary); }
+.risk-chip.active {
+    background: var(--risk-color, var(--accent)); color: white;
+    border-color: var(--risk-color, var(--accent));
+}
+.risk-chip-unknown.active {
+    background: var(--text-secondary); border-color: var(--text-secondary);
+}
+
+/* ── Layer 4 멤버 관리 ── */
+.member-add-row {
+    display: grid; grid-template-columns: 1fr auto;
+    gap: var(--sp-2); margin-bottom: var(--sp-3);
+}
+.member-add-row input {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text-primary); font-size: 13px;
+}
+.member-add-row input:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+}
+.member-list {
+    display: flex; gap: var(--sp-2); flex-wrap: wrap;
+    min-height: 36px;
+}
+.member-empty {
+    font-size: 12px; color: var(--text-secondary); font-style: italic;
+}
+.member-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px 4px 4px; border-radius: 999px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    font-size: 12px;
+}
+.member-avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; color: #2C2C2E; font-size: 12px;
+    flex-shrink: 0;
+}
+.member-name {
+    color: var(--text-primary);
+    max-width: 140px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.member-remove {
+    background: transparent; border: 0; cursor: pointer;
+    color: var(--text-secondary); font-size: 12px;
+    padding: 0 4px; border-radius: 999px;
+}
+.member-remove:hover { color: var(--dot-red); background: var(--hover); }
+
+/* ── 모달 푸터 ── */
+.org-modal-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--border);
+}
+.org-modal-actions { display: flex; gap: var(--sp-2); }
+.org-delete-btn { color: var(--dot-red); }
+.org-delete-btn:hover { background: var(--hover); }
+
+/* ── 모바일 ── */
+@media (max-width: 768px) {
+    .orgs-toolbar {
+        grid-template-columns: 1fr;
+    }
+    .org-modal-body {
+        grid-template-columns: 1fr; padding: var(--sp-4);
+    }
+    .org-detail-left {
+        position: static; flex-direction: row; gap: var(--sp-4);
+        flex-wrap: wrap; justify-content: center;
+    }
+    .org-row {
+        grid-template-columns: 1fr; gap: 4px;
+    }
+    .member-add-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── 인물 모달의 "소속 조직" 섹션 (v3-①-C) ── */
+.person-belongs-list {
+    display: flex; gap: var(--sp-2); flex-wrap: wrap;
+    margin-top: 6px;
+}
+.person-belongs-empty {
+    font-size: 12px; color: var(--text-secondary); font-style: italic;
+}
+.person-belongs-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    font-size: 12px; color: var(--text-primary);
+    cursor: pointer; transition: all var(--ease);
+}
+.person-belongs-chip:hover { border-color: var(--accent); }
+

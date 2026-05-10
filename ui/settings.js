@@ -80,6 +80,8 @@ function injectExtraSections() {
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button id="btn-v3-persons" class="primary-btn"
                     style="background:var(--dot-purple);">👥 인물 뷰 열기</button>
+            <button id="btn-v3-orgs" class="primary-btn"
+                    style="background:var(--dot-purple);">🏢 조직 뷰 열기</button>
         </div>
     `;
     container.appendChild(v3Card);
@@ -96,6 +98,13 @@ function bindEvents() {
     if (btnV3Persons) btnV3Persons.onclick = () => {
         if (typeof window.__sanctumSwitchView === 'function') {
             window.__sanctumSwitchView('persons');
+        }
+    };
+
+    const btnV3Orgs = document.getElementById('btn-v3-orgs');
+    if (btnV3Orgs) btnV3Orgs.onclick = () => {
+        if (typeof window.__sanctumSwitchView === 'function') {
+            window.__sanctumSwitchView('organizations');
         }
     };
 

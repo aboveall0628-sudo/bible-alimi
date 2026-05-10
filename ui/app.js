@@ -30,6 +30,7 @@ import { renderReportsView } from './reports.js';
 import { renderSettingsView } from './settings.js';
 import { renderPastMeditationsView } from './pastMeditations.js';
 import { renderPersonsView } from './personCard.js';
+import { renderOrganizationsView } from './orgCard.js';
 
 // ─── 전역 상태 ───
 window.appStarted = true;
@@ -330,6 +331,8 @@ function switchView(viewId) {
         renderSettingsView(currentUserId, currentUserEmail);
     } else if (viewId === 'persons') {
         renderPersonsView(currentUserId);
+    } else if (viewId === 'organizations') {
+        renderOrganizationsView(currentUserId);
     }
 
     // 모바일 사이드바 닫기
