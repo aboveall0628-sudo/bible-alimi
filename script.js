@@ -1417,6 +1417,8 @@ async function loadUserProfile() {
             if (avatar && userInfo.picture) {
                 avatar.src = userInfo.picture;
                 avatar.style.display = 'block';
+            } else if (avatar) {
+                avatar.style.display = 'none';
             }
             const authBtn = document.getElementById('auth-btn');
             if (authBtn) authBtn.classList.add('hidden');
@@ -1698,42 +1700,89 @@ function renderPrinciples(principles) {
     list.innerHTML = '';
     
     if (principles.length === 0) {
-        list.innerHTML = '<div class="no-data">아직 등록된 원칙이 없어요.</div>';
-        return;
+        list.innerHTML = '<div class="no-data" style="padding: 20px; color: var(--text-tertiary);">아직 등록된 원칙이 없어요.</div>';
     }
 
     principles.forEach(p => {
-        const card = document.createElement('div');
-        card.className = `principle-card ${p.pinned ? 'pinned' : ''}`;
-        card.innerHTML = `
-            <div class="principle-title">${p.title}</div>
-            <div class="principle-body">${p.body}</div>
-            <div class="principle-meta">
-                <span>📍 ${p.category}</span>
-                <span>📅 ${p.updatedAt?.toDate().toLocaleDateString() || '오늘'}</span>
+        const item = document.createElement('div');
+        item.className = `notion-item ${p.pinned ? 'pinned' : ''}`;
+        item.innerHTML = `
+            <div class="drag-handle">⋮⋮</div>
+            <div class="notion-item-content">
+                <input class="notion-item-title" value="${p.title}" placeholder="제목 없는 원칙">
+                <textarea class="notion-item-body" placeholder="원칙의 내용을 입력하세요..." rows="1">${p.body}</textarea>
             </div>
-            <div class="card-actions" style="margin-top: 12px; display: flex; gap: 8px;">
-                <button class="text-btn pin-btn">${p.pinned ? '고정 해제' : '상단 고정'}</button>
-                <button class="text-btn delete-btn">삭제</button>
+            <div class="item-actions">
+                <button class="icon-btn pin-btn" title="고정">${p.pinned ? '📍' : '📌'}</button>
+                <button class="icon-btn delete-btn" title="삭제">🗑️</button>
             </div>
         `;
         
-        card.querySelector('.pin-btn').onclick = async () => {
+        const titleInput = item.querySelector('.notion-item-title');
+        const bodyInput = item.querySelector('.notion-item-body');
+        
+        // Auto-resize textarea
+        const resizeBody = () => {
+            bodyInput.style.height = 'auto';
+            bodyInput.style.height = bodyInput.scrollHeight + 'px';
+        };
+        bodyInput.addEventListener('input', resizeBody);
+        setTimeout(resizeBody, 0);
+
+        // Save on blur
+        const saveChange = async () => {
+            const newTitle = titleInput.value.trim();
+            const newBody = bodyInput.value.trim();
+            if (newTitle !== p.title || newBody !== p.body) {
+                await setDoc(doc(db, "principles", p.id), { 
+                    title: newTitle, 
+                    body: newBody, 
+                    updatedAt: serverTimestamp() 
+                }, { merge: true });
+                if (p.pinned) loadPinnedPrinciple();
+            }
+        };
+        titleInput.onblur = saveChange;
+        bodyInput.onblur = saveChange;
+
+        item.querySelector('.pin-btn').onclick = async (e) => {
+            e.stopPropagation();
             await togglePinPrinciple(p.id, !p.pinned);
             loadPrinciplesView();
             loadPinnedPrinciple();
         };
         
-        card.querySelector('.delete-btn').onclick = async () => {
-            if (confirm('정말 이 원칙을 삭제할까요?')) {
+        item.querySelector('.delete-btn').onclick = async (e) => {
+            e.stopPropagation();
+            if (confirm('이 원칙을 삭제할까요?')) {
                 await deleteDoc(doc(db, "principles", p.id));
                 loadPrinciplesView();
                 loadPinnedPrinciple();
             }
         };
         
-        list.appendChild(card);
+        list.appendChild(item);
     });
+
+    const addLine = document.getElementById('add-principle-line');
+    if (addLine) {
+        addLine.onclick = async () => {
+            const newId = Date.now().toString();
+            await setDoc(doc(db, "principles", newId), {
+                userId: currentUserId,
+                title: "",
+                body: "",
+                category: "general",
+                active: true,
+                pinned: false,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            await loadPrinciplesView();
+            const lastItem = list.lastElementChild;
+            if (lastItem) lastItem.querySelector('.notion-item-title').focus();
+        };
+    }
 }
 
 async function togglePinPrinciple(id, pinned) {

@@ -157,12 +157,16 @@ body {
 .user-profile {
     display: flex;
     align-items: center;
-    gap: 10px;
     padding: 12px;
-    margin-top: 15px;
-    background: var(--notion-hover);
+    margin: 8px;
     border-radius: 8px;
-    font-size: 13px;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+}
+
+.user-profile:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
 }
 
 .user-profile img {
@@ -176,6 +180,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    margin-left: 10px;
 }
 
 #user-name {
@@ -640,6 +645,92 @@ body.dark-mode #calendar-input {
 
 .principle-card:hover {
     transform: translateY(-2px);
+}
+
+/* Principles Notion Style */
+.notion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.notion-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+
+.notion-item:hover {
+    background: var(--bg-secondary);
+}
+
+.notion-item .drag-handle {
+    opacity: 0;
+    margin-right: 8px;
+    color: var(--text-tertiary);
+    cursor: grab;
+    margin-top: 2px;
+}
+
+.notion-item:hover .drag-handle {
+    opacity: 1;
+}
+
+.notion-item-content {
+    flex: 1;
+}
+
+.notion-item-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+}
+
+.notion-item-body {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+    resize: none;
+}
+
+.notion-add-line {
+    padding: 8px 12px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.notion-add-line:hover {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.notion-item .item-actions {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    display: none;
+    gap: 4px;
+}
+
+.notion-item:hover .item-actions {
+    display: flex;
 }
 
 .principle-card::before {

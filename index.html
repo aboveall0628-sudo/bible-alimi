@@ -89,13 +89,13 @@
                     <span class="icon">📜</span> 지난 묵상
                 </button>
                 <button class="sidebar-item" id="nav-principles">
-                    <span class="icon">📖 나의 원칙</span>
+                    <span class="icon">📖</span> 나의 원칙
                 </button>
             </nav>
-            <div id="user-profile" class="user-profile" style="cursor: pointer; margin-bottom: 12px;">
-                <img id="user-avatar" src="" alt="" style="display:none;">
+            <div id="user-profile" class="user-profile" style="cursor: pointer; margin-top: auto; margin-bottom: 12px; padding: 12px;">
+                <img id="user-avatar" src="" alt="" style="display:none; width: 32px; height: 32px; border-radius: 50%; margin-right: 10px;">
                 <div class="user-info">
-                    <span id="user-name">로그인 해주세요</span>
+                    <span id="user-name" style="font-size: 14px; font-weight: 500;">로그인 해주세요</span>
                 </div>
             </div>
             <div class="sidebar-footer">
@@ -197,17 +197,14 @@
                     <h1>📖 나의 원칙</h1>
                     <p class="subtitle">나다운 삶을 위한 흔들리지 않는 지침</p>
                 </header>
-                <div class="toolbar">
-                    <button id="add-principle-btn" class="primary-btn">+ 새 원칙 추가</button>
-                </div>
-                <div class="category-tabs">
-                    <button class="tab active" data-category="all">전체</button>
-                    <button class="tab" data-category="spiritual">영적</button>
-                    <button class="tab" data-category="relationship">관계</button>
-                    <button class="tab" data-category="work">일</button>
-                    <button class="tab" data-category="health">건강</button>
-                </div>
-                <div id="principles-list" class="principles-grid" style="margin-top: 24px;"></div>
+                <section class="notion-section">
+                    <div id="principles-editor-container" class="principles-notion-style">
+                        <div id="principles-list" class="notion-list"></div>
+                        <div class="notion-add-line" id="add-principle-line">
+                            <span class="icon">+</span> 새 원칙 추가...
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <footer>
