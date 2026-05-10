@@ -66,6 +66,7 @@
                 <img id="user-avatar" src="" alt="" style="display:none;width:32px;height:32px;border-radius:50%">
                 <span id="user-name" style="font-size:14px">로그인</span>
             </div>
+            <div id="boot-status" class="boot-status">초기화 중...</div>
             <div class="sidebar-footer">
                 <button id="sensitive-toggle-btn" title="민감 정보 숨기기">👁</button>
                 <span id="lock-timer-display" class="lock-timer">🔒 15분</span>
@@ -73,8 +74,8 @@
             </div>
         </aside>
 
-        <!-- 메인 -->
-        <main class="content-area">
+        <!-- 메인 — 잠금 해제 전엔 숨김 (부팅 안전장치) -->
+        <main id="main-content" class="content-area hidden">
 
             <!-- ── 오늘 뷰 ── -->
             <div id="view-today" class="view">

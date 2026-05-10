@@ -153,9 +153,15 @@ export function showLockError(msg) {
 
 export function showLockScreen() {
     const el = document.getElementById('lock-screen-overlay');
-    if (el) { el.classList.remove('hidden'); el.style.display = 'flex'; }
+    if (!el) {
+        console.error('[lockScreen] showLockScreen 호출됐는데 lock-screen-overlay div가 없음');
+        return false;
+    }
+    el.classList.remove('hidden');
+    el.style.display = 'flex';
     const input = document.getElementById('lock-password-input');
     if (input) { input.value = ''; input.focus(); }
+    return true;
 }
 
 export function hideLockScreen() {

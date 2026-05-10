@@ -118,6 +118,19 @@ body {
 .sidebar-footer button:hover { background: var(--hover); }
 .lock-timer { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
 
+.boot-status {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    margin: 8px 0 0;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    transition: color 200ms ease, background 200ms ease;
+    word-break: keep-all;
+}
+
 /* ── Content ── */
 .content-area {
     flex: 1; margin-left: 260px;
