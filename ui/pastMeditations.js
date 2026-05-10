@@ -5,7 +5,7 @@
  * 각 카드: 날짜 + 본문 미리보기(앞 두 줄) + 클릭 시 펼치기.
  */
 
-import { db, collection, query, where, orderBy, getDocs } from '../data/firebase.js';
+import { db, collection, query, where, getDocs } from '../data/firebase.js';
 import { readDocument } from '../crypto/cryptoService.js';
 import { getDEK } from './lockScreen.js';
 
@@ -23,13 +23,18 @@ export async function renderPastMeditationsView(userId) {
 
     let docs = [];
     try {
+        // Firestore composite index 회피: where만 쓰고 정렬은 클라이언트에서
         const q = query(
             collection(db, 'meditations'),
             where('userId', '==', userId),
-            orderBy('date', 'desc')
         );
         const snap = await getDocs(q);
-        docs = snap.docs;
+        // date 내림차순 정렬 (문자열 비교 — "2026-05-10" 형식이라 안전)
+        docs = snap.docs.slice().sort((a, b) => {
+            const da = a.data().date || '';
+            const db_ = b.data().date || '';
+            return db_.localeCompare(da);
+        });
     } catch (e) {
         console.error('past meditations load failed:', e);
         container.innerHTML = `
