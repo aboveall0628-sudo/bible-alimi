@@ -5,7 +5,8 @@
 
 import { db, doc, setDoc, getDoc, getDocs, collection, query, where, orderBy, serverTimestamp } from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
-import { initLockScreen, setUnlocked, lock, getDEK, isLocked, showLockError } from './lockScreen.js';
+import { initLockScreen, setUnlocked, lock, getDEK, isLocked, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
+import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen } from './auth.js';
 import { initQuickReview, openQuickReview, showToast } from './quickReview.js';
 import { initTimeOfDayMode } from './timeOfDayMode.js';
 import { initSensitiveMode } from './sensitiveMode.js';
@@ -45,20 +46,28 @@ let bibleData = null;
 
 // ─── 초기화 ───
 async function init() {
-    // 1. 잠금 화면 초기화
+    // 1. 잠금 화면 (일단 숨김 상태로 초기화)
     initLockScreen({
         onUnlock: onVaultUnlocked,
         onLock: onVaultLocked,
         timeoutMinutes: 15,
+        startHidden: true // 부팅 제어권을 app.js가 가짐
     });
 
-    // 2. 잠금 해제 이벤트 핸들러
+    // 2. 인증 모듈 초기화
+    initAuth({
+        onSetupComplete: (dek) => {
+            setUnlocked(dek); // 온보딩 완료 시 자동 잠금해제
+        }
+    });
+
+    // 3. 잠금 해제 이벤트 핸들러
     document.addEventListener('sanctum:unlock-attempt', async (e) => {
         const { password } = e.detail;
         try {
             const userData = await loadUserVaultData();
             if (!userData) {
-                showLockError('계정을 찾을 수 없어요. Google로 먼저 로그인해주세요.');
+                showLockError('계정을 찾을 수 없어요. 오류가 있습니다.');
                 return;
             }
             const dek = await unlockVault(
@@ -78,26 +87,41 @@ async function init() {
         }
     });
 
-    // 3. 평가 모달 초기화
+    // 구글 로그인 요청 이벤트
+    document.addEventListener('sanctum:request-google-login', handleAuthClick);
+
+    // 4. 평가 모달 & 유틸
     initQuickReview({ onSaved: refreshTodayData });
-
-    // 4. 민감 모드
     initSensitiveMode();
-
-    // 5. 네비게이션
     setupNavigation();
-
-    // 6. Google API
-    setupGoogleAuth();
-
-    // 7. 성경 데이터 로드
-    await loadBibleData();
-
-    // 8. 날짜 초기화
-    setupDatePicker();
-
-    // 9. 로딩 해제
+    
+    // 5. 부팅 시퀀스 시작
     hideLoading();
+    setupGoogleAuth(); // 여기서 로그인 상태 체크 후 부팅 분기
+    setupDatePicker();
+    await loadBibleData();
+}
+
+// ─── Boot Flow 분기 ───
+async function checkBootState() {
+    if (currentUserId === 'anonymous') {
+        hideLockScreen();
+        showGoogleLoginScreen();
+        return;
+    }
+
+    hideGoogleLoginScreen();
+    const userData = await loadUserVaultData();
+    
+    if (userData) {
+        // 기존 사용자 -> 잠금 화면
+        hideSetupScreen();
+        showLockScreen();
+    } else {
+        // 신규 사용자 -> 비밀번호 설정 화면
+        hideLockScreen();
+        showSetupScreen(currentUserId);
+    }
 }
 
 // ─── Vault ───
@@ -431,9 +455,11 @@ function gapiLoaded() {
             const token = JSON.parse(saved);
             if (token.expires_at > Date.now()) {
                 gapi.client.setToken(token);
-                loadUserProfile();
+                await loadUserProfile();
+                return;
             }
         }
+        checkBootState(); // 토큰 만료 또는 없음
     });
 }
 
@@ -447,7 +473,7 @@ function gisLoaded() {
             const token = gapi.client.getToken();
             token.expires_at = Date.now() + token.expires_in * 1000;
             localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
-            loadUserProfile();
+            await loadUserProfile();
         },
     });
     gisInited = true;
@@ -469,7 +495,12 @@ async function loadUserProfile() {
         if (nameEl) nameEl.textContent = profile.name;
         const avatarEl = document.getElementById('user-avatar');
         if (avatarEl) { avatarEl.src = profile.picture; avatarEl.style.display = 'block'; }
-    } catch (e) { console.error('Profile load error:', e); }
+        
+        checkBootState(); // 프로필 로드 성공 시 부팅 분기
+    } catch (e) { 
+        console.error('Profile load error:', e); 
+        checkBootState(); // 에러 시에도 분기 시도 (anonymous 처리)
+    }
 }
 
 async function listUpcomingEvents() {

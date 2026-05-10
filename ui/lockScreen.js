@@ -14,7 +14,7 @@ let _onLock = null;
 /**
  * 초기화
  */
-export function initLockScreen({ onUnlock, onLock, timeoutMinutes = 15 }) {
+export function initLockScreen({ onUnlock, onLock, timeoutMinutes = 15, startHidden = false }) {
     _onUnlock = onUnlock;
     _onLock = onLock;
     _lockTimeoutMs = timeoutMinutes * 60 * 1000;
@@ -25,6 +25,9 @@ export function initLockScreen({ onUnlock, onLock, timeoutMinutes = 15 }) {
     });
 
     renderLockScreen();
+    if (startHidden) {
+        hideLockScreen();
+    }
 }
 
 /**
@@ -142,14 +145,14 @@ export function showLockError(msg) {
     if (input) { input.value = ''; input.focus(); }
 }
 
-function showLockScreen() {
+export function showLockScreen() {
     const el = document.getElementById('lock-screen-overlay');
     if (el) { el.classList.remove('hidden'); el.style.display = 'flex'; }
     const input = document.getElementById('lock-password-input');
     if (input) { input.value = ''; input.focus(); }
 }
 
-function hideLockScreen() {
+export function hideLockScreen() {
     const el = document.getElementById('lock-screen-overlay');
     if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
 }

@@ -349,6 +349,21 @@ body {
 }
 .lock-error { color: var(--dot-red); font-size: 13px; margin-bottom: var(--sp-3); }
 
+/* ═══ Setup Screen ═══ */
+.recovery-words-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2);
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: var(--sp-3); margin-bottom: var(--sp-4); text-align: left;
+}
+.word-chip { font-size: 12px; padding: 4px; background: var(--card-bg); border-radius: 4px; text-align: center; border: 1px solid var(--border); }
+.word-chip .w-num { color: var(--text-secondary); font-size: 10px; margin-right: 2px; }
+.confirm-checkbox {
+    display: flex; align-items: center; gap: var(--sp-2);
+    font-size: 13px; color: var(--text-secondary); cursor: pointer;
+    margin-bottom: var(--sp-4); text-align: left;
+}
+.confirm-checkbox input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+
 /* ═══ Toast ═══ */
 .sanctum-toast {
     position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
