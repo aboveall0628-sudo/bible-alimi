@@ -80,7 +80,7 @@
             </div>
             <nav class="sidebar-nav">
                 <button class="sidebar-item active" id="nav-dashboard">
-                    <span class="icon">📊</span> 통독 현황
+                    <span class="icon">📊</span> 대시보드
                 </button>
                 <button class="sidebar-item" id="nav-today">
                     <span class="icon">📅</span> 오늘 묵상
@@ -161,6 +161,34 @@
                     </div>
                 </section>
 
+                <section class="notion-section">
+                    <h2 class="section-title">⏰ 계획 vs 실제</h2>
+                    <div id="dual-timeline" class="dual-timeline-container">
+                        <div class="dual-timeline-header">
+                            <span class="dt-col">시간</span>
+                            <span class="dt-col">계획</span>
+                            <span class="dt-col">실제</span>
+                        </div>
+                        <div id="dual-timeline-body" class="dual-timeline-body">
+                        </div>
+                        <div id="match-rate-bar" class="match-rate-bar">
+                            <span>📊 오늘의 일치율:</span>
+                            <strong id="match-rate-value">--%</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="notion-section">
+                    <h2 class="section-title">📅 주간 히트맵</h2>
+                    <div id="weekly-heatmap" class="weekly-heatmap-container">
+                        <div class="heatmap-header">
+                            <span></span>
+                            <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+                        </div>
+                        <div id="heatmap-body" class="heatmap-body"></div>
+                    </div>
+                </section>
+
                 <hr class="section-divider">
 
                 <section class="weather-section">
@@ -173,9 +201,36 @@
 
             <div id="view-dashboard" class="view hidden">
                 <header class="notion-header">
-                    <h1 id="dashboard-title">📊 통독 현황</h1>
-                <p class="subtitle">지금까지 이만큼 읽었어요</p>
+                    <h1>📊 대시보드</h1>
+                    <p class="subtitle">나의 성장을 한눈에 확인해요</p>
                 </header>
+
+                <section class="notion-section">
+                    <h2 class="section-title">오늘의 지표</h2>
+                    <div class="dashboard-cards">
+                        <div class="dash-card">
+                            <div class="dash-card-label">일치율</div>
+                            <div class="dash-card-value" id="dash-match-rate">--%</div>
+                            <div class="dash-card-sub">계획 대비 실제 실행</div>
+                        </div>
+                        <div class="dash-card">
+                            <div class="dash-card-label">계획 충실도</div>
+                            <div class="dash-card-value" id="dash-adherence">--%</div>
+                            <div class="dash-card-sub">계획한 일정 실행 비율</div>
+                        </div>
+                        <div class="dash-card">
+                            <div class="dash-card-label">평균 만족도</div>
+                            <div class="dash-card-value" id="dash-avg-sat">--</div>
+                            <div class="dash-card-sub">실행 만족도 평균</div>
+                        </div>
+                        <div class="dash-card">
+                            <div class="dash-card-label">오늘의 도트</div>
+                            <div class="dash-card-value" id="dash-dot-count">0</div>
+                            <div class="dash-card-sub">평가 완료된 일정</div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="notion-section">
                     <h2 class="section-title">파트별 진행률</h2>
                     <div id="progress-container"></div>
@@ -296,6 +351,6 @@
     </div>
 
     <script src="bibleData.js"></script>
-    <script type="module" src="script.js?v=1.6"></script>
+    <script type="module" src="script.js?v=1.7"></script>
 </body>
 </html>

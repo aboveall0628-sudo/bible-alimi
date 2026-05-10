@@ -349,6 +349,8 @@ function switchView(viewId) {
         loadReflectionView();
     } else if (viewId === 'principles') {
         loadPrinciplesView();
+    } else if (viewId === 'dashboard') {
+        updateDashboardCards();
     }
 }
 
@@ -450,7 +452,10 @@ async function loadMeditationNote(dateStr) {
             editor.innerHTML = "";
         }
         await fetchTodayDots(dateStr);
-        renderCustomTimeboxEvents(docSnap.data()?.timeboxEvents || []);
+        const timeboxEvents = docSnap.data()?.timeboxEvents || [];
+        renderCustomTimeboxEvents(timeboxEvents);
+        renderDualTimeline(timeboxEvents);
+        renderWeeklyHeatmap();
     } catch (e) {
         console.error("Load error:", e);
         editor.innerHTML = ""; 
@@ -1871,6 +1876,161 @@ function renderReflectionDiscoveries() {
         `;
         container.appendChild(card);
     });
+}
+
+/**
+ * Dual Timeline: Plan vs Actual
+ */
+function renderDualTimeline(timeboxEvents) {
+    const body = document.getElementById('dual-timeline-body');
+    if (!body) return;
+    body.innerHTML = '';
+
+    const now = new Date();
+    const currentIdx = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+
+    // Build plan map: index → task title
+    const planMap = {};
+    (timeboxEvents || []).forEach(ev => {
+        const sorted = [...ev.indices].sort((a, b) => a - b);
+        const start = sorted[0];
+        planMap[start] = ev.title;
+    });
+
+    // Build actual map from dots
+    const actualMap = {};
+    todayDots.forEach(d => {
+        actualMap[d.timeSlot] = d.actualTask || d.plannedTask || '';
+    });
+
+    // Get all hours that have either plan or actual
+    const allSlots = new Set([...Object.keys(planMap).map(Number), ...Object.keys(actualMap).map(Number)]);
+    const sortedSlots = [...allSlots].sort((a, b) => a - b).filter(s => s < currentIdx);
+
+    let matchCount = 0;
+    let totalCount = 0;
+
+    sortedSlots.forEach(slot => {
+        const h = Math.floor(slot / 4);
+        const m = (slot % 4) * 15;
+        const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const plan = planMap[slot] || '';
+        const actual = actualMap[slot] || '';
+
+        totalCount++;
+        const isMatch = plan && actual && (plan === actual || actual.includes(plan) || plan.includes(actual));
+        if (isMatch) matchCount++;
+
+        let rowClass = '';
+        if (isMatch) rowClass = 'match';
+        else if (plan && actual) rowClass = 'mismatch';
+        else if (plan && !actual) rowClass = 'plan-only';
+        else if (!plan && actual) rowClass = 'actual-only';
+
+        const row = document.createElement('div');
+        row.className = `dt-row ${rowClass}`;
+        row.innerHTML = `
+            <span class="dt-time">${timeStr}</span>
+            <span class="dt-plan">${plan || '—'}</span>
+            <span class="dt-actual">${actual || '—'}</span>
+        `;
+        body.appendChild(row);
+    });
+
+    if (sortedSlots.length === 0) {
+        body.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--notion-text-light);">아직 비교할 데이터가 없어요.</div>';
+    }
+
+    // Update match rate
+    const rate = totalCount > 0 ? Math.round((matchCount / totalCount) * 100) : 0;
+    const rateEl = document.getElementById('match-rate-value');
+    if (rateEl) rateEl.textContent = `${rate}%`;
+
+    // Store for dashboard
+    window._matchRate = rate;
+    window._totalPlanned = Object.keys(planMap).length;
+    window._totalDots = todayDots.length;
+    window._avgSatisfaction = todayDots.length > 0 
+        ? (todayDots.reduce((acc, d) => acc + (d.executionSatisfaction || 0), 0) / todayDots.length).toFixed(1)
+        : '--';
+    window._adherence = window._totalPlanned > 0
+        ? Math.round((todayDots.filter(d => planMap[d.timeSlot]).length / window._totalPlanned) * 100)
+        : 0;
+}
+
+/**
+ * Weekly Heatmap
+ */
+function renderWeeklyHeatmap() {
+    const body = document.getElementById('heatmap-body');
+    if (!body) return;
+    body.innerHTML = '';
+
+    // Show hours 6-23 in 3-hour blocks
+    const hourBlocks = [
+        { label: '06시', start: 6, end: 8 },
+        { label: '09시', start: 9, end: 11 },
+        { label: '12시', start: 12, end: 14 },
+        { label: '15시', start: 15, end: 17 },
+        { label: '18시', start: 18, end: 20 },
+        { label: '21시', start: 21, end: 23 },
+    ];
+
+    // For now, render placeholder data for the current week
+    // Real data would come from querying dots collection for the week
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+    hourBlocks.forEach(block => {
+        const row = document.createElement('div');
+        row.className = 'heatmap-row';
+        row.innerHTML = `<span class="hm-label">${block.label}</span>`;
+
+        for (let d = 0; d < 7; d++) {
+            const cell = document.createElement('div');
+            cell.className = 'hm-cell';
+
+            // For today's column, use actual data
+            const isToday = (d === (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+            if (isToday) {
+                // Count dots in this hour range
+                const dotsInRange = todayDots.filter(dot => {
+                    const h = Math.floor(dot.timeSlot / 4);
+                    return h >= block.start && h <= block.end;
+                });
+                const avgSat = dotsInRange.length > 0
+                    ? dotsInRange.reduce((acc, d) => acc + (d.executionSatisfaction || 0), 0) / dotsInRange.length
+                    : 0;
+
+                if (avgSat >= 4) cell.classList.add('level-4');
+                else if (avgSat >= 3) cell.classList.add('level-3');
+                else if (avgSat >= 2) cell.classList.add('level-2');
+                else if (avgSat > 0) cell.classList.add('level-1');
+                else cell.classList.add('level-0');
+            } else {
+                cell.classList.add('level-0');
+            }
+
+            row.appendChild(cell);
+        }
+        body.appendChild(row);
+    });
+}
+
+/**
+ * Dashboard Cards
+ */
+function updateDashboardCards() {
+    const matchEl = document.getElementById('dash-match-rate');
+    const adherenceEl = document.getElementById('dash-adherence');
+    const satEl = document.getElementById('dash-avg-sat');
+    const dotEl = document.getElementById('dash-dot-count');
+
+    if (matchEl) matchEl.textContent = (window._matchRate ?? '--') + '%';
+    if (adherenceEl) adherenceEl.textContent = (window._adherence ?? '--') + '%';
+    if (satEl) satEl.textContent = window._avgSatisfaction ?? '--';
+    if (dotEl) dotEl.textContent = window._totalDots ?? 0;
 }
 
 init();
