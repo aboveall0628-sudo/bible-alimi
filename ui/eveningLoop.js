@@ -13,6 +13,7 @@ import { checkAndGenerateDayReport, getReport, getReports } from '../data/report
 import { generateLocalFallback } from '../infra/cloudFunctionProxy.js';
 import { saveDecision } from '../data/decisionsRepo.js';
 import { showToast } from './quickReview.js';
+import { callLLM } from './aiClient.js';
 
 const DAILY_STEPS = [
     { id: 'fill',     title: '시간 정직하게 보기',  icon: '⏰', desc: '오늘 빈 시간에 무엇을 했는지 떠올려 봐요.' },
@@ -232,7 +233,8 @@ async function loadSectionContent(step) {
                 return;
             }
             const stats = report.stats || {};
-            const fallback = generateLocalFallback(stats);
+
+            // 일단 통계만 먼저 그리고, AI 요약은 비동기 채움 (Cloud Function 미배포 시 fallback)
             body.innerHTML = `
                 <div class="el-stat-row">
                     <div class="el-stat"><span class="el-stat-num">${stats.doneCount || 0}<small>/${stats.totalSlots || 0}</small></span><span class="el-stat-lbl">완료</span></div>
@@ -240,12 +242,34 @@ async function loadSectionContent(step) {
                     <div class="el-stat"><span class="el-stat-num">${stats.matchRate || 0}<small>%</small></span><span class="el-stat-lbl">계획 일치율</span></div>
                 </div>
                 <div class="ai-summary-card">
-                    <p>${report.aiSummary || fallback.aiSummary}</p>
+                    <p id="reflect-ai-text">잠깐만요, 패턴을 살펴보고 있어요...</p>
+                    <p id="reflect-ai-tag" style="font-size:11px;color:var(--text-secondary);margin-top:8px"></p>
                 </div>
                 <p class="el-tip">
-                    숫자는 비교가 아니라 거울이에요. 잘잘못 가리기보다는, 어떤 결이 보이는지만 살펴 봐요.
+                    숫자는 비교가 아니라 거울이에요. 잘잘못 가리기보다는, 어떤 결이 보이는지만 살펴봐요.
                 </p>
             `;
+
+            // 이미 저장된 aiSummary가 있으면 우선 사용, 없으면 AI 호출 시도
+            (async () => {
+                let text = report.aiSummary;
+                let isFallback = false;
+                if (!text) {
+                    const result = await callLLM('dayReport', {
+                        date: _dateStr,
+                        stats,
+                        context: { persons: [], amounts: [] },
+                    }, { stats });
+                    text = result.text;
+                    isFallback = result.fallback;
+                }
+                const aiEl = document.getElementById('reflect-ai-text');
+                const tagEl = document.getElementById('reflect-ai-tag');
+                if (aiEl) aiEl.textContent = text;
+                if (tagEl) tagEl.textContent = isFallback
+                    ? '※ 지금은 간단 요약만 보여드려요. AI 분석은 곧 활성화될 예정이에요.'
+                    : '🌟 AI가 살펴본 오늘의 결';
+            })();
             break;
         }
 
