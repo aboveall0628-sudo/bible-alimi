@@ -13,6 +13,12 @@ import { getDotsByDate } from '../data/dotsRepo.js';
 import { runReportChecks } from '../data/reportPipeline.js';
 import { initializeSeedData } from '../seeds.js';
 
+// ── UI Views ──
+import { renderPrinciplesView } from './principles.js';
+import { renderGoalsView } from './goals.js';
+import { renderDashboardView } from './dashboard.js';
+import { renderReportsView } from './reports.js';
+
 // ─── 전역 상태 ───
 window.appStarted = true;
 let currentUserId = 'anonymous';
@@ -177,9 +183,16 @@ function switchView(viewId) {
     // 뷰별 초기화
     if (viewId === 'evening') {
         import('./eveningLoop.js').then(m => m.openEveningLoop(currentUserId, currentDate));
-    }
-    if (viewId === 'saturday') {
+    } else if (viewId === 'saturday') {
         import('./saturdayReview.js').then(m => m.openSaturdayReview(currentUserId));
+    } else if (viewId === 'principles') {
+        renderPrinciplesView(currentUserId);
+    } else if (viewId === 'goals') {
+        renderGoalsView(currentUserId);
+    } else if (viewId === 'dashboard') {
+        renderDashboardView(currentUserId);
+    } else if (viewId === 'reports') {
+        renderReportsView(currentUserId);
     }
 
     // 모바일 사이드바 닫기
