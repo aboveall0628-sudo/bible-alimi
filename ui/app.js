@@ -8,7 +8,7 @@ import {
     GoogleAuthProvider, signInWithCredential
 } from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
-import { initLockScreen, setUnlocked, lock, getDEK, isLocked, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
+import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen } from './auth.js';
 import { initAutoLock, registerFailedAttempt, isLockoutActive, getLockoutRemainingSec, resetFailedAttempts } from '../security/autoLock.js';
 import { logAuditAction } from '../security/auditLog.js';
@@ -17,7 +17,7 @@ import { initSensitiveMode } from './sensitiveMode.js';
 import { initThemeManager } from './themeManager.js';
 import { renderScriptureForDate, loadBibleData as loadBibleDataModule } from './scripture.js';
 import { initTodayView, refreshTodayView } from './todayView.js';
-import { getDotsByDate } from '../data/dotsRepo.js';
+import { initTimeline, refreshTimeline } from './timeline.js';
 import { runReportChecks } from '../data/reportPipeline.js';
 import { initializeSeedData } from '../seeds.js';
 
@@ -33,7 +33,6 @@ window.appStarted = true;
 let currentUserId = 'anonymous';   // Firebase Auth UID (보안 규칙 매칭용)
 let currentUserEmail = null;       // 표시용/로그용
 let currentDate = new Date().toISOString().split('T')[0];
-let todayDots = [];
 
 // ─── 부팅 상태 표시기 (사이드바 footer) ───
 function setBootStatus(text, level = 'info') {
@@ -206,13 +205,18 @@ async function onVaultUnlocked(dek) {
     initTodayView({ userId: currentUserId, date: currentDate });
     await refreshTodayView({ userId: currentUserId, date: currentDate });
 
+    // 통합 타임라인 마운트 + 데이터 로드 (결단 박힌 슬롯, GCal 일정, 도트)
+    initTimeline({
+        userId: currentUserId,
+        date: currentDate,
+        onChange: () => refreshTodayView({ userId: currentUserId, date: currentDate }),
+    });
+    await refreshTimeline({ userId: currentUserId, date: currentDate });
+
     // 성경 본문 렌더
     renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(e =>
         console.warn('scripture render failed:', e)
     );
-
-    // 도트(타임라인 데이터) 로드 — 통합 타임라인 컴포넌트는 Chunk 3에서 활성화
-    await refreshTodayData();
 
     // 저녁(18시 이후) 안내 바 트리거
     maybeShowEveningHint();
@@ -226,37 +230,15 @@ async function onVaultUnlocked(dek) {
 }
 
 function onVaultLocked() {
-    todayDots = [];
     hideMainContent();
     setBootStatus('🔒 잠김 — 비밀번호 입력', 'wait');
 }
 
-// ─── 데이터 새로고침 ───
+// 평가 모달 저장 후 호출되는 콜백 — 타임라인+결단 패널 동시 갱신
 async function refreshTodayData() {
-    const dek = getDEK();
-    if (!dek) return;
-    todayDots = await getDotsByDate(dek, currentUserId, currentDate);
-    // 통합 타임라인 컴포넌트는 Chunk 3에서 todayView.js로 이전 — 임시 placeholder
-    renderTimelinePlaceholder();
-}
-
-function renderTimelinePlaceholder() {
-    const body = document.getElementById('utl-body');
-    if (!body) return;
-    body.innerHTML = `
-        <div class="utl-empty-card">
-            <h4>처음이신가요? 이렇게 시작해보세요</h4>
-            <ol>
-                <li>묵상 노트에 떠오른 것을 적어보세요</li>
-                <li>오늘의 결단 한 줄을 입력하세요</li>
-                <li>결단 카드의 ⋮⋮를 시간축으로 드래그해서 박으세요</li>
-                <li>빈 시간을 클릭하면 시계부를 빠르게 기록할 수 있어요</li>
-            </ol>
-            <p style="margin-top:12px;font-size:11px;color:var(--text-secondary)">
-                (통합 타임라인 컴포넌트는 다음 단계에서 활성화됩니다.)
-            </p>
-        </div>
-    `;
+    if (!currentUserId || !currentDate) return;
+    await refreshTimeline({ userId: currentUserId, date: currentDate });
+    await refreshTodayView({ userId: currentUserId, date: currentDate });
 }
 
 // ─── 저녁 안내 바 (18시 이후 자동 노출) ───
@@ -342,8 +324,8 @@ function setupDatePicker() {
             updateDateDisplay();
             // 날짜 바뀔 때마다 핀/노트/결단/도트/말씀 모두 갱신
             await refreshTodayView({ userId: currentUserId, date: currentDate });
+            await refreshTimeline({ userId: currentUserId, date: currentDate });
             renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(() => {});
-            await refreshTodayData();
         });
     }
     updateDateDisplay();
