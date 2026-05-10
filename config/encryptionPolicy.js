@@ -54,6 +54,11 @@ export const POLICY = {
     bibleProgress: {
         plaintext: ['id', 'userId', 'partId', 'chapterIndex', 'date', 'completed', 'createdAt'],
         encrypted: ['note', 'highlightVerseIds']
+    },
+    // 결단: 시간 슬롯/배치 상태는 평문(타임라인 그리드 계산), 본문/링크는 암호화
+    decisions: {
+        plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt'],
+        encrypted: ['text', 'linkedScriptureId', 'linkedGoalId', 'linkedPrincipleId']
     }
     // RESERVED FOR v2 FUTURE MODULES
     // persons: { plaintext: [], encrypted: [] },

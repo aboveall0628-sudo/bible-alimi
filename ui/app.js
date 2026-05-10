@@ -4,7 +4,7 @@
  */
 
 import {
-    db, auth, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp,
+    db, auth, doc, setDoc, getDoc, serverTimestamp,
     GoogleAuthProvider, signInWithCredential
 } from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
@@ -15,6 +15,8 @@ import { logAuditAction } from '../security/auditLog.js';
 import { initQuickReview, showToast } from './quickReview.js';
 import { initSensitiveMode } from './sensitiveMode.js';
 import { initThemeManager } from './themeManager.js';
+import { renderScriptureForDate, loadBibleData as loadBibleDataModule } from './scripture.js';
+import { initTodayView, refreshTodayView } from './todayView.js';
 import { getDotsByDate } from '../data/dotsRepo.js';
 import { runReportChecks } from '../data/reportPipeline.js';
 import { initializeSeedData } from '../seeds.js';
@@ -71,13 +73,7 @@ const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 const TOKEN_KEY = 'gcal_token';
 
-// Bible data (from legacy)
-const REMOTE_URL = 'https://raw.githubusercontent.com/aboveall0628-sudo/bible-data/refs/heads/main/bible.json';
-const DB_NAME = 'BibleAlimiDB';
-const STORE_NAME = 'bibleData';
-const ANCHOR_DATE = new Date('2026-05-08T00:00:00');
-const ANCHOR_INDICES = { 1: 84, 2: 200, 3: 17, 4: 63 };
-let bibleData = null;
+// Bible data: ui/scripture.js 모듈로 이전
 
 // ─── 초기화 ───
 async function init() {
@@ -149,7 +145,8 @@ async function init() {
     setBootStatus('2/5 Google API 로드 중...');
     setupGoogleAuth(); // 여기서 로그인 상태 체크 후 부팅 분기
     setupDatePicker();
-    await loadBibleData();
+    // 성경 데이터 사전 로드 (인증 없이도 가능, 캐시 워밍업)
+    loadBibleDataModule().catch(e => console.warn('bible preload failed:', e));
 }
 
 // ─── Boot Flow 분기 ───
@@ -205,7 +202,16 @@ async function onVaultUnlocked(dek) {
     try { await initializeSeedData(dek, currentUserId); }
     catch (e) { console.warn('seed init failed:', e); }
 
-    // 오늘 데이터 로드
+    // 오늘 뷰 컴포넌트 마운트 + 데이터 로드 (핀 원칙 띠, 묵상 노트, 결단 패널)
+    initTodayView({ userId: currentUserId, date: currentDate });
+    await refreshTodayView({ userId: currentUserId, date: currentDate });
+
+    // 성경 본문 렌더
+    renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(e =>
+        console.warn('scripture render failed:', e)
+    );
+
+    // 도트(타임라인 데이터) 로드 — 통합 타임라인 컴포넌트는 Chunk 3에서 활성화
     await refreshTodayData();
 
     // 저녁(18시 이후) 안내 바 트리거
@@ -215,9 +221,6 @@ async function onVaultUnlocked(dek) {
     runReportChecks(dek, currentUserId).then(ids => {
         if (ids.length > 0) console.log('Auto-generated reports:', ids);
     });
-
-    // 핀 원칙 띠 로드
-    loadPinnedPrinciple(dek);
 
     showToast('🔓 안전하게 열렸어요');
 }
@@ -327,86 +330,20 @@ function switchView(viewId) {
     document.getElementById('sidebar')?.classList.remove('open');
 }
 
-// ─── 핀 원칙 ───
-async function loadPinnedPrinciple(dek) {
-    const q = query(
-        collection(db, 'principles'),
-        where('userId', '==', currentUserId),
-        where('pinned', '==', true)
-    );
-    const snap = await getDocs(q);
-    const banner = document.getElementById('pinned-principle-text');
-    if (snap.docs.length > 0 && banner) {
-        try {
-            const { readDocument } = await import('../crypto/cryptoService.js');
-            const data = await readDocument(dek, snap.docs[0].data());
-            banner.textContent = data.title || '';
-            document.getElementById('pinned-principle-banner')?.classList.remove('hidden');
-        } catch (e) { /* skip */ }
-    }
-}
-
-// ─── 성경 데이터 (레거시 보존, Chunk 2에서 ui/scripture.js로 분리 예정) ───
-async function loadBibleData() {
-    try {
-        const cached = await loadFromIndexedDB();
-        if (cached) { bibleData = cached; renderScripture(); return; }
-    } catch (e) { /* continue */ }
-
-    try {
-        if (typeof window.BIBLE_DATA_RAW !== 'undefined') {
-            bibleData = window.BIBLE_DATA_RAW;
-        } else {
-            const res = await fetch(REMOTE_URL);
-            bibleData = await res.json();
-        }
-        saveToIndexedDB(bibleData);
-        renderScripture();
-    } catch (e) {
-        console.error('Bible data load failed:', e);
-    }
-}
-
-function loadFromIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = (e) => e.target.result.createObjectStore(STORE_NAME);
-        req.onsuccess = () => {
-            const tx = req.result.transaction(STORE_NAME, 'readonly');
-            const store = tx.objectStore(STORE_NAME);
-            const get = store.get('bible');
-            get.onsuccess = () => resolve(get.result || null);
-            get.onerror = () => reject();
-        };
-        req.onerror = () => reject();
-    });
-}
-
-function saveToIndexedDB(data) {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onsuccess = () => {
-        const tx = req.result.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).put(data, 'bible');
-    };
-}
-
-function renderScripture() {
-    const container = document.getElementById('meditation-content');
-    if (!container || !bibleData) return;
-    container.innerHTML = '<p style="color:var(--text-secondary)">말씀이 로드되었어요.</p>';
-    // Full scripture rendering logic preserved from legacy script.js
-}
+// 핀 원칙 띠는 ui/todayView.js로 이전
 
 // ─── 날짜 ───
 function setupDatePicker() {
     const input = document.getElementById('calendar-input');
-    const display = document.getElementById('current-date-display');
     if (input) {
         input.value = currentDate;
-        input.addEventListener('change', () => {
+        input.addEventListener('change', async () => {
             currentDate = input.value;
-            refreshTodayData();
             updateDateDisplay();
+            // 날짜 바뀔 때마다 핀/노트/결단/도트/말씀 모두 갱신
+            await refreshTodayView({ userId: currentUserId, date: currentDate });
+            renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(() => {});
+            await refreshTodayData();
         });
     }
     updateDateDisplay();
