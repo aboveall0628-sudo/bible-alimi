@@ -91,51 +91,62 @@ export function fromBase64(base64Str) {
 
 /**
  * 비밀번호 + salt → AES-256 키 유도
- * 1순위: Argon2id (hash-wasm, ESM CDN)
- * 2순위: PBKDF2-SHA256 600,000 iterations (Web Crypto)
+ *
+ * @param {string} password
+ * @param {Uint8Array} salt
+ * @param {Object|null} storedParams - vault에 기록된 kdfParams.
+ *   존재하면 그 algo로만 시도 (호환성). null이면 Argon2id → PBKDF2 순서.
  */
-async function deriveKey(password, salt) {
+async function deriveKey(password, salt, storedParams = null) {
+    const forced = storedParams?.algo || null;
     let keyMaterialRaw;
-    const argon2 = await loadArgon2();
 
-    if (argon2) {
-        try {
-            const hex = await argon2.argon2id({
-                password,
-                salt,
-                parallelism: KDF_PARAMS.argon2.parallelism,
-                iterations: KDF_PARAMS.argon2.time,
-                memorySize: KDF_PARAMS.argon2.memMB * 1024, // KiB
-                hashLength: 32,
-                outputType: 'hex',
-            });
-            // hex → Uint8Array
-            const bytes = new Uint8Array(hex.length / 2);
-            for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-            keyMaterialRaw = bytes.buffer;
-            KDF_PARAMS.algo = 'Argon2id';
-        } catch (e) {
-            console.warn('Argon2id derive failed, falling back to PBKDF2:', e.message);
+    const tryArgon = !forced || forced === 'Argon2id';
+    const tryPbkdf = !forced || forced === 'PBKDF2';
+
+    if (tryArgon) {
+        const argon2 = await loadArgon2();
+        if (argon2) {
+            try {
+                const p = storedParams?.argon2 || KDF_PARAMS.argon2;
+                const hex = await argon2.argon2id({
+                    password,
+                    salt,
+                    parallelism: p.parallelism,
+                    iterations: p.time,
+                    memorySize: p.memMB * 1024, // KiB
+                    hashLength: 32,
+                    outputType: 'hex',
+                });
+                const bytes = new Uint8Array(hex.length / 2);
+                for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+                keyMaterialRaw = bytes.buffer;
+                KDF_PARAMS.algo = 'Argon2id';
+            } catch (e) {
+                if (forced === 'Argon2id') throw e;
+                console.warn('Argon2id derive failed, falling back to PBKDF2:', e.message);
+            }
+        } else if (forced === 'Argon2id') {
+            throw new Error('ARGON2_UNAVAILABLE');
         }
     }
 
-    if (!keyMaterialRaw) {
+    if (!keyMaterialRaw && tryPbkdf) {
         const enc = new TextEncoder();
         const baseKey = await crypto.subtle.importKey(
-            'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
+            'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits', 'deriveKey']
         );
+        const iters = storedParams?.iterations || KDF_PARAMS.iterations;
+        const hash = storedParams?.hash || KDF_PARAMS.hash;
         keyMaterialRaw = await crypto.subtle.deriveBits(
-            {
-                name: 'PBKDF2',
-                salt: salt,
-                iterations: KDF_PARAMS.iterations,
-                hash: KDF_PARAMS.hash,
-            },
+            { name: 'PBKDF2', salt, iterations: iters, hash },
             baseKey,
             256
         );
         KDF_PARAMS.algo = 'PBKDF2';
     }
+
+    if (!keyMaterialRaw) throw new Error('KDF_FAILED');
 
     return crypto.subtle.importKey(
         'raw', keyMaterialRaw, { name: 'AES-GCM' }, false, ['wrapKey', 'unwrapKey']
@@ -230,29 +241,49 @@ export async function setupNewVault(masterPassword) {
 
 /**
  * 로그인: 마스터 비밀번호 → DEK unwrap
+ * @param {Object|null} storedKdfParams - vault doc의 kdfParams. null이면 자동 감지(시도-fallback)
  * @returns {CryptoKey} dek
  * @throws 비밀번호 불일치 시 에러
  */
-export async function unlockVault(masterPassword, saltBase64, wrappedDEKBase64, ivBase64) {
+export async function unlockVault(masterPassword, saltBase64, wrappedDEKBase64, ivBase64, storedKdfParams = null) {
     const salt = fromBase64(saltBase64);
-    const masterKey = await deriveKey(masterPassword, salt);
+
+    // 1차: 저장된 algo 그대로 시도
     try {
+        const masterKey = await deriveKey(masterPassword, salt, storedKdfParams);
         return await unwrapDEK(masterKey, wrappedDEKBase64, ivBase64);
     } catch (e) {
+        // 2차: 저장된 algo가 명시되어 있더라도 옛 vault 호환을 위해 반대 algo로 한 번 더 시도
+        if (storedKdfParams?.algo) {
+            try {
+                const otherAlgo = storedKdfParams.algo === 'Argon2id' ? 'PBKDF2' : 'Argon2id';
+                const fallbackParams = { ...storedKdfParams, algo: otherAlgo };
+                const masterKey = await deriveKey(masterPassword, salt, fallbackParams);
+                return await unwrapDEK(masterKey, wrappedDEKBase64, ivBase64);
+            } catch (_) { /* fall through */ }
+        }
         throw new Error('WRONG_PASSWORD');
     }
 }
 
 /**
  * 복구 코드로 DEK 복원
+ * @param {Object|null} storedKdfParams
  * @returns {CryptoKey} dek
  */
-export async function recoverWithWords(words, wrappedDEKBase64, ivBase64) {
+export async function recoverWithWords(words, wrappedDEKBase64, ivBase64, storedKdfParams = null) {
     const recoveryPassword = words.join(' ');
-    const recoveryKey = await deriveKey(recoveryPassword, RECOVERY_SALT);
     try {
+        const recoveryKey = await deriveKey(recoveryPassword, RECOVERY_SALT, storedKdfParams);
         return await unwrapDEK(recoveryKey, wrappedDEKBase64, ivBase64);
     } catch (e) {
+        if (storedKdfParams?.algo) {
+            try {
+                const otherAlgo = storedKdfParams.algo === 'Argon2id' ? 'PBKDF2' : 'Argon2id';
+                const recoveryKey = await deriveKey(recoveryPassword, RECOVERY_SALT, { ...storedKdfParams, algo: otherAlgo });
+                return await unwrapDEK(recoveryKey, wrappedDEKBase64, ivBase64);
+            } catch (_) { /* fall through */ }
+        }
         throw new Error('WRONG_RECOVERY_CODE');
     }
 }

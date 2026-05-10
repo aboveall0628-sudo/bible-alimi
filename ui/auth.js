@@ -231,7 +231,7 @@ function bindEvents() {
                 if (!userDoc.exists()) throw new Error('사용자 정보가 없습니다.');
                 const userData = userDoc.data();
 
-                const dek = await recoverWithWords(words, userData.wrappedDEK_recovery, userData.wrappedDEK_recovery_iv);
+                const dek = await recoverWithWords(words, userData.wrappedDEK_recovery, userData.wrappedDEK_recovery_iv, userData.kdfParams || null);
                 
                 document.getElementById('recovery-screen-overlay').classList.add('hidden');
                 document.getElementById('recovery-screen-overlay').style.display = 'none';

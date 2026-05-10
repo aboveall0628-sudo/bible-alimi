@@ -187,7 +187,7 @@ function bindEvents() {
             const userSnap = await getDoc(doc(db, 'users', _userId));
             if (!userSnap.exists()) throw new Error('NO_VAULT');
             const v = userSnap.data();
-            await unlockVault(oldPw, v.masterKeySalt, v.wrappedDEK_master, v.wrappedDEK_master_iv);
+            await unlockVault(oldPw, v.masterKeySalt, v.wrappedDEK_master, v.wrappedDEK_master_iv, v.kdfParams || null);
 
             // 2) 새 비밀번호로 DEK 다시 wrap
             const re = await changePassword(dek, newPw);

@@ -89,7 +89,8 @@ async function init() {
                 password,
                 userData.masterKeySalt,
                 userData.wrappedDEK_master,
-                userData.wrappedDEK_master_iv
+                userData.wrappedDEK_master_iv,
+                userData.kdfParams || null
             );
             setUnlocked(dek);
             resetFailedAttempts();
