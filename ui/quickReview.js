@@ -13,6 +13,8 @@ let _currentSlot = null;
 let _currentCells = [];
 let _currentUserId = null;
 let _currentDate = null;
+let _currentDecisionId = null;
+let _currentExistingDot = null;
 let _onSaved = null;
 
 const STATUS_OPTIONS = [
@@ -34,11 +36,13 @@ export function initQuickReview({ onSaved }) {
 /**
  * 모달 열기
  */
-export function openQuickReview({ timeSlot, cells, userId, date, plannedTask }) {
+export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, decisionId, existingDot }) {
     _currentSlot = timeSlot;
-    _currentCells = cells;
+    _currentCells = cells || [timeSlot];
     _currentUserId = userId;
     _currentDate = date;
+    _currentDecisionId = decisionId || null;
+    _currentExistingDot = existingDot || null;
 
     // 초기화
     const modal = document.getElementById('qr-modal');
@@ -86,9 +90,10 @@ function renderModal() {
 
             <div class="qr-status-row">
                 ${STATUS_OPTIONS.map(s => `
-                    <button class="qr-status-btn" data-status="${s.key}" title="${s.shortcut}키">
+                    <button class="qr-status-btn" data-status="${s.key}" title="단축키 ${s.shortcut}">
                         <span class="qr-status-emoji">${s.emoji}</span>
                         <span class="qr-status-text">${s.label}</span>
+                        <span class="qr-status-key">${s.shortcut}</span>
                     </button>
                 `).join('')}
             </div>
@@ -100,7 +105,7 @@ function renderModal() {
             </div>
 
             <div class="qr-labels-row">
-                ${Object.entries(labelAxes).map(([axis, labels]) =>
+                ${Object.values(labelAxes).map(labels =>
                     labels.map(l => `<button class="qr-label-chip" data-label="${l}">${l}</button>`).join('')
                 ).join('')}
             </div>
@@ -225,23 +230,34 @@ async function handleSave() {
     btn.disabled = true;
 
     try {
-        await saveDot(dek, {
+        const planned = document.getElementById('qr-planned-task').textContent;
+        const dotData = {
             userId: _currentUserId,
             date: _currentDate,
             timeSlot: _currentSlot,
             executed,
             executionSatisfaction: satisfaction,
             outcomeSatisfaction: outcomeSat,
-            plannedTask: document.getElementById('qr-planned-task').textContent,
-            actualTask: actualTask || document.getElementById('qr-planned-task').textContent,
+            plannedTask: planned,
+            // 사용자 신고: ✅완료일 때 plannedTask가 actualTask로 자동 복사
+            actualTask: actualTask || (executed === 'done' ? planned : ''),
             reason,
             labelIds: labels,
-        });
+            // 미래 슬롯 예약(STEP 0/1 단계에선 빈 배열로 두기)
+            linkedScriptureId: _currentExistingDot?.linkedScriptureId || null,
+            linkedGoalId: _currentExistingDot?.linkedGoalId || null,
+            linkedPersonIds: _currentExistingDot?.linkedPersonIds || [],
+            linkedTransactionIds: _currentExistingDot?.linkedTransactionIds || [],
+        };
+        // 기존 도트가 있으면 id 유지하여 덮어쓰기
+        if (_currentExistingDot?.id) dotData.id = _currentExistingDot.id;
+
+        await saveDot(dek, dotData);
 
         // 토스트
         showToast('🔐 안전하게 보관됨');
         closeModal();
-        if (_onSaved) _onSaved();
+        if (_onSaved) _onSaved({ decisionId: _currentDecisionId });
     } catch (e) {
         console.error('Save dot error:', e);
         btn.textContent = '기록하기';
