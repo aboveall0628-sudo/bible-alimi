@@ -9,7 +9,7 @@
  */
 
 import { db, doc, setDoc, getDoc, getDocs, collection, query, where, orderBy, serverTimestamp } from './firebase.js';
-import { prepareDocument, readDocument } from '../crypto/cryptoService.js';
+import { saveRecord, getRecord, queryRecords } from './baseRepo.js';
 import { getDotsByDateRange, computeDotStats } from './dotsRepo.js';
 
 /**
@@ -28,7 +28,7 @@ export async function checkAndGenerateDayReport(dek, userId) {
     const stats = computeDotStats(dots);
     const dotIds = dots.map(d => d.id);
 
-    const meta = {
+    const reportData = {
         id: reportId,
         userId,
         period: 'day',
@@ -37,18 +37,13 @@ export async function checkAndGenerateDayReport(dek, userId) {
         stats,
         drillDownChildIds: dotIds,
         createdAt: serverTimestamp(),
-    };
-
-    const sensitive = {
-        aiSummary: null, // LLM 연동 후 채워짐
+        aiSummary: null,
         keyPatterns: [],
         suggestedPrinciples: [],
         userNotes: '',
     };
 
-    const document = await prepareDocument(dek, meta, sensitive);
-    await setDoc(doc(db, 'dayReports', reportId), document);
-    return reportId;
+    return await saveRecord(dek, 'dayReports', reportData, reportId);
 }
 
 /**
@@ -96,26 +91,22 @@ export async function checkAndGenerateWeekReport(dek, userId) {
     };
     delete stats.satSum;
 
-    const meta = {
+    const reportData = {
         id: reportId, userId, period: 'week',
         startDate: weekStart, endDate: weekEnd,
         stats, drillDownChildIds: dayReportIds,
         createdAt: serverTimestamp(),
+        aiSummary: null, keyPatterns: [], suggestedPrinciples: [], userNotes: ''
     };
 
-    const sensitive = { aiSummary: null, keyPatterns: [], suggestedPrinciples: [], userNotes: '' };
-    const document = await prepareDocument(dek, meta, sensitive);
-    await setDoc(doc(db, 'weekReports', reportId), document);
-    return reportId;
+    return await saveRecord(dek, 'weekReports', reportData, reportId);
 }
 
 /**
  * 리포트 조회 (복호화)
  */
 export async function getReport(dek, collectionName, reportId) {
-    const docSnap = await getDoc(doc(db, collectionName, reportId));
-    if (!docSnap.exists()) return null;
-    return readDocument(dek, docSnap.data());
+    return await getRecord(dek, collectionName, reportId);
 }
 
 /**
@@ -127,15 +118,7 @@ export async function getReports(dek, collectionName, userId, limitCount = 10) {
         where('userId', '==', userId),
         orderBy('startDate', 'desc'),
     );
-    const snapshot = await getDocs(q);
-    const reports = [];
-    for (const d of snapshot.docs) {
-        try {
-            reports.push(await readDocument(dek, d.data()));
-        } catch (e) {
-            reports.push(d.data());
-        }
-    }
+    const reports = await queryRecords(dek, q);
     return reports.slice(0, limitCount);
 }
 

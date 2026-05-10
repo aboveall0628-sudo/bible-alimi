@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+    
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // RESERVED FOR v2 (do not create yet):
+    // persons, organizations, interactions, 
+    // accounts, assets, liabilities, transactions, cashflowSnapshots
+  }
+}

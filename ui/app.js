@@ -3,10 +3,15 @@
  * 모든 모듈을 연결하고 앱 초기화를 관장합니다.
  */
 
-import { db, doc, setDoc, getDoc, getDocs, collection, query, where, orderBy, serverTimestamp } from '../data/firebase.js';
+import {
+    db, auth, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp,
+    GoogleAuthProvider, signInWithCredential
+} from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
 import { initLockScreen, setUnlocked, lock, getDEK, isLocked, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen } from './auth.js';
+import { initAutoLock, registerFailedAttempt, isLockoutActive, getLockoutRemainingSec, resetFailedAttempts } from '../security/autoLock.js';
+import { logAuditAction } from '../security/auditLog.js';
 import { initQuickReview, openQuickReview, showToast } from './quickReview.js';
 import { initTimeOfDayMode } from './timeOfDayMode.js';
 import { initSensitiveMode } from './sensitiveMode.js';
@@ -19,10 +24,12 @@ import { renderPrinciplesView } from './principles.js';
 import { renderGoalsView } from './goals.js';
 import { renderDashboardView } from './dashboard.js';
 import { renderReportsView } from './reports.js';
+import { renderSettingsView } from './settings.js';
 
 // ─── 전역 상태 ───
 window.appStarted = true;
-let currentUserId = 'anonymous';
+let currentUserId = 'anonymous';   // Firebase Auth UID (보안 규칙 매칭용)
+let currentUserEmail = null;       // 표시용/로그용
 let currentDate = new Date().toISOString().split('T')[0];
 let todayDots = [];
 
@@ -61,9 +68,17 @@ async function init() {
         }
     });
 
-    // 3. 잠금 해제 이벤트 핸들러
+    // 3. 자동 잠금 머신 초기화
+    initAutoLock(15);
+
+    // 4. 잠금 해제 이벤트 핸들러
     document.addEventListener('sanctum:unlock-attempt', async (e) => {
         const { password } = e.detail;
+        if (isLockoutActive()) {
+            showLockError(`연속 실패로 잠금 처리되었습니다. ${getLockoutRemainingSec()}초 후 시도하세요.`);
+            return;
+        }
+
         try {
             const userData = await loadUserVaultData();
             if (!userData) {
@@ -77,7 +92,10 @@ async function init() {
                 userData.wrappedDEK_master_iv
             );
             setUnlocked(dek);
+            resetFailedAttempts();
+            logAuditAction(currentUserId, 'unlock_success');
         } catch (e) {
+            registerFailedAttempt(currentUserId);
             if (e.message === 'WRONG_PASSWORD') {
                 showLockError('비밀번호가 맞지 않아요.');
             } else {
@@ -125,7 +143,7 @@ async function checkBootState() {
 }
 
 // ─── Vault ───
-async function loadUserVaultData() {
+export async function loadUserVaultData() {
     if (currentUserId === 'anonymous') return null;
     const snap = await getDoc(doc(db, 'users', currentUserId));
     return snap.exists() ? snap.data() : null;
@@ -217,6 +235,8 @@ function switchView(viewId) {
         renderDashboardView(currentUserId);
     } else if (viewId === 'reports') {
         renderReportsView(currentUserId);
+    } else if (viewId === 'settings') {
+        renderSettingsView(currentUserId, currentUserEmail);
     }
 
     // 모바일 사이드바 닫기
@@ -486,20 +506,65 @@ function handleAuthClick() {
 
 async function loadUserProfile() {
     try {
+        const token = gapi.client.getToken();
+        if (!token) { checkBootState(); return; }
+
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-            headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` }
+            headers: { Authorization: `Bearer ${token.access_token}` }
         });
         const profile = await res.json();
-        currentUserId = profile.email;
+        currentUserEmail = profile.email;
+
+        // ── Firebase Auth 자격 증명 (Firestore 보안 규칙 매칭에 필수) ──
+        try {
+            const credential = GoogleAuthProvider.credential(null, token.access_token);
+            const userCred = await signInWithCredential(auth, credential);
+            currentUserId = userCred.user.uid;
+            window.currentUserId = currentUserId; // auth.js의 recovery flow fallback에서 참조
+
+            // 1회 마이그레이션: 이전에 이메일을 키로 만든 vault doc이 있으면 UID 키로 이전
+            await migrateVaultKeyIfNeeded(currentUserEmail, currentUserId);
+        } catch (authErr) {
+            console.error('Firebase Auth sign-in failed:', authErr);
+            // Auth 실패 시 fallback (보안 규칙 효력 없음 — 사용자에게 알림)
+            currentUserId = currentUserEmail;
+            const status = document.getElementById('user-name');
+            if (status) status.textContent = '⚠ 보안 인증 실패';
+        }
+
         const nameEl = document.getElementById('user-name');
-        if (nameEl) nameEl.textContent = profile.name;
+        if (nameEl && currentUserId !== currentUserEmail) nameEl.textContent = profile.name;
         const avatarEl = document.getElementById('user-avatar');
         if (avatarEl) { avatarEl.src = profile.picture; avatarEl.style.display = 'block'; }
-        
-        checkBootState(); // 프로필 로드 성공 시 부팅 분기
-    } catch (e) { 
-        console.error('Profile load error:', e); 
-        checkBootState(); // 에러 시에도 분기 시도 (anonymous 처리)
+
+        checkBootState();
+    } catch (e) {
+        console.error('Profile load error:', e);
+        checkBootState();
+    }
+}
+
+/**
+ * 이전 빌드는 이메일을 vault doc 키로 사용했음.
+ * Firebase Auth 도입 후 키를 UID로 통일하기 위한 1회성 이전.
+ * users/{email} 문서가 있고 users/{uid}가 없으면 복사 후 원본 삭제.
+ */
+async function migrateVaultKeyIfNeeded(email, uid) {
+    if (!email || !uid || email === uid) return;
+    try {
+        const uidRef = doc(db, 'users', uid);
+        const uidSnap = await getDoc(uidRef);
+        if (uidSnap.exists()) return; // 이미 UID로 저장됨
+
+        const emailRef = doc(db, 'users', email);
+        const emailSnap = await getDoc(emailRef);
+        if (!emailSnap.exists()) return; // 이전할 데이터 없음
+
+        await setDoc(uidRef, { ...emailSnap.data(), migratedFromEmail: email, migratedAt: serverTimestamp() });
+        // 원본은 보존(롤백 가능). 보안 규칙은 새 UID 키만 매칭하므로 해는 없음.
+        console.log(`[vault] migrated key: ${email} → ${uid}`);
+    } catch (e) {
+        console.warn('Vault key migration skipped:', e);
     }
 }
 

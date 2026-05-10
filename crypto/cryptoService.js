@@ -38,20 +38,29 @@ export async function encryptPayload(dek, plainObject) {
  * @param {CryptoKey} dek
  * @param {string} encryptedPayloadBase64
  * @param {string} ivBase64
+ * @param {number} encVersion
  * @returns {Object} 복호화된 필드 객체
  */
-export async function decryptPayload(dek, encryptedPayloadBase64, ivBase64) {
-    const cipherBuf = fromBase64(encryptedPayloadBase64);
-    const iv = fromBase64(ivBase64);
+export async function decryptPayload(dek, encryptedPayloadBase64, ivBase64, encVersion) {
+    if (encVersion !== CURRENT_ENC_VERSION) {
+        console.warn(`Unknown encryption version: ${encVersion}`);
+    }
 
-    const plainBuffer = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv },
-        dek,
-        cipherBuf
-    );
+    try {
+        const cipherBuf = fromBase64(encryptedPayloadBase64);
+        const iv = fromBase64(ivBase64);
 
-    const dec = new TextDecoder();
-    return JSON.parse(dec.decode(plainBuffer));
+        const plainBuffer = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv },
+            dek,
+            cipherBuf
+        );
+
+        const dec = new TextDecoder();
+        return JSON.parse(dec.decode(plainBuffer));
+    } catch (e) {
+        throw new Error('DECRYPTION_FAILED');
+    }
 }
 
 /**
@@ -81,11 +90,11 @@ export async function readDocument(dek, firestoreDoc) {
     const { encryptedPayload, iv, encVersion, ...metaFields } = firestoreDoc;
 
     if (!encryptedPayload || !iv) {
-        // 암호화 이전 레거시 데이터 → 그대로 반환
-        return firestoreDoc;
+        // 암호화 이전 레거시 데이터: STEP 0 보안 정책에 의해 평문으로 접근하는 것을 차단
+        throw new Error('LEGACY_DATA_NOT_MIGRATED');
     }
 
-    const sensitiveFields = await decryptPayload(dek, encryptedPayload, iv);
+    const sensitiveFields = await decryptPayload(dek, encryptedPayload, iv, encVersion);
     return { ...metaFields, ...sensitiveFields };
 }
 

@@ -2,8 +2,9 @@
  * auth.js — Google 인증 및 마스터 비밀번호(Vault) 온보딩 흐름 제어
  */
 
-import { setupNewVault } from '../crypto/keyManager.js';
+import { setupNewVault, recoverWithWords } from '../crypto/keyManager.js';
 import { db, doc, setDoc, getDoc, serverTimestamp } from '../data/firebase.js';
+import { loadUserVaultData } from './app.js'; // to get wrappedDEK_recovery
 
 let _onSetupComplete = null;
 let _currentUserId = null;
@@ -100,7 +101,25 @@ function renderSetupScreen() {
             </div>
         </div>
     `;
-    document.body.appendChild(setupOverlay);
+    // 3. 복구 화면 오버레이
+    const recoveryOverlay = document.createElement('div');
+    recoveryOverlay.id = 'recovery-screen-overlay';
+    recoveryOverlay.className = 'lock-screen-overlay hidden';
+    recoveryOverlay.innerHTML = `
+        <div class="lock-screen-box" style="max-width: 440px;">
+            <div class="lock-icon">📄</div>
+            <h2>복구 코드로 잠금 해제</h2>
+            <p class="lock-subtitle">저장해둔 24단어를 띄어쓰기로 구분하여 정확히 입력해주세요.</p>
+            <textarea id="recovery-words-input" class="lock-input" style="height:120px; font-size:14px; text-align:left; resize:none;" placeholder="단어1 단어2 단어3 ..."></textarea>
+            <div id="recovery-error" class="lock-error hidden"></div>
+            <div style="display:flex; gap:8px;">
+                <button id="recovery-cancel-btn" class="text-btn" style="flex:1">취소</button>
+                <button id="recovery-submit-btn" class="primary-btn" style="flex:2">복구 및 잠금 해제</button>
+            </div>
+            <p style="font-size:12px; color:var(--text-secondary); margin-top:16px;">잠금 해제 후 즉시 설정에서 비밀번호를 새로 변경하세요.</p>
+        </div>
+    `;
+    document.body.appendChild(recoveryOverlay);
 }
 
 function bindEvents() {
@@ -173,6 +192,59 @@ function bindEvents() {
     document.body.addEventListener('change', (e) => {
         if (e.target.id === 'setup-confirm-chk') {
             document.getElementById('setup-finish-btn').disabled = !e.target.checked;
+        }
+    });
+    // 복구 모드 전환
+    document.addEventListener('sanctum:recovery-requested', () => {
+        const overlay = document.getElementById('recovery-screen-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            overlay.style.display = 'flex';
+            document.getElementById('recovery-words-input').value = '';
+        }
+    });
+
+    document.body.addEventListener('click', async (e) => {
+        if (e.target.id === 'recovery-cancel-btn') {
+            document.getElementById('recovery-screen-overlay').classList.add('hidden');
+            document.getElementById('recovery-screen-overlay').style.display = 'none';
+        }
+        
+        if (e.target.id === 'recovery-submit-btn') {
+            const inputStr = document.getElementById('recovery-words-input').value.trim();
+            const err = document.getElementById('recovery-error');
+            const words = inputStr.split(/\s+/);
+
+            if (words.length !== 24) {
+                showErr(err, `24단어를 모두 입력해주세요. (현재 ${words.length}개)`);
+                return;
+            }
+
+            e.target.textContent = '복구 중...';
+            e.target.disabled = true;
+
+            try {
+                // app.js에서 _currentUserId를 전역 변수로 관리하지만,
+                // 여기서는 loadUserVaultData를 호출하여 직접 가져옵니다.
+                // Firebase 문서를 직접 조회.
+                const userDoc = await getDoc(doc(db, 'users', _currentUserId || window.currentUserId || 'anonymous'));
+                if (!userDoc.exists()) throw new Error('사용자 정보가 없습니다.');
+                const userData = userDoc.data();
+
+                const dek = await recoverWithWords(words, userData.wrappedDEK_recovery, userData.wrappedDEK_recovery_iv);
+                
+                document.getElementById('recovery-screen-overlay').classList.add('hidden');
+                document.getElementById('recovery-screen-overlay').style.display = 'none';
+                
+                if (_onSetupComplete) _onSetupComplete(dek);
+
+            } catch (error) {
+                console.error(error);
+                showErr(err, '복구에 실패했습니다. 단어 순서나 철자를 확인해주세요.');
+            } finally {
+                e.target.textContent = '복구 및 잠금 해제';
+                e.target.disabled = false;
+            }
         }
     });
 }

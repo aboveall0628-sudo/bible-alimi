@@ -5,24 +5,19 @@
  * UNLOCKED → 15분 무활동 → LOCKED (DEK 폐기)
  */
 
+import { getRemainingMs } from '../security/autoLock.js';
+
 let _dek = null;
-let _lockTimer = null;
-let _lockTimeoutMs = 15 * 60 * 1000; // 기본 15분
 let _onUnlock = null; // 콜백
 let _onLock = null;
+let _timerInterval = null;
 
 /**
  * 초기화
  */
-export function initLockScreen({ onUnlock, onLock, timeoutMinutes = 15, startHidden = false }) {
+export function initLockScreen({ onUnlock, onLock, startHidden = false }) {
     _onUnlock = onUnlock;
     _onLock = onLock;
-    _lockTimeoutMs = timeoutMinutes * 60 * 1000;
-
-    // 활동 감지 → 타이머 리셋
-    ['click', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
-        document.addEventListener(evt, resetLockTimer, { passive: true });
-    });
 
     renderLockScreen();
     if (startHidden) {
@@ -36,7 +31,7 @@ export function initLockScreen({ onUnlock, onLock, timeoutMinutes = 15, startHid
 export function setUnlocked(dek) {
     _dek = dek;
     hideLockScreen();
-    resetLockTimer();
+    startTimerTick();
     if (_onUnlock) _onUnlock(dek);
 }
 
@@ -45,9 +40,22 @@ export function setUnlocked(dek) {
  */
 export function lock() {
     _dek = null;
-    clearTimeout(_lockTimer);
+    stopTimerTick();
     showLockScreen();
     if (_onLock) _onLock();
+}
+
+function startTimerTick() {
+    if (_timerInterval) return;
+    updateTimerDisplay();
+    _timerInterval = setInterval(updateTimerDisplay, 1000);
+}
+
+function stopTimerTick() {
+    if (_timerInterval) clearInterval(_timerInterval);
+    _timerInterval = null;
+    const el = document.getElementById('lock-timer-display');
+    if (el) el.textContent = '🔒 Locked';
 }
 
 /**
@@ -61,20 +69,18 @@ export function isLocked() {
     return _dek === null;
 }
 
-function resetLockTimer() {
-    if (_dek === null) return;
-    clearTimeout(_lockTimer);
-    _lockTimer = setTimeout(() => {
-        lock();
-    }, _lockTimeoutMs);
-    updateTimerDisplay();
-}
+
 
 function updateTimerDisplay() {
     const el = document.getElementById('lock-timer-display');
     if (!el) return;
-    const mins = Math.ceil(_lockTimeoutMs / 60000);
-    el.textContent = `🔒 ${mins}분`;
+    if (_dek === null) { el.textContent = '🔒 Locked'; return; }
+    const ms = getRemainingMs();
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    el.textContent = `🔒 ${m}:${String(s).padStart(2, '0')}`;
+    el.title = '자동 잠금까지 남은 시간';
 }
 
 /**

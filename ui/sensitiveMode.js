@@ -1,24 +1,38 @@
 /**
- * sensitiveMode.js — 👁 민감 모드 토글
- *
- * 활성화 시 모든 이름/금액을 ●●●● 마스킹.
- * CSS 클래스 'sensitive-masked'를 body에 토글.
+ * sensitiveMode.js — 민감 데이터 가리기 모드
  */
 
-let _sensitiveMode = false;
-
 export function initSensitiveMode() {
-    const btn = document.getElementById('sensitive-toggle');
-    if (!btn) return;
+    const toggleBtn = document.getElementById('sensitive-toggle-btn');
+    if (!toggleBtn) return;
 
-    btn.addEventListener('click', () => {
-        _sensitiveMode = !_sensitiveMode;
-        document.body.classList.toggle('sensitive-masked', _sensitiveMode);
-        btn.textContent = _sensitiveMode ? '👁‍🗨' : '👁';
-        btn.title = _sensitiveMode ? '민감 정보 표시' : '민감 정보 숨기기';
+    // 초기 상태 로드
+    const isMasked = localStorage.getItem('sanctum-sensitive-mode') !== 'false';
+    if (isMasked) {
+        document.body.classList.add('sensitive-masked');
+        toggleBtn.classList.add('active');
+        toggleBtn.textContent = '👁️';
+    } else {
+        toggleBtn.textContent = '🙈';
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        const masked = document.body.classList.toggle('sensitive-masked');
+        localStorage.setItem('sanctum-sensitive-mode', masked);
+        toggleBtn.classList.toggle('active', masked);
+        toggleBtn.textContent = masked ? '👁️' : '🙈';
     });
-}
 
-export function isSensitiveMode() {
-    return _sensitiveMode;
+    // 민감 요소 클릭 시 5초 해제
+    document.body.addEventListener('click', (e) => {
+        if (!document.body.classList.contains('sensitive-masked')) return;
+        
+        const sensitiveEl = e.target.closest('.sensitive');
+        if (sensitiveEl) {
+            sensitiveEl.classList.add('revealed');
+            setTimeout(() => {
+                sensitiveEl.classList.remove('revealed');
+            }, 5000);
+        }
+    });
 }

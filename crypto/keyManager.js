@@ -8,10 +8,29 @@
  */
 
 const KDF_PARAMS = {
-    algo: 'PBKDF2',
+    algo: 'PBKDF2',          // 실제 사용된 KDF가 deriveKey 시점에 갱신됨
     hash: 'SHA-256',
     iterations: 600000,
+    argon2: { time: 3, memMB: 64, parallelism: 4 },
 };
+
+// Argon2id 모듈은 한 번만 로드 (ESM, CDN)
+let _argon2Module = null;
+let _argon2LoadAttempted = false;
+async function loadArgon2() {
+    if (_argon2Module || _argon2LoadAttempted) return _argon2Module;
+    _argon2LoadAttempted = true;
+    try {
+        // hash-wasm는 ESM 빌드를 제공하며 Web Crypto API와 호환됩니다.
+        const mod = await import('https://cdn.jsdelivr.net/npm/hash-wasm@4.11.0/dist/index.esm.min.js');
+        if (typeof mod.argon2id === 'function') {
+            _argon2Module = mod;
+        }
+    } catch (e) {
+        console.warn('hash-wasm Argon2id load failed, will use PBKDF2:', e.message);
+    }
+    return _argon2Module;
+}
 
 const RECOVERY_SALT = new Uint8Array([
     83, 97, 110, 99, 116, 117, 109, 79, 83, 45, 82, 101, 99, 111, 118, 101,
@@ -71,24 +90,55 @@ export function fromBase64(base64Str) {
 }
 
 /**
- * 비밀번호 + salt → AES-256 키 유도 (PBKDF2)
+ * 비밀번호 + salt → AES-256 키 유도
+ * 1순위: Argon2id (hash-wasm, ESM CDN)
+ * 2순위: PBKDF2-SHA256 600,000 iterations (Web Crypto)
  */
 async function deriveKey(password, salt) {
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
-    );
-    return crypto.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt: salt,
-            iterations: KDF_PARAMS.iterations,
-            hash: KDF_PARAMS.hash,
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false, // extractable = false (보안)
-        ['wrapKey', 'unwrapKey']
+    let keyMaterialRaw;
+    const argon2 = await loadArgon2();
+
+    if (argon2) {
+        try {
+            const hex = await argon2.argon2id({
+                password,
+                salt,
+                parallelism: KDF_PARAMS.argon2.parallelism,
+                iterations: KDF_PARAMS.argon2.time,
+                memorySize: KDF_PARAMS.argon2.memMB * 1024, // KiB
+                hashLength: 32,
+                outputType: 'hex',
+            });
+            // hex → Uint8Array
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            keyMaterialRaw = bytes.buffer;
+            KDF_PARAMS.algo = 'Argon2id';
+        } catch (e) {
+            console.warn('Argon2id derive failed, falling back to PBKDF2:', e.message);
+        }
+    }
+
+    if (!keyMaterialRaw) {
+        const enc = new TextEncoder();
+        const baseKey = await crypto.subtle.importKey(
+            'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
+        );
+        keyMaterialRaw = await crypto.subtle.deriveBits(
+            {
+                name: 'PBKDF2',
+                salt: salt,
+                iterations: KDF_PARAMS.iterations,
+                hash: KDF_PARAMS.hash,
+            },
+            baseKey,
+            256
+        );
+        KDF_PARAMS.algo = 'PBKDF2';
+    }
+
+    return crypto.subtle.importKey(
+        'raw', keyMaterialRaw, { name: 'AES-GCM' }, false, ['wrapKey', 'unwrapKey']
     );
 }
 

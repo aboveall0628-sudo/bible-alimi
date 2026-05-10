@@ -502,7 +502,8 @@ body {
 .goal-desc { font-size: 13px; color: var(--text-secondary); }
 
 /* ═══ Sensitive Mode ═══ */
-.sensitive-masked .sensitive { color: transparent !important; text-shadow: 0 0 8px rgba(0,0,0,0.5); user-select: none; }
+.sensitive-masked .sensitive { filter: blur(6px); cursor: pointer; transition: filter 0.2s ease; user-select: none; }
+.sensitive-masked .sensitive.revealed { filter: none; }
 
 /* ═══ Loading ═══ */
 .loading-overlay {

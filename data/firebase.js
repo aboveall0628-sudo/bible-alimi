@@ -1,5 +1,5 @@
 /**
- * firebase.js — Firebase 초기화 + Firestore 공통 헬퍼
+ * firebase.js — Firebase 초기화 + Firestore/Auth 공통 헬퍼
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
@@ -7,6 +7,10 @@ import {
     getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc,
     collection, query, where, orderBy, limit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+import {
+    getAuth, GoogleAuthProvider, signInWithCredential, signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBz_-F3Gp7bK2DvWBGfwjf6jevSnFaHess",
@@ -20,8 +24,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 export {
-    db, doc, setDoc, getDoc, getDocs, deleteDoc,
-    collection, query, where, orderBy, limit, serverTimestamp
+    db, auth,
+    doc, setDoc, getDoc, getDocs, deleteDoc,
+    collection, query, where, orderBy, limit, serverTimestamp,
+    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
 };

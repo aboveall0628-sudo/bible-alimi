@@ -4,8 +4,8 @@
  * 계층: daily → weekly → monthly → quarterly → yearly → 5year → 10year
  */
 
-import { db, doc, setDoc, getDoc, getDocs, deleteDoc, collection, query, where, orderBy, serverTimestamp } from './firebase.js';
-import { prepareDocument, readDocument } from '../crypto/cryptoService.js';
+import { db, doc, deleteDoc, collection, query, where, orderBy } from './firebase.js';
+import { saveRecord, queryRecords } from './baseRepo.js';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', '5year', '10year'];
 
@@ -13,30 +13,7 @@ const PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', '5year', '
  * 목표 저장
  */
 export async function saveGoal(dek, goalData) {
-    const id = goalData.id || `goal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    const meta = {
-        id,
-        userId: goalData.userId,
-        period: goalData.period,
-        parentGoalId: goalData.parentGoalId || null,
-        startDate: goalData.startDate,
-        endDate: goalData.endDate,
-        status: goalData.status || 'active',
-        progress: goalData.progress || 0,
-        createdAt: serverTimestamp(),
-    };
-
-    const sensitive = {
-        title: goalData.title || '',
-        description: goalData.description || '',
-        notes: goalData.notes || '',
-        scriptureRef: goalData.scriptureRef || null,
-    };
-
-    const document = await prepareDocument(dek, meta, sensitive);
-    await setDoc(doc(db, 'goals', id), document, { merge: true });
-    return id;
+    return await saveRecord(dek, 'goals', goalData, goalData.id);
 }
 
 /**
@@ -48,16 +25,7 @@ export async function getAllGoals(dek, userId) {
         where('userId', '==', userId),
         orderBy('period', 'asc')
     );
-    const snapshot = await getDocs(q);
-    const goals = [];
-    for (const d of snapshot.docs) {
-        try {
-            goals.push(await readDocument(dek, d.data()));
-        } catch (e) {
-            goals.push(d.data());
-        }
-    }
-    return goals;
+    return await queryRecords(dek, q);
 }
 
 /**
@@ -70,16 +38,7 @@ export async function getActiveGoalsByPeriod(dek, userId, period) {
         where('period', '==', period),
         where('status', '==', 'active')
     );
-    const snapshot = await getDocs(q);
-    const goals = [];
-    for (const d of snapshot.docs) {
-        try {
-            goals.push(await readDocument(dek, d.data()));
-        } catch (e) {
-            goals.push(d.data());
-        }
-    }
-    return goals;
+    return await queryRecords(dek, q);
 }
 
 /**
@@ -91,16 +50,7 @@ export async function getChildGoals(dek, userId, parentGoalId) {
         where('userId', '==', userId),
         where('parentGoalId', '==', parentGoalId)
     );
-    const snapshot = await getDocs(q);
-    const goals = [];
-    for (const d of snapshot.docs) {
-        try {
-            goals.push(await readDocument(dek, d.data()));
-        } catch (e) {
-            goals.push(d.data());
-        }
-    }
-    return goals;
+    return await queryRecords(dek, q);
 }
 
 /**
