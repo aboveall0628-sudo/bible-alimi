@@ -348,7 +348,7 @@ async function renderLayerReview(step, body) {
 // ─── 내일의 결단 저장 ───
 async function saveTomorrowDecisions(body) {
     const dek = getDEK();
-    if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+    if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
     const inputs = body.querySelectorAll('input[data-decide-idx]');
     const status = body.querySelector('#el-decide-status');

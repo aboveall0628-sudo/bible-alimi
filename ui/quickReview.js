@@ -255,14 +255,14 @@ async function handleSave() {
         await saveDot(dek, dotData);
 
         // 토스트
-        showToast('🔐 안전하게 보관됨');
+        showToast('🔐 안전하게 보관됐어요');
         closeModal();
         if (_onSaved) _onSaved({ decisionId: _currentDecisionId });
     } catch (e) {
         console.error('Save dot error:', e);
         btn.textContent = '저장하기';
         btn.disabled = false;
-        showToast('저장이 잘 안 됐어요. 다시 한 번 해볼까요?');
+        showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
     }
 }
 

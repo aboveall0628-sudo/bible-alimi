@@ -133,7 +133,7 @@ async function loadPersons() {
         console.error('persons load failed:', e);
         _persons = [];
         _orgsCache = [];
-        showToast('인물 카드를 불러오지 못했어요');
+        showToast('인물 카드를 불러오는 중에 잠깐 막혔어요. 다시 한 번 들어와 주실래요?');
     }
 }
 
@@ -739,11 +739,11 @@ function layerVerseHtml(p) {
 
 async function onSave() {
     const dek = getDEK();
-    if (!dek) { showToast('잠겨 있어 저장할 수 없어요'); return; }
+    if (!dek) { showToast('잠겨 있어 저장할 수 없어요. 비밀번호로 먼저 열어 주실래요?'); return; }
     const draft = _editingDraft;
     if (!draft) return;
     if (!draft.isFallback && !(draft.name || '').trim()) {
-        showToast('이름을 입력해 주세요');
+        showToast('이름을 적어 주실래요?');
         return;
     }
 
@@ -755,31 +755,31 @@ async function onSave() {
 
     try {
         await savePerson(dek, _userId, draft);
-        showToast('🔐 안전하게 보관됨');
+        showToast('🔐 안전하게 보관됐어요');
         await loadPersons();
         renderToolbar();
         renderGrid();
         closeModal();
     } catch (e) {
         console.error('savePerson failed:', e);
-        showToast('저장이 잘 안 됐어요. 잠시 후 다시 시도해 주세요');
+        showToast('저장이 잠깐 막혔어요. 잠시 후 다시 시도해 주실래요?');
     }
 }
 
 async function onDelete() {
     if (!_editingId) return;
-    const ok = confirm('이 인물 카드를 삭제할까요? 되돌릴 수 없어요.');
+    const ok = confirm('이 인물 카드를 지워도 괜찮을까요? 한 번 지우면 되돌릴 수 없어요.');
     if (!ok) return;
     try {
         await deletePerson(_userId, _editingId);
-        showToast('카드가 삭제됐어요');
+        showToast('카드를 지웠어요');
         await loadPersons();
         renderToolbar();
         renderGrid();
         closeModal();
     } catch (e) {
         console.error('deletePerson failed:', e);
-        showToast('삭제 중 문제가 있었어요');
+        showToast('지우는 중에 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
     }
 }
 

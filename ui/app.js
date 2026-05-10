@@ -381,7 +381,7 @@ function setupGoogleAuth() {
     const authBtn = document.getElementById('auth-btn');
     if (authBtn) authBtn.addEventListener('click', () => {
         if (gisInited) handleAuthClick();
-        else showToast('Google 모듈을 아직 가져오는 중이에요. 잠시 후에 다시 눌러볼까요?');
+        else showToast('Google 연결을 준비하는 중이에요. 잠시 후에 다시 눌러 주실래요?');
     });
 
     gapiLoaded();

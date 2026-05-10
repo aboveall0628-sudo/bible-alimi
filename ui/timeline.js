@@ -312,28 +312,36 @@ function bindCellEvents(col, lane) {
             const slotMoveId = e.dataTransfer.getData('application/x-sanctum-slot');
 
             const dek = getDEK();
-            if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+            if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
             try {
                 if (decisionId) {
-                    // 새로 박기 / 다른 위치에서 옮기기
-                    const d = _decisions.find(x => x.id === decisionId);
+                    // 새로 박기 / 다른 위치에서 옮기기.
+                    // timeline의 _decisions에 아직 없을 수 있어(방금 만든 카드 등),
+                    // 못 찾으면 repo에서 직접 가져와 placeDecision 호출.
+                    let d = _decisions.find(x => x.id === decisionId);
+                    if (!d) {
+                        const all = await getDecisionsByDate(dek, _userId, _date);
+                        d = all.find(x => x.id === decisionId);
+                    }
                     if (d) {
                         await placeDecision(dek, d, slot, d.durationSlots || 4);
                     } else {
-                        // 결단 패널의 미배치 카드 — todayView가 보유. saveDecision으로 갱신해야 하는데
-                        // 일단 외부 onChange에 위임
-                        if (_onChange) await _onChange({ type: 'place', decisionId, slot });
+                        showToast('이 결단을 찾지 못했어요. 한 번만 더 옮겨 주실래요?');
                     }
                 } else if (slotMoveId) {
-                    const d = _decisions.find(x => x.id === slotMoveId);
+                    let d = _decisions.find(x => x.id === slotMoveId);
+                    if (!d) {
+                        const all = await getDecisionsByDate(dek, _userId, _date);
+                        d = all.find(x => x.id === slotMoveId);
+                    }
                     if (d) await placeDecision(dek, d, slot, d.durationSlots || 4);
                 }
                 await refreshTimeline({ userId: _userId, date: _date });
                 if (_onChange) await _onChange({ type: 'refresh' });
             } catch (err) {
                 console.error('drop failed:', err);
-                showToast('배치가 잘 안 됐어요. 다시 한 번 해볼까요?');
+                showToast('옮기는 중에 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
             }
         });
 
@@ -440,7 +448,7 @@ function openInlineActualInput(cell, slot) {
         const text = input.value.trim();
         if (!text) { render(); return; }
         const dek = getDEK();
-        if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+        if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
         try {
             await saveDot(dek, {
                 userId: _userId,
@@ -455,10 +463,10 @@ function openInlineActualInput(cell, slot) {
                 labelIds: [],
             });
             await refreshTimeline({ userId: _userId, date: _date });
-            showToast('🔐 안전하게 보관됨');
+            showToast('🔐 안전하게 보관됐어요');
         } catch (e) {
             console.error('actual save failed:', e);
-            showToast('저장이 잘 안 됐어요. 다시 한 번 해볼까요?');
+            showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
         }
     };
 
@@ -511,30 +519,33 @@ function bindGlobalEvents() {
     const sync = document.getElementById('sync-btn');
     if (sync) sync.addEventListener('click', async () => {
         await refreshTimeline({ userId: _userId, date: _date });
-        showToast('일정 다시 가져왔어요');
+        showToast('일정을 새로 가져왔어요');
     });
     const push = document.getElementById('gcal-push-btn');
     if (push) push.addEventListener('click', async () => {
         const placed = _decisions.filter(d => d.timeSlot != null);
-        if (placed.length === 0) { showToast('시간에 박은 결단이 아직 없어요'); return; }
+        if (placed.length === 0) {
+            showToast('시간표에 옮겨둔 결단이 아직 없어요. 결단 카드의 ⋮⋮를 잡고 시간표로 옮겨 보실래요?');
+            return;
+        }
         push.disabled = true;
         const orig = push.textContent;
         push.textContent = '📤 캘린더에 옮기는 중...';
         try {
             const r = await pushDecisionsToGoogleCalendar(placed);
             if (r.reason === 'no-token') {
-                showToast('Google 로그인이 필요해요');
+                showToast('Google 계정과 먼저 연결해 주실래요?');
             } else {
                 const parts = [];
                 if (r.created) parts.push(`새로 ${r.created}개`);
                 if (r.updated) parts.push(`갱신 ${r.updated}개`);
-                if (r.failed) parts.push(`실패 ${r.failed}개`);
-                showToast(parts.length ? `📤 ${parts.join(', ')} 옮겼어요` : '바뀐 게 없어요');
+                if (r.failed) parts.push(`못 옮긴 항목 ${r.failed}개`);
+                showToast(parts.length ? `📤 ${parts.join(', ')} 옮겼어요` : '새로 옮길 변경 사항이 없었어요');
                 await refreshTimeline({ userId: _userId, date: _date });
             }
         } catch (e) {
             console.error('gcal push error:', e);
-            showToast('옮기다 막혔어요. 다시 한 번 해볼까요?');
+            showToast('옮기는 중에 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
         } finally {
             push.disabled = false;
             push.textContent = orig;

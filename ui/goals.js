@@ -176,7 +176,7 @@ function bindPanelEvents(panel) {
         descInput?.addEventListener('input', triggerSave);
 
         deleteBtn?.addEventListener('click', async () => {
-            if (!confirm('이 목표를 지울까요?')) return;
+            if (!confirm('이 목표를 지워도 괜찮을까요?')) return;
             try {
                 await deleteGoal(id);
                 _goals = _goals.filter(g => g.id !== id);
@@ -184,7 +184,7 @@ function bindPanelEvents(panel) {
                 showToast('목표를 지웠어요');
             } catch (e) {
                 console.error('goal delete failed:', e);
-                showToast('지우기가 잘 안 됐어요');
+                showToast('지우기가 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
             }
         });
     });
@@ -192,7 +192,7 @@ function bindPanelEvents(panel) {
 
 async function addNewGoal() {
     const dek = getDEK();
-    if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+    if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
     const newGoal = {
         id: `goal_${_userId.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -220,7 +220,7 @@ async function addNewGoal() {
         }, 50);
     } catch (e) {
         console.error('goal create failed:', e);
-        showToast('목표 추가가 잘 안 됐어요. 다시 한 번 해볼까요?');
+        showToast('목표 추가가 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
     }
 }
 

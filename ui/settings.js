@@ -180,9 +180,9 @@ function bindEvents() {
 
     if (btnMigrate) btnMigrate.onclick = async () => {
         const dek = getDEK();
-        if (!dek) return alert('먼저 잠금을 풀어주세요.');
-        if (!_diagnosticData) return alert('먼저 [진단 시작]을 눌러주세요.');
-        if (!confirm('찾은 데이터를 안전한 새 저장소로 옮길게요.\n원본은 그대로 남으니까 걱정 마세요.\n\n계속할까요?')) return;
+        if (!dek) return alert('잠금을 먼저 풀어 주실래요?');
+        if (!_diagnosticData) return alert('[진단 시작]을 먼저 눌러 주실래요?');
+        if (!confirm('찾은 데이터를 안전한 새 저장소로 옮겨 볼게요.\n원본은 그대로 남으니까 걱정하지 않으셔도 돼요.\n\n계속해도 괜찮을까요?')) return;
 
         btnMigrate.disabled = true;
         let total = 0;
@@ -248,14 +248,14 @@ function bindEvents() {
 
     if (btnExport) btnExport.onclick = async () => {
         const dek = getDEK();
-        if (!dek) return alert('먼저 잠금을 풀어주세요.');
+        if (!dek) return alert('잠금을 먼저 풀어 주실래요?');
         btnExport.disabled = true;
         btnExport.textContent = '준비하는 중...';
         try {
             await exportAllData(dek, _userId);
         } catch (e) {
             console.error(e);
-            alert('잠깐 문제가 있었어요. 다시 한 번 해볼까요?');
+            alert('잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
         }
         btnExport.textContent = '📥 전체 데이터 받기';
         btnExport.disabled = false;

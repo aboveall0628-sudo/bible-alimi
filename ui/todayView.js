@@ -80,6 +80,26 @@ function bindMeditationAutosave() {
         clearTimeout(_saveTimer);
         _saveTimer = setTimeout(() => saveMeditationNote(editor.innerText), 1000);
     });
+
+    // 외부에서 복사해 온 텍스트는 폰트/배경/색상 인라인 스타일을 모두 떼고
+    // 순수 텍스트만 받아 옴 → 묵상 노트 폰트(프리텐다드)와 테마 색상이 그대로 적용됨
+    editor.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const cd = e.clipboardData || window.clipboardData;
+        const text = cd ? cd.getData('text/plain') : '';
+        if (!text) return;
+        // execCommand는 deprecated이지만 contenteditable 호환성이 가장 좋음
+        if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+            document.execCommand('insertText', false, text);
+        } else {
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            range.collapse(false);
+        }
+    });
 }
 
 async function saveMeditationNote(content) {
@@ -213,7 +233,7 @@ function bindCardEvents() {
     list.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
-            if (!confirm('이 결단을 지울까요?')) return;
+            if (!confirm('이 결단을 지워도 괜찮을까요?')) return;
             await deleteDecision(id);
             _decisions = _decisions.filter(d => d.id !== id);
             renderDecisions();
@@ -236,7 +256,7 @@ function bindCardEvents() {
 
 async function addNewDecision() {
     const dek = getDEK();
-    if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+    if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
     const newDecision = {
         userId: _userId,

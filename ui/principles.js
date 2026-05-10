@@ -182,7 +182,7 @@ function bindPanelEvents(panel) {
         });
 
         deleteBtn?.addEventListener('click', async () => {
-            if (!confirm('이 원칙을 지울까요?')) return;
+            if (!confirm('이 원칙을 지워도 괜찮을까요?')) return;
             try {
                 await deletePrinciple(id);
                 _principles = _principles.filter(p => p.id !== id);
@@ -191,7 +191,7 @@ function bindPanelEvents(panel) {
                 showToast('원칙을 지웠어요');
             } catch (e) {
                 console.error('principle delete failed:', e);
-                showToast('지우기가 잘 안 됐어요');
+                showToast('지우기가 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
             }
         });
     });
@@ -199,7 +199,7 @@ function bindPanelEvents(panel) {
 
 async function addNewPrinciple() {
     const dek = getDEK();
-    if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
+    if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
     const newPrinciple = {
         userId: _userId,
@@ -222,7 +222,7 @@ async function addNewPrinciple() {
         }, 100);
     } catch (e) {
         console.error('principle create failed:', e);
-        showToast('원칙 추가가 잘 안 됐어요');
+        showToast('원칙 추가가 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
     }
 }
 
