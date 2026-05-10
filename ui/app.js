@@ -36,7 +36,15 @@ import { renderOrganizationsView } from './orgCard.js';
 window.appStarted = true;
 let currentUserId = 'anonymous';   // Firebase Auth UID (보안 규칙 매칭용)
 let currentUserEmail = null;       // 표시용/로그용
-let currentDate = new Date().toISOString().split('T')[0];
+// toISOString()은 UTC 기준이라 KST 자정~오전 9시 사이엔 하루 전 날짜를 줌. 로컬 기준으로 계산.
+function todayLocalISO() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+let currentDate = todayLocalISO();
 
 // ─── 부팅 상태 표시기 (사이드바 footer) ───
 function setBootStatus(text, level = 'info') {
@@ -302,6 +310,19 @@ function setupNavigation() {
         if (sidebar?.contains(e.target) || menuToggle?.contains(e.target)) return;
         sidebar?.classList.remove('open');
         document.body.classList.remove('sidebar-open');
+    });
+
+    // 카드 헤더의 [접기/펼치기] 토글 — 이벤트 위임으로 모든 .collapsible-toggle 버튼 처리
+    document.body.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.collapsible-toggle');
+        if (!toggle) return;
+        const targetId = toggle.dataset.target;
+        if (!targetId) return;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const willCollapse = !target.classList.contains('collapsed');
+        target.classList.toggle('collapsed', willCollapse);
+        toggle.textContent = willCollapse ? '펼치기' : '접기';
     });
 }
 

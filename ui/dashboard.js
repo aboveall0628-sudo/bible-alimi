@@ -25,11 +25,12 @@ export async function renderDashboardView(userId) {
 
     container.innerHTML = '<div class="spinner" style="grid-column: 1/-1; margin: 40px auto"></div>';
 
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const today = new Date();
-    const endDate = today.toISOString().split('T')[0];
+    const endDate = fmt(today);
     const past7 = new Date();
     past7.setDate(today.getDate() - 6);
-    const startDate = past7.toISOString().split('T')[0];
+    const startDate = fmt(past7);
 
     const [dots, bibleProgress, meditationCount] = await Promise.all([
         getDotsByDateRange(dek, userId, startDate, endDate).catch(() => []),
@@ -118,8 +119,9 @@ function renderHeatmap(dots, startDate, endDate) {
     const days = [];
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T00:00:00');
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = d.toISOString().split('T')[0];
+        const key = fmt(d);
         days.push(key);
         grid[key] = {};
     }

@@ -265,6 +265,9 @@ a { color: var(--accent); }
     background: none; border: none; cursor: pointer;
     color: var(--text-secondary); font-size: 12px; padding: 4px 8px;
 }
+.collapsible-toggle:hover { color: var(--accent); }
+/* 카드 본문 접기 — collapsible-toggle data-target이 가리키는 요소 숨김 */
+#meditation-content.collapsed { display: none; }
 
 /* ── Date picker ── */
 .date-picker {

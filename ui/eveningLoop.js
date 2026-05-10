@@ -357,7 +357,7 @@ async function saveTomorrowDecisions(body) {
     const today = new Date(_dateStr + 'T00:00:00');
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
     let saved = 0;
     for (const input of inputs) {

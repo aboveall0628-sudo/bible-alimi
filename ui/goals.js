@@ -201,7 +201,7 @@ async function addNewGoal() {
         title: '',
         description: '',
         parentGoalId: null,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
         endDate: '',
         status: 'active',
         progress: 0,
