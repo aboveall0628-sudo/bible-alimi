@@ -64,23 +64,124 @@ export const POLICY = {
     decisions: {
         plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt'],
         encrypted: ['text', 'linkedScriptureId', 'linkedGoalId', 'linkedPrincipleId']
-    }
-    // ─────────────────────────────────────────────
-    //  RESERVED FOR v2 — 인물·경제 모듈 (현재 비활성)
-    // ─────────────────────────────────────────────
-    // persons: {
-    //     plaintext: ['id', 'userId', 'createdAt', 'lastInteractionAt'],
-    //     encrypted: ['name', 'relationship', 'notes', 'tags']
-    // },
-    // organizations: {
-    //     plaintext: ['id', 'userId', 'type', 'createdAt'],
-    //     encrypted: ['name', 'role', 'notes']
-    // },
-    // transactions: {
-    //     plaintext: ['id', 'userId', 'date', 'amountBucket', 'category', 'createdAt'],
-    //     encrypted: ['amount', 'description', 'merchant', 'linkedPersonIds']
-    // },
-    // 활성화 시: dots.encrypted의 linkedPersonIds/linkedOrgIds/linkedTransactionIds가
-    //  실제 인물/조직/거래 ID 배열로 채워지며, 영적 안전장치(인물 라벨링 금지 등)는
-    //  docs/future-modules.md 참조.
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    //  v3.0 신규 — 사용자 서브컬렉션(users/{uid}/<col>) 으로 저장됨
+    //  영적 안전장치: docs/future-modules.md 참조 (인물 라벨링 금지 등)
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── 인물·조직 모듈 ──
+    persons: {
+        plaintext: [
+            'id', 'relation', 'innerCircle', 'stance', 'isPinned', 'isFallback',
+            'lastInteractionAt', 'createdAt', 'updatedAt'
+        ],
+        encrypted: [
+            'name', 'nicknames', 'avatarUrl',
+            'bigFive',          // {O,C,E,A,N} 0-100, 노출 시 비교/라벨링 위험으로 암호화
+            'competencies',     // {analysis, ...} 0-100
+            'relationship',     // {closeness, trust, friendliness, importance} 1-5
+            'stanceHistory',    // [{from, to, changedAt, reason, prayerDone}]
+            'meaningfulVerse',  // 이 사람을 위한 말씀
+            'knownFacts', 'sensitivities',
+            'notes', 'strengths', 'tendencies'
+        ]
+    },
+    organizations: {
+        plaintext: [
+            'id', 'type', 'stance', 'friendliness', 'trust', 'importance', 'riskLevel',
+            'createdAt', 'updatedAt'
+        ],
+        encrypted: ['name', 'memberPersonIds', 'meaningfulVerse', 'notes']
+    },
+    interactions: {
+        plaintext: ['id', 'dotId', 'date', 'sentiment', 'createdAt'],
+        encrypted: ['personIds', 'orgIds', 'summary', 'moves', 'feelings', 'lessons', 'factsLearned']
+    },
+
+    // ── 경제 모듈 ──
+    accounts: {
+        plaintext: ['id', 'type', 'currency', 'isPrimary', 'createdAt'],
+        encrypted: ['name', 'institution']
+    },
+    assetCategories: {
+        plaintext: ['id', 'kind', 'createdAt'],
+        encrypted: ['name']
+    },
+    assets: {
+        plaintext: ['id', 'categoryId', 'currentValueBucket', 'lastValuationAt', 'createdAt'],
+        encrypted: ['label', 'details', 'exactValue']
+    },
+    liabilities: {
+        plaintext: ['id', 'type', 'principalBucket', 'createdAt'],
+        encrypted: ['details', 'interestRate', 'exactPrincipal']
+    },
+    transactions: {
+        plaintext: [
+            'id', 'date', 'direction', 'amountBucket',
+            'category', 'subCategory', 'incomeType', 'expenseType',
+            'createdAt'
+        ],
+        encrypted: [
+            'exactAmount', 'description', 'accountId',
+            'linkedAssetId', 'linkedLiabilityId',
+            'linkedDotId', 'linkedPersonIds', 'linkedOrgIds'
+        ]
+    },
+    cashflowSnapshots: {
+        plaintext: ['id', 'month', 'savingsRate', 'passiveRatio', 'createdAt'],
+        encrypted: ['totalsExact', 'breakdownExact', 'aiInsights']
+    },
+    netWorthSnapshots: {
+        plaintext: ['id', 'month', 'netWorthBucket', 'createdAt'],
+        encrypted: ['totalsExact', 'breakdownExact']
+    },
+
+    // ── 영적 잠금 모듈 ──
+    spiritualTokens: {
+        plaintext: [
+            'id', 'issuedAt', 'mode', 'wordPassageRef',
+            'eveningClosed', 'eveningClosedAt', 'nextDayPrep', 'nextDayPassageRef',
+            'createdAt'
+        ],
+        encrypted: ['meditationNote', 'prayerNote', 'oneLineToGod', 'nextDayDecisions']
+    },
+    retreatSessions: {
+        plaintext: [
+            'id', 'type', 'startDate', 'endDate', 'dailyLockMode',
+            'autoCloseEvening', 'createdAt', 'closedAt'
+        ],
+        encrypted: ['location', 'purpose', 'reflectionPayload']
+    },
+
+    // ── 단일 문서 설정 ──
+    // settings/{docName} 패턴으로 사용. 키는 'spiritualLock' 등.
+    spiritualLockSettings: {
+        plaintext: [
+            'id', 'morningSlotTime', 'morningSlotDuration',
+            'eveningSlotTime', 'eveningSlotDuration', 'eveningCutoffHour',
+            'skipQuotaPerDay', 'sabbathDates', 'sabbathQuotaPerMonth',
+            'alarmEnabled', 'minimumMeditationLength', 'streakVisible',
+            'updatedAt'
+        ],
+        encrypted: []
+    },
 };
+
+/**
+ * 컬렉션 path → 정책 키 추출
+ * 예) 'users/abc/persons' → 'persons'
+ *     'users/abc/settings/spiritualLock' → 'spiritualLockSettings'
+ *     'goals' → 'goals'
+ */
+export function policyKeyFromPath(path) {
+    if (!path) return null;
+    const parts = path.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    // settings/{docName} 같은 단일 문서 패턴 처리
+    if (parts.length >= 2 && parts[parts.length - 2] === 'settings') {
+        return `${last}Settings`; // 'spiritualLock' → 'spiritualLockSettings'
+    }
+    return last;
+}

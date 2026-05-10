@@ -3,33 +3,29 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
-    //  users/{uid} — 사용자 vault 메타 (wrappedDEK, salt 등)
+    //  v3.0 — 사용자 캐비닛 (users/{uid} 자체 + 모든 서브컬렉션)
+    //  본인 UID와 일치할 때만 읽고 쓸 수 있음. 한 줄로 격리 끝.
+    //  여기에 들어가는 것: persons, organizations, interactions,
+    //  accounts, assetCategories, assets, liabilities, transactions,
+    //  cashflowSnapshots, netWorthSnapshots, spiritualTokens,
+    //  retreatSessions, settings/*
     // ─────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read, write: if request.auth.uid == uid;
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // 사용자 서브컬렉션의 모든 깊이 — 캐비닛 안은 통째로 본인만 접근
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  공통 규칙 — 모든 사용자 데이터 컬렉션
-    //  요건: 본인 userId 필드를 가진 문서만 읽기/쓰기 가능
+    //  v2.1 — 루트 컬렉션 (도트, 묵상, 결단, 원칙, 목표, 리포트 등)
+    //  요건: 본인 userId 필드를 가진 문서만 접근 가능
     // ─────────────────────────────────────────────────────────────
     match /{collection}/{docId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
-
-    // ─────────────────────────────────────────────────────────────
-    //  RESERVED FOR v2 — 인물·경제 모듈 슬롯 (현재 비활성)
-    //  · persons, organizations, interactions
-    //  · accounts, assets, liabilities, transactions, cashflowSnapshots
-    //
-    //  현재 dots/reports 의 encrypted 필드에는 다음 슬롯이 빈 배열로 예약됨:
-    //  - linkedPersonIds[]      → 인물 모듈 활성화 시 채워짐
-    //  - linkedOrgIds[]         → 조직 모듈 활성화 시 채워짐
-    //  - linkedTransactionIds[] → 경제 모듈 활성화 시 채워짐
-    //
-    //  이 컬렉션들은 위 공통 규칙으로 자동 보호되지만, v2까지 데이터를
-    //  쓰지 않을 것을 코드 측에서 보장한다 (config/encryptionPolicy.js 주석).
-    // ─────────────────────────────────────────────────────────────
   }
 }
