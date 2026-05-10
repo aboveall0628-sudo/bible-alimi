@@ -92,28 +92,55 @@ function bindEvents() {
         statusBox.innerHTML = `<p>스캔 중... (식별자: ${accepted.join(', ')})</p>`;
 
         try {
-            _diagnosticData = await diagnoseV1Data(accepted);
-            let html = '<ul style="margin-left:18px;">';
+            _diagnosticData = await diagnoseV1Data(accepted, { includeLegacy: true });
+
+            // v1 평문 / _legacy_ 백업 분리
+            const v1Items = [];
+            const legacyItems = [];
             let totalCount = 0;
             for (const [col, info] of Object.entries(_diagnosticData)) {
-                html += `<li><strong>${col}</strong>: ${info.count}개 (최근 ${info.latest})</li>`;
                 totalCount += info.count;
+                const target = col.startsWith('_legacy_') ? legacyItems : v1Items;
+                target.push({ col, info });
             }
-            html += '</ul>';
+
+            let html = '';
+            if (v1Items.length > 0) {
+                html += '<p style="font-weight:600;margin-top:8px">📦 옛 빌드에서 만든 데이터</p>';
+                html += '<ul style="margin-left:18px">';
+                v1Items.forEach(({ col, info }) => {
+                    const label = friendlyCollectionName(col);
+                    html += `<li><strong>${label}</strong>: ${info.count}개 ${info.ownerless ? '(공동 저장소)' : ''}</li>`;
+                });
+                html += '</ul>';
+            }
+            if (legacyItems.length > 0) {
+                html += '<p style="font-weight:600;margin-top:12px">🔐 이전 마이그레이션 백업</p>';
+                html += '<p style="font-size:12px;color:var(--text-secondary)">암호화 키가 사라졌을 때 여기서 평문을 다시 가져와요.</p>';
+                html += '<ul style="margin-left:18px">';
+                legacyItems.forEach(({ col, info }) => {
+                    const label = friendlyCollectionName(col);
+                    html += `<li><strong>${label}</strong>: ${info.count}개</li>`;
+                });
+                html += '</ul>';
+            }
 
             if (totalCount === 0) {
-                html = '<p>이전할 v1 데이터가 없어요. 모두 정상입니다.</p>';
+                html = '<p>옮길 옛 데이터가 없어요. 모두 깔끔한 상태예요.</p>';
                 if (btnMigrate) btnMigrate.disabled = true;
                 if (btnBackup) btnBackup.disabled = true;
             } else {
-                html += `<p style="margin-top:8px;font-weight:bold;color:var(--dot-orange)">총 ${totalCount}개 평문 데이터를 발견했어요. 마이그레이션하세요.</p>`;
+                html += `<p style="margin-top:12px;font-weight:600;color:var(--dot-orange)">
+                    총 ${totalCount}개를 발견했어요. <br>
+                    [데이터 옮기기]를 누르면 안전하게 새 저장소로 이전합니다.
+                </p>`;
                 if (btnMigrate) btnMigrate.disabled = false;
                 if (btnBackup) btnBackup.disabled = false;
             }
             statusBox.innerHTML = html;
         } catch (e) {
             console.error(e);
-            statusBox.innerHTML = '<p style="color:var(--dot-red)">진단 중 오류가 발생했어요. 콘솔을 확인하세요.</p>';
+            statusBox.innerHTML = '<p style="color:var(--dot-red)">진단 중 오류가 났어요. 콘솔을 확인해 주세요.</p>';
         }
         btnDiagnose.disabled = false;
         btnDiagnose.textContent = '진단 시작';
@@ -121,29 +148,66 @@ function bindEvents() {
 
     if (btnMigrate) btnMigrate.onclick = async () => {
         const dek = getDEK();
-        if (!dek) return alert('잠금 해제가 필요합니다.');
-        if (!_diagnosticData) return alert('먼저 진단을 실행하세요.');
-        if (!confirm('발견된 데이터를 암호화된 v2 스토리지로 옮기시겠어요?\n원본은 _legacy_*에 보존됩니다.')) return;
+        if (!dek) return alert('먼저 잠금을 풀어주세요.');
+        if (!_diagnosticData) return alert('먼저 [진단 시작]을 눌러주세요.');
+        if (!confirm('찾은 데이터를 안전한 새 저장소로 옮길게요.\n원본은 그대로 남으니까 걱정 마세요.\n\n계속할까요?')) return;
 
         btnMigrate.disabled = true;
         let total = 0;
+        const perCollection = {};
 
         for (const [col, info] of Object.entries(_diagnosticData)) {
-            statusBox.innerHTML = `<p>[${col}] 이전 중... (${info.count}건)</p>`;
+            const friendly = friendlyCollectionName(col);
+            statusBox.innerHTML = `<p>${friendly} 옮기는 중... (${info.count}개)</p>`;
             try {
                 const ok = await migrateCollection(dek, _userId, col, info.docs, (curr, tot) => {
                     btnMigrate.textContent = `${curr}/${tot}`;
                 });
                 total += ok;
+                perCollection[friendly] = ok;
             } catch (e) {
                 console.error(`[${col}] 이전 실패`, e);
             }
         }
 
-        statusBox.innerHTML = `<p style="color:var(--dot-green);font-weight:bold;">✅ 총 ${total}개 데이터를 안전하게 옮겼어요.</p>`;
-        btnMigrate.textContent = '마이그레이션 실행';
+        const summary = Object.entries(perCollection)
+            .filter(([, n]) => n > 0)
+            .map(([k, n]) => `${k} ${n}개`)
+            .join(', ');
+
+        statusBox.innerHTML = `
+            <p style="color:var(--dot-green);font-weight:600">✅ 모두 옮겼어요!</p>
+            <p style="font-size:13px;margin-top:6px">${summary || '옮길 데이터가 없었어요.'}</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin-top:8px">
+                새로고침하면 오늘 화면과 지난 묵상에 데이터가 다시 보일 거예요.
+            </p>
+        `;
+        btnMigrate.textContent = '데이터 옮기기';
         await logAuditAction(_userId, 'migrate_complete', { count: total });
     };
+
+    /** 컬렉션명 → 사용자 친화 이름 */
+    function friendlyCollectionName(col) {
+        const map = {
+            dots: '도트(시간 기록)',
+            timeboxes: '타임박스(옛 이름)',
+            memos: '묵상 노트',
+            meditations: '묵상 노트',
+            notes: '메모',
+            principles: '원칙',
+            goals: '목표',
+            bibleProgress: '통독 진도',
+            _legacy_dots: '도트 백업',
+            _legacy_memos: '묵상 노트 백업',
+            _legacy_meditations: '묵상 노트 백업',
+            _legacy_principles: '원칙 백업',
+            _legacy_goals: '목표 백업',
+            _legacy_timeboxes: '타임박스 백업',
+            _legacy_notes: '메모 백업',
+            _legacy_bibleProgress: '통독 진도 백업',
+        };
+        return map[col] || col;
+    }
 
     if (btnBackup) btnBackup.onclick = () => {
         if (!_diagnosticData) return;

@@ -207,16 +207,19 @@
                 <div id="settings-container">
                     <div class="card-section" style="border-left: 3px solid var(--accent)">
                         <div class="section-header-flex">
-                            <h3 class="section-title">데이터 복구 및 진단 (STEP 0)</h3>
+                            <h3 class="section-title">📦 데이터 복구</h3>
                         </div>
-                        <p class="section-desc">v1에서 사용하던 암호화되지 않은 옛 데이터를 v2의 안전한 스토리지로 이전합니다.</p>
+                        <p class="section-desc">
+                            예전에 작성한 묵상·도트·원칙·목표를 다시 가져와요.<br>
+                            [진단 시작]을 누르면 어디에 어떤 데이터가 있는지 알려드려요.
+                        </p>
                         <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--text-secondary);">
-                            <p>진단을 위해 [진단 시작] 버튼을 눌러주세요.</p>
+                            <p>준비됐어요. [진단 시작]을 눌러주세요.</p>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button id="btn-diagnose" class="primary-btn" style="background: var(--accent-light);">진단 시작</button>
-                            <button id="btn-migrate" class="primary-btn" style="background: var(--dot-orange);" disabled>마이그레이션 실행</button>
-                            <button id="btn-backup" class="text-btn" disabled>수동 백업 다운로드</button>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="btn-diagnose" class="primary-btn">진단 시작</button>
+                            <button id="btn-migrate" class="primary-btn" style="background: var(--dot-orange);" disabled>데이터 옮기기</button>
+                            <button id="btn-backup" class="text-btn" disabled>📥 백업 파일로 받기</button>
                         </div>
                     </div>
 

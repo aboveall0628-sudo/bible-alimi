@@ -22,6 +22,11 @@ export const POLICY = {
         plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
         encrypted: ['content', 'decisions', 'prayer']
     },
+    // memos: v1 빌드의 묵상 컬렉션. meditations와 동일 구조로 마이그레이션됨.
+    memos: {
+        plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
+        encrypted: ['content', 'decisions', 'prayer']
+    },
     principles: {
         plaintext: ['id', 'userId', 'category', 'pinned', 'active', 'createdAt', 'updatedAt'],
         encrypted: ['title', 'body', 'triggerKeywords', 'derivedFromDotIds']
