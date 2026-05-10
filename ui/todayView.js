@@ -87,7 +87,7 @@ async function saveMeditationNote(content) {
     if (!dek || !_userId || !_date) return;
 
     const status = document.getElementById('meditation-save-status');
-    if (status) status.textContent = '저장 중...';
+    if (status) status.textContent = '저장하는 중...';
 
     try {
         const id = `meditation_${_userId}_${_date}`;
@@ -97,12 +97,12 @@ async function saveMeditationNote(content) {
         await setDoc(doc(db, 'meditations', id), document_, { merge: true });
 
         if (status) {
-            status.textContent = '🔐 안전하게 보관됨';
-            setTimeout(() => { if (status) status.textContent = ''; }, 1200);
+            status.textContent = '🔐 안전하게 보관됐어요';
+            setTimeout(() => { if (status) status.textContent = ''; }, 1500);
         }
     } catch (e) {
         console.error('meditation save failed:', e);
-        if (status) status.textContent = '저장 실패 — 콘솔 확인';
+        if (status) status.textContent = '저장이 잘 안 됐어요';
     }
 }
 
@@ -150,7 +150,7 @@ function renderDecisions() {
     if (_decisions.length === 0) {
         list.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);padding:8px;">
-                아직 결단이 없어요. [+ 새 결단 추가]를 눌러 시작해 보세요.
+                아직 결단이 없어요. 아래 [+ 새 결단 적기]를 눌러 시작해 볼까요?
             </p>
         `;
         return;
@@ -169,7 +169,7 @@ function renderDecisionCard(d) {
         <div class="decision-card ${placed ? 'placed' : ''}" data-id="${d.id}" draggable="true">
             <span class="decision-handle" title="시간축으로 드래그">⋮⋮</span>
             <input type="text" class="decision-text" value="${escapeHtml(d.text || '')}"
-                   placeholder="결단 내용을 적어주세요..." data-id="${d.id}" />
+                   placeholder="오늘 어디에 순종할까요?" data-id="${d.id}" />
             <span class="decision-slot">${slotLabel}</span>
             <button class="decision-action delete-btn" data-id="${d.id}" title="삭제">×</button>
         </div>
@@ -213,7 +213,7 @@ function bindCardEvents() {
     list.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
-            if (!confirm('이 결단을 삭제할까요?')) return;
+            if (!confirm('이 결단을 지울까요?')) return;
             await deleteDecision(id);
             _decisions = _decisions.filter(d => d.id !== id);
             renderDecisions();
@@ -236,7 +236,7 @@ function bindCardEvents() {
 
 async function addNewDecision() {
     const dek = getDEK();
-    if (!dek) { showToast('잠금 해제가 필요해요'); return; }
+    if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
 
     const newDecision = {
         userId: _userId,

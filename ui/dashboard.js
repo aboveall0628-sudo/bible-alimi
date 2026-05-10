@@ -19,7 +19,7 @@ export async function renderDashboardView(userId) {
 
     const dek = getDEK();
     if (!dek) {
-        container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1">잠시 잠겨있어요. 비밀번호로 열어주세요.</div>';
+        container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1"><div class="empty-state-icon">🔒</div><h3>잠시 잠겨있어요</h3><p class="empty-state-desc">비밀번호로 열어주세요.</p></div>';
         return;
     }
 
@@ -43,9 +43,9 @@ export async function renderDashboardView(userId) {
 
     container.innerHTML = `
         <div class="dash-card">
-            <h3>🌟 오늘의 발견</h3>
+            <h3>🌟 이번 주 발자국</h3>
             <div class="dash-value">${stats.doneCount + stats.partialCount}<span style="font-size:14px;color:var(--text-secondary)"> / ${stats.totalSlots}</span></div>
-            <p class="dash-desc">최근 7일 시간 흔적</p>
+            <p class="dash-desc">지난 7일 동안 남긴 시간 흔적</p>
         </div>
 
         <div class="dash-card">
@@ -55,44 +55,43 @@ export async function renderDashboardView(userId) {
         </div>
 
         <div class="dash-card">
-            <h3>🙏 묵상 충실도</h3>
+            <h3>🙏 묵상 한 줄</h3>
             <div class="dash-value">${meditationCount}<span style="font-size:14px;color:var(--text-secondary)"> / 7일</span></div>
-            <p class="dash-desc">${meditationRate}% — 매일 한 줄 묵상을 이어가요</p>
+            <p class="dash-desc">${meditationRate}% — 천천히 한 줄씩 이어가요</p>
         </div>
 
         <div class="dash-card">
-            <h3>💚 감사한 시간</h3>
+            <h3>💚 감사한 순간</h3>
             <div class="dash-value">${stats.doneCount}</div>
-            <p class="dash-desc">계획대로 살아낸 슬롯 수</p>
+            <p class="dash-desc">계획한 대로 살아낸 시간</p>
         </div>
 
         <div class="dash-card" style="grid-column: 1/-1; cursor: pointer; opacity: 0.85" id="dash-advanced-toggle">
-            <h3>📊 자세한 지표 펼치기 ▾</h3>
-            <p class="dash-desc">일치율, 평균 만족도, 실행 분포 등 (디폴트 숨김 — 율법적 비교 방지)</p>
+            <h3>📊 자세히 보기 ▾</h3>
+            <p class="dash-desc">숫자 지표는 평소엔 숨겨둬요. 비교에 휘말리지 않도록.</p>
         </div>
 
         <div id="dash-advanced" class="hidden" style="grid-column: 1/-1; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-4)">
             <div class="dash-card">
-                <h3>일치율</h3>
+                <h3>계획 일치율</h3>
                 <div class="dash-value">${stats.matchRate}%</div>
-                <p class="dash-desc">계획 대비 완료</p>
+                <p class="dash-desc">계획대로 살아낸 비율</p>
             </div>
             <div class="dash-card">
                 <h3>평균 만족도</h3>
                 <div class="dash-value">${stats.avgSatisfaction} <span style="font-size:14px;color:var(--text-secondary)">/ 5</span></div>
-                <p class="dash-desc">${stats.totalSlots}개 슬롯</p>
+                <p class="dash-desc">${stats.totalSlots}개 시간</p>
             </div>
             <div class="dash-card">
-                <h3>실행 분포</h3>
+                <h3>이번 주 흐름</h3>
                 <p class="dash-desc" style="margin-top:0; font-size: 13px">
-                    완료 ${stats.doneCount} · 부분 ${stats.partialCount}<br>
-                    대체 ${stats.replacedCount} · 못함 ${stats.skippedCount}
+                    완료 ${stats.doneCount} · 조금 ${stats.partialCount}<br>
+                    다른 일 ${stats.replacedCount} · 못함 ${stats.skippedCount}
                 </p>
             </div>
         </div>
     `;
 
-    // 고급 지표 펼치기 토글
     const toggle = document.getElementById('dash-advanced-toggle');
     const advanced = document.getElementById('dash-advanced');
     if (toggle && advanced) {
@@ -100,8 +99,8 @@ export async function renderDashboardView(userId) {
             advanced.classList.toggle('hidden');
             const h3 = toggle.querySelector('h3');
             if (h3) h3.textContent = advanced.classList.contains('hidden')
-                ? '📊 자세한 지표 펼치기 ▾'
-                : '📊 자세한 지표 접기 ▴';
+                ? '📊 자세히 보기 ▾'
+                : '📊 다시 닫기 ▴';
         });
     }
 }
@@ -124,7 +123,7 @@ async function getBibleProgress(userId) {
 
 function computeBibleProgress(records) {
     if (!records || records.length === 0) {
-        return { percent: 0, detail: '아직 기록이 없어요. 오늘부터 한 장씩 시작해 보세요.' };
+        return { percent: 0, detail: '아직 기록이 없어요. 오늘부터 한 장씩 시작해 볼까요?' };
     }
     // 4파트 각각의 완독 비율 평균. completed=true인 것 카운트.
     const partTotals = { 1: 281, 2: 410, 3: 249, 4: 260 }; // scripture.js의 4파트 챕터 수 합계

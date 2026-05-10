@@ -55,7 +55,7 @@ function stopTimerTick() {
     if (_timerInterval) clearInterval(_timerInterval);
     _timerInterval = null;
     const el = document.getElementById('lock-timer-display');
-    if (el) el.textContent = '🔒 Locked';
+    if (el) el.textContent = '🔒 잠겨있어요';
 }
 
 /**
@@ -74,13 +74,13 @@ export function isLocked() {
 function updateTimerDisplay() {
     const el = document.getElementById('lock-timer-display');
     if (!el) return;
-    if (_dek === null) { el.textContent = '🔒 Locked'; return; }
+    if (_dek === null) { el.textContent = '🔒 잠겨있어요'; return; }
     const ms = getRemainingMs();
     const totalSec = Math.ceil(ms / 1000);
     const m = Math.floor(totalSec / 60);
     const s = totalSec % 60;
     el.textContent = `🔒 ${m}:${String(s).padStart(2, '0')}`;
-    el.title = '자동 잠금까지 남은 시간';
+    el.title = '자동으로 잠기기까지 남은 시간';
 }
 
 /**
@@ -96,12 +96,12 @@ function renderLockScreen() {
         <div class="lock-screen-box">
             <div class="lock-icon">🔐</div>
             <h2>Sanctum OS</h2>
-            <p class="lock-subtitle">마스터 비밀번호를 입력해주세요</p>
+            <p class="lock-subtitle">잠시 잠겨있어요. 비밀번호로 열어주세요.</p>
             <input type="password" id="lock-password-input" class="lock-input"
-                   placeholder="마스터 비밀번호" autocomplete="off" />
+                   placeholder="내 비밀번호" autocomplete="off" />
             <div id="lock-error" class="lock-error hidden"></div>
             <button id="lock-unlock-btn" class="lock-btn">열기</button>
-            <button id="lock-recovery-btn" class="lock-link-btn">복구 코드로 열기</button>
+            <button id="lock-recovery-btn" class="lock-link-btn">비밀번호를 잊었어요</button>
         </div>
     `;
     document.body.appendChild(overlay);
@@ -122,12 +122,12 @@ async function handleUnlockAttempt() {
     const password = input.value;
 
     if (!password) {
-        showError(errorEl, '비밀번호를 입력해주세요.');
+        showError(errorEl, '비밀번호를 적어주세요.');
         return;
     }
 
     const btn = document.getElementById('lock-unlock-btn');
-    btn.textContent = '확인 중...';
+    btn.textContent = '여는 중...';
     btn.disabled = true;
 
     // auth.js의 unlock 함수를 이벤트로 호출

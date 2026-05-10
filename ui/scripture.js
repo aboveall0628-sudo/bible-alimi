@@ -173,7 +173,7 @@ export async function renderScriptureForDate(date) {
         catch {
             container.innerHTML = `
                 <div class="meditation-error">
-                    말씀을 가져오지 못했어요. 새로고침(Ctrl+Shift+R)해 주세요.
+                    말씀을 가져오지 못했어요. Ctrl+Shift+R로 한 번 새로고침해 볼까요?
                 </div>
             `;
             return;
@@ -183,8 +183,8 @@ export async function renderScriptureForDate(date) {
     container.innerHTML = `
         <div class="scripture-toolbar">
             <button id="scripture-copy-to-note" class="text-btn" disabled
-                    title="구절을 클릭해 선택하면 활성화돼요">
-                ✏️ 선택한 구절을 묵상 노트에 옮기기 (0개)
+                    title="구절을 톡 누르면 활성화돼요">
+                ✏️ 고른 구절을 묵상 노트로 옮기기 (0개)
             </button>
         </div>
     `;
@@ -209,7 +209,7 @@ export async function renderScriptureForDate(date) {
                         <span class="verse-num">${v.num}</span>
                         <span class="verse-text">${v.text}</span>
                     </div>
-                `).join('') || '<div style="color:var(--text-secondary);font-size:12px">본문 데이터를 불러오는 중...</div>'}
+                `).join('') || '<div style="color:var(--text-secondary);font-size:12px">잠깐만요, 본문을 가져오는 중이에요...</div>'}
             </div>
         `;
 
@@ -242,7 +242,7 @@ function updateCopyButton(container) {
     const btn = document.getElementById('scripture-copy-to-note');
     if (!btn) return;
     const count = container.querySelectorAll('.verse-item.selected').length;
-    btn.textContent = `✏️ 선택한 구절을 묵상 노트에 옮기기 (${count}개)`;
+    btn.textContent = `✏️ 고른 구절을 묵상 노트로 옮기기 (${count}개)`;
     btn.disabled = count === 0;
 }
 
@@ -276,8 +276,8 @@ function copySelectedToNote(container) {
 
     const existing = editor.innerText.trim();
     editor.innerText = existing
-        ? existing + '\n\n' + noteText + '\n\n— 여기서 묵상을 시작해 보세요 —\n'
-        : noteText + '\n\n— 여기서 묵상을 시작해 보세요 —\n';
+        ? existing + '\n\n' + noteText + '\n\n— 여기서부터 한 줄씩 적어 볼까요? —\n'
+        : noteText + '\n\n— 여기서부터 한 줄씩 적어 볼까요? —\n';
 
     // input 이벤트 트리거 → todayView의 자동 저장 디바운스 발동
     editor.dispatchEvent(new Event('input', { bubbles: true }));

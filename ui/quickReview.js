@@ -18,10 +18,10 @@ let _currentExistingDot = null;
 let _onSaved = null;
 
 const STATUS_OPTIONS = [
-    { key: 'done', emoji: '😀', label: '완료', shortcut: '1' },
-    { key: 'partial', emoji: '🙂', label: '부분', shortcut: '2' },
-    { key: 'replaced', emoji: '🔄', label: '대체', shortcut: '3' },
-    { key: 'skipped', emoji: '😣', label: '못함', shortcut: '4' },
+    { key: 'done', emoji: '😀', label: '잘 했어요', shortcut: '1' },
+    { key: 'partial', emoji: '🙂', label: '조금 했어요', shortcut: '2' },
+    { key: 'replaced', emoji: '🔄', label: '다른 걸 했어요', shortcut: '3' },
+    { key: 'skipped', emoji: '😣', label: '못 했어요', shortcut: '4' },
 ];
 
 /**
@@ -48,7 +48,7 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     const modal = document.getElementById('qr-modal');
     modal.classList.remove('hidden');
 
-    document.getElementById('qr-planned-task').textContent = plannedTask || '(계획 없음)';
+    document.getElementById('qr-planned-task').textContent = plannedTask || '(따로 계획은 없었어요)';
     document.getElementById('qr-actual-input').value = plannedTask || '';
     document.getElementById('qr-reason-input').value = '';
     document.getElementById('qr-satisfaction').value = '3';
@@ -63,7 +63,7 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
 
     // 상세 접기
     document.getElementById('qr-detail-section').classList.add('hidden');
-    document.getElementById('qr-detail-toggle').textContent = '자세히 평가 ▼';
+    document.getElementById('qr-detail-toggle').textContent = '조금 더 자세히 ▼';
 
     // 포커스
     setTimeout(() => document.querySelector('.qr-status-btn')?.focus(), 100);
@@ -84,7 +84,7 @@ function renderModal() {
     modal.innerHTML = `
         <div class="modal-content qr-modal-content">
             <div class="qr-header">
-                <h3>빠른 평가</h3>
+                <h3>이 시간, 어땠나요?</h3>
                 <span id="qr-planned-task" class="qr-planned-label"></span>
             </div>
 
@@ -99,7 +99,7 @@ function renderModal() {
             </div>
 
             <div class="qr-slider-row">
-                <label>만족도</label>
+                <label>얼마나 만족?</label>
                 <input type="range" id="qr-satisfaction" min="1" max="5" value="3" class="neon-slider-light" />
                 <span id="qr-sat-value" class="qr-sat-display">3</span>
             </div>
@@ -110,26 +110,26 @@ function renderModal() {
                 ).join('')}
             </div>
 
-            <button id="qr-detail-toggle" class="qr-toggle-btn">자세히 평가 ▼</button>
+            <button id="qr-detail-toggle" class="qr-toggle-btn">조금 더 자세히 ▼</button>
 
             <div id="qr-detail-section" class="qr-detail hidden">
                 <div class="qr-field">
                     <label>실제로 한 일</label>
-                    <input type="text" id="qr-actual-input" class="qr-text-input" placeholder="실제로 뭘 했나요?" />
+                    <input type="text" id="qr-actual-input" class="qr-text-input" placeholder="이 시간에 진짜 뭘 했어요?" />
                 </div>
                 <div class="qr-slider-row">
-                    <label>결과 만족도</label>
+                    <label>결과는?</label>
                     <input type="range" id="qr-outcome-sat" min="1" max="5" value="3" class="neon-slider-dark" />
                 </div>
                 <div class="qr-field">
-                    <label>한 줄 이유</label>
-                    <input type="text" id="qr-reason-input" class="qr-text-input" placeholder="왜 그랬을까?" />
+                    <label>이유 한 줄</label>
+                    <input type="text" id="qr-reason-input" class="qr-text-input" placeholder="왜 이렇게 됐을까요?" />
                 </div>
             </div>
 
             <div class="qr-actions">
                 <button id="qr-cancel-btn" class="text-btn">닫기</button>
-                <button id="qr-save-btn" class="primary-btn">기록하기</button>
+                <button id="qr-save-btn" class="primary-btn">저장하기</button>
             </div>
         </div>
     `;
@@ -164,7 +164,7 @@ function bindEvents() {
         if (e.target.id === 'qr-detail-toggle') {
             const section = document.getElementById('qr-detail-section');
             const isHidden = section.classList.toggle('hidden');
-            e.target.textContent = isHidden ? '자세히 평가 ▼' : '접기 ▲';
+            e.target.textContent = isHidden ? '조금 더 자세히 ▼' : '접기 ▲';
         }
     });
 
@@ -226,7 +226,7 @@ async function handleSave() {
     });
 
     const btn = document.getElementById('qr-save-btn');
-    btn.textContent = '저장 중...';
+    btn.textContent = '저장하는 중...';
     btn.disabled = true;
 
     try {
@@ -260,8 +260,9 @@ async function handleSave() {
         if (_onSaved) _onSaved({ decisionId: _currentDecisionId });
     } catch (e) {
         console.error('Save dot error:', e);
-        btn.textContent = '기록하기';
+        btn.textContent = '저장하기';
         btn.disabled = false;
+        showToast('저장이 잘 안 됐어요. 다시 한 번 해볼까요?');
     }
 }
 
@@ -269,7 +270,7 @@ function closeModal() {
     const modal = document.getElementById('qr-modal');
     if (modal) modal.classList.add('hidden');
     const btn = document.getElementById('qr-save-btn');
-    if (btn) { btn.textContent = '기록하기'; btn.disabled = false; }
+    if (btn) { btn.textContent = '저장하기'; btn.disabled = false; }
 }
 
 function showToast(msg) {

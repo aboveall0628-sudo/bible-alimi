@@ -91,12 +91,12 @@ function renderDesktop() {
     if (_decisions.length === 0 && _dots.length === 0 && _gcalEvents.length === 0) {
         body.innerHTML = `
             <div class="utl-empty-card">
-                <h4>처음이신가요? 이렇게 시작해보세요</h4>
+                <h4>오늘 하루를 어떻게 시작해볼까요?</h4>
                 <ol>
-                    <li>묵상 노트에 떠오른 것을 적어보세요</li>
-                    <li>오늘의 결단 한 줄을 입력하세요</li>
-                    <li>결단 카드의 ⋮⋮를 시간축으로 드래그해서 박으세요</li>
-                    <li>빈 시간을 클릭하면 시계부를 빠르게 기록할 수 있어요</li>
+                    <li>위에서 묵상 한 줄을 적어 보세요</li>
+                    <li>오늘의 결단을 한 줄 적어 보세요</li>
+                    <li>결단 카드의 ⋮⋮를 잡고 시간표로 끌어 옮겨 보세요</li>
+                    <li>지난 시간이 비어있다면 클릭해서 한 줄로 적어둘 수 있어요</li>
                 </ol>
             </div>
         `;
@@ -203,7 +203,7 @@ function renderMobile() {
         list.innerHTML = `
             <div class="utl-empty-card" style="border:none">
                 <h4>아직 비어있어요</h4>
-                <p>결단을 추가하거나 시간 카드를 직접 만들어 보세요.</p>
+                <p>결단을 한 줄 적거나, 빈 시간을 톡 눌러 채워 보세요.</p>
             </div>
         `;
         return;
@@ -230,7 +230,7 @@ function createPlanSlot(decision, source) {
     el.draggable = true;
     el.innerHTML = `
         <span class="slot-time">${slotToTime(decision.timeSlot)}</span>
-        <span class="slot-title">${escapeHtml(decision.text || '(이름 없는 결단)')}</span>
+        <span class="slot-title">${escapeHtml(decision.text || '(아직 이름이 없어요)')}</span>
         <span class="slot-resize" data-decision-id="${decision.id}"></span>
     `;
     return el;
@@ -244,7 +244,7 @@ function createGcalSlot(ev) {
     const range = gcalEventToSlotRange(ev);
     el.innerHTML = `
         <span class="slot-time">${slotToTime(range.start)}~${slotToTime(range.end)}</span>
-        <span class="slot-title">📅 ${escapeHtml(ev.summary || '(일정)')}</span>
+        <span class="slot-title">📅 ${escapeHtml(ev.summary || '(이름 없는 일정)')}</span>
     `;
     return el;
 }
@@ -255,7 +255,7 @@ function createActualSlot(dot) {
     el.dataset.dotId = dot.id;
     el.innerHTML = `
         <span class="slot-time">${slotToTime(dot.timeSlot)}</span>
-        <span class="slot-title">${escapeHtml(dot.actualTask || dot.plannedTask || '(평가 대기)')}</span>
+        <span class="slot-title">${escapeHtml(dot.actualTask || dot.plannedTask || '(아직 평가 전이에요)')}</span>
     `;
     return el;
 }
@@ -326,7 +326,7 @@ function bindCellEvents(col, lane) {
             const slotMoveId = e.dataTransfer.getData('application/x-sanctum-slot');
 
             const dek = getDEK();
-            if (!dek) { showToast('잠금 해제가 필요해요'); return; }
+            if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
 
             try {
                 if (decisionId) {
@@ -347,7 +347,7 @@ function bindCellEvents(col, lane) {
                 if (_onChange) await _onChange({ type: 'refresh' });
             } catch (err) {
                 console.error('drop failed:', err);
-                showToast('배치 실패 — 콘솔 확인');
+                showToast('배치가 잘 안 됐어요. 다시 한 번 해볼까요?');
             }
         });
 
@@ -442,7 +442,7 @@ function openInlineActualInput(cell, slot) {
     if (cell.querySelector('.inline-input-row')) return;
     cell.innerHTML = `
         <div class="inline-input-row">
-            <input type="text" placeholder="${slotToTime(slot)} — 뭐 했어요?" />
+            <input type="text" placeholder="${slotToTime(slot)} — 이 시간에 뭐 했어요?" />
             <button>저장</button>
         </div>
     `;
@@ -454,7 +454,7 @@ function openInlineActualInput(cell, slot) {
         const text = input.value.trim();
         if (!text) { render(); return; }
         const dek = getDEK();
-        if (!dek) { showToast('잠금 해제 필요'); return; }
+        if (!dek) { showToast('잠시 잠겨있어요. 비밀번호로 열어주세요'); return; }
         try {
             await saveDot(dek, {
                 userId: _userId,
@@ -472,7 +472,7 @@ function openInlineActualInput(cell, slot) {
             showToast('🔐 안전하게 보관됨');
         } catch (e) {
             console.error('actual save failed:', e);
-            showToast('저장 실패');
+            showToast('저장이 잘 안 됐어요. 다시 한 번 해볼까요?');
         }
     };
 
@@ -517,12 +517,12 @@ function bindGlobalEvents() {
     const sync = document.getElementById('sync-btn');
     if (sync) sync.addEventListener('click', async () => {
         await refreshTimeline({ userId: _userId, date: _date });
-        showToast('일정 새로고침됨');
+        showToast('일정 다시 가져왔어요');
     });
-    // 일괄 동기화 버튼은 STEP 2에서 events.insert 묶음 호출 시 활성화 — 일단 스텁
+    // 캘린더에 옮기기는 다음 단계에서 활성화 — 일단 안내만
     const push = document.getElementById('gcal-push-btn');
     if (push) push.addEventListener('click', () => {
-        showToast('일괄 동기화는 STEP 2에서 활성화됩니다');
+        showToast('이 기능은 곧 추가될 예정이에요');
     });
 }
 

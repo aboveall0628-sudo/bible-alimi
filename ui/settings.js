@@ -53,17 +53,17 @@ function injectExtraSections() {
     pwCard.id = 'settings-extra-injected';
     pwCard.className = 'card-section';
     pwCard.innerHTML = `
-        <h3 class="section-title">비밀번호 변경</h3>
-        <p class="section-desc">DEK는 그대로 유지되며 마스터 키만 다시 wrap합니다(데이터 재암호화 불필요).</p>
+        <h3 class="section-title">🔑 비밀번호 바꾸기</h3>
+        <p class="section-desc">기존 데이터는 그대로 둔 채로 안전하게 비밀번호만 바꿔요. 다시 로그인할 필요 없어요.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:360px;">
-            <input id="pw-old" type="password" placeholder="현재 비밀번호" autocomplete="current-password"
+            <input id="pw-old" type="password" placeholder="지금 쓰는 비밀번호" autocomplete="current-password"
                    style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);" />
             <input id="pw-new" type="password" placeholder="새 비밀번호 (4자 이상)" autocomplete="new-password"
                    style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);" />
-            <input id="pw-new2" type="password" placeholder="새 비밀번호 확인" autocomplete="new-password"
+            <input id="pw-new2" type="password" placeholder="한 번 더 입력해 주세요" autocomplete="new-password"
                    style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);" />
             <div id="pw-error" style="color:var(--dot-red);font-size:12px;min-height:16px;"></div>
-            <button id="btn-change-pw" class="primary-btn" style="align-self:flex-start;">비밀번호 변경</button>
+            <button id="btn-change-pw" class="primary-btn" style="align-self:flex-start;">비밀번호 바꾸기</button>
         </div>
     `;
     container.appendChild(pwCard);
@@ -140,7 +140,7 @@ function bindEvents() {
             statusBox.innerHTML = html;
         } catch (e) {
             console.error(e);
-            statusBox.innerHTML = '<p style="color:var(--dot-red)">진단 중 오류가 났어요. 콘솔을 확인해 주세요.</p>';
+            statusBox.innerHTML = '<p style="color:var(--dot-red)">진단 중 잠깐 문제가 있었어요. 다시 한 번 해볼까요?</p>';
         }
         btnDiagnose.disabled = false;
         btnDiagnose.textContent = '진단 시작';
@@ -216,16 +216,16 @@ function bindEvents() {
 
     if (btnExport) btnExport.onclick = async () => {
         const dek = getDEK();
-        if (!dek) return alert('잠금 해제가 필요합니다.');
+        if (!dek) return alert('먼저 잠금을 풀어주세요.');
         btnExport.disabled = true;
-        btnExport.textContent = '다운로드 준비 중...';
+        btnExport.textContent = '준비하는 중...';
         try {
             await exportAllData(dek, _userId);
         } catch (e) {
             console.error(e);
-            alert('백업 중 오류가 발생했어요.');
+            alert('잠깐 문제가 있었어요. 다시 한 번 해볼까요?');
         }
-        btnExport.textContent = '전체 데이터 암호화 백업 (JSON)';
+        btnExport.textContent = '📥 전체 데이터 받기';
         btnExport.disabled = false;
     };
 
@@ -237,14 +237,14 @@ function bindEvents() {
         const err = document.getElementById('pw-error');
         err.textContent = '';
 
-        if (newPw.length < 4) { err.textContent = '새 비밀번호를 4자 이상으로.'; return; }
-        if (newPw !== newPw2) { err.textContent = '새 비밀번호가 일치하지 않아요.'; return; }
+        if (newPw.length < 4) { err.textContent = '새 비밀번호는 4자 이상으로 적어주세요.'; return; }
+        if (newPw !== newPw2) { err.textContent = '두 번 입력한 새 비밀번호가 다른 것 같아요.'; return; }
 
         const dek = getDEK();
-        if (!dek) { err.textContent = '잠금 해제가 필요합니다.'; return; }
+        if (!dek) { err.textContent = '먼저 잠금을 풀어주세요.'; return; }
 
         btnPw.disabled = true;
-        btnPw.textContent = '확인 중...';
+        btnPw.textContent = '바꾸는 중...';
 
         try {
             // 1) 현재 비밀번호 검증: vault doc의 wrappedDEK_master를 unwrap 시도
@@ -268,19 +268,19 @@ function bindEvents() {
             await logAuditAction(_userId, 'change_password');
 
             err.style.color = 'var(--dot-green)';
-            err.textContent = '✅ 변경되었어요.';
+            err.textContent = '✅ 비밀번호를 바꿨어요!';
             document.getElementById('pw-old').value = '';
             document.getElementById('pw-new').value = '';
             document.getElementById('pw-new2').value = '';
             setTimeout(() => { err.textContent = ''; err.style.color = 'var(--dot-red)'; }, 3000);
         } catch (e) {
             console.error(e);
-            if (e.message === 'WRONG_PASSWORD') err.textContent = '현재 비밀번호가 맞지 않아요.';
+            if (e.message === 'WRONG_PASSWORD') err.textContent = '지금 비밀번호가 다른 것 같아요.';
             else if (e.message === 'NO_VAULT') err.textContent = '계정 정보를 찾을 수 없어요.';
-            else err.textContent = '변경 중 오류가 발생했어요.';
+            else err.textContent = '잠깐 문제가 있었어요. 다시 한 번 해볼까요?';
         } finally {
             btnPw.disabled = false;
-            btnPw.textContent = '비밀번호 변경';
+            btnPw.textContent = '비밀번호 바꾸기';
         }
     };
 }

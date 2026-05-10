@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sanctum OS</title>
-    <meta name="description" content="하나님 앞에서 자기 자신을 정직하게 보는 거울 — 시간, 말씀, 원칙으로 성장하는 시스템">
+    <meta name="description" content="Sanctum OS">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="style.css">
     <script type="module">
@@ -29,13 +29,13 @@
         window.appStarted = false;
         window.onerror = function(msg, src, ln) {
             var o = document.getElementById('loading-overlay');
-            if (o) o.innerHTML = '<div class="loading-box" style="color:#E5654A"><h2>오류가 발생했어요</h2><p style="font-size:13px;background:rgba(0,0,0,.05);padding:10px;border-radius:8px">' + msg + '<br><small>' + src + ':' + ln + '</small></p><p style="margin-top:10px;font-weight:600">새로고침(Ctrl+Shift+R)을 해보세요.</p></div>';
+            if (o) o.innerHTML = '<div class="loading-box" style="color:#E5654A"><h2>잠깐 문제가 있었어요</h2><p style="font-size:13px;background:rgba(0,0,0,.05);padding:10px;border-radius:8px">' + msg + '<br><small>' + src + ':' + ln + '</small></p><p style="margin-top:10px;font-weight:600">Ctrl + Shift + R을 한 번 눌러볼까요?</p></div>';
             return false;
         };
         setTimeout(function(){
             if(!window.appStarted){var o=document.getElementById('loading-overlay');if(o){
-            if(location.protocol==='file:')o.innerHTML='<div class="loading-box" style="color:#E5654A"><h2>여기서는 열 수 없어요</h2><p>GitHub Pages 주소로 접속하거나 VS Code Live Server로 열어보세요.</p></div>';
-            else o.innerHTML='<div class="loading-box"><h2>로딩이 조금 늦어지고 있어요</h2><p>새로고침(F5)을 해주세요.</p></div>';
+            if(location.protocol==='file:')o.innerHTML='<div class="loading-box" style="color:#E5654A"><h2>여기서는 열 수 없어요</h2><p>웹 주소로 접속해 주세요.</p></div>';
+            else o.innerHTML='<div class="loading-box"><h2>조금 늦어지고 있어요</h2><p>한 번만 더 새로고침(F5) 해볼까요?</p></div>';
             }}
         },10000);
     </script>
@@ -86,8 +86,8 @@
 
                 <!-- 저녁 안내 바 (18시 이후 자동 노출) -->
                 <div id="evening-hint-bar" class="evening-hint-bar hidden">
-                    <span class="hint-msg">🌙 저녁이 되었어요. 오늘을 정리해볼까요?</span>
-                    <button id="evening-hint-start">시작하기</button>
+                    <span class="hint-msg">🌙 어느덧 저녁이에요. 오늘 하루 잠깐 돌아볼까요?</span>
+                    <button id="evening-hint-start">돌아보기</button>
                 </div>
 
                 <!-- 날짜 -->
@@ -111,32 +111,32 @@
                         <h2 class="section-title">✏️ 묵상 노트</h2>
                         <span id="meditation-save-status" style="font-size:11px;color:var(--text-secondary)"></span>
                     </div>
-                    <div id="meditation-note" class="note-editor" contenteditable="true" data-placeholder="말씀을 묵상하며 떠오른 것을 적어보세요..."></div>
+                    <div id="meditation-note" class="note-editor" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
                 </section>
 
                 <!-- 오늘의 결단 (동적) -->
                 <section id="section-decisions" class="card-section">
                     <h2 class="section-title">🙏 오늘의 결단</h2>
-                    <p class="section-desc">오늘 무엇에 순종할 것인가? ⋮⋮ 핸들을 시간축으로 끌어 박을 수 있어요.</p>
+                    <p class="section-desc">오늘 어디에 순종할까요? ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
                     <div id="decisions-list" class="decisions-list"></div>
-                    <button id="decision-add-btn" class="decision-add-btn">+ 새 결단 추가</button>
+                    <button id="decision-add-btn" class="decision-add-btn">+ 새 결단 적기</button>
                 </section>
 
                 <!-- 통합 타임라인 -->
                 <section id="section-timeline" class="card-section">
                     <div class="section-header-flex">
-                        <h2 class="section-title">⏰ 통합 타임라인</h2>
+                        <h2 class="section-title">⏰ 오늘의 시간표</h2>
                         <div class="timeline-toolbar">
                             <button id="auth-btn" class="text-btn">Google 연결</button>
-                            <button id="sync-btn" class="text-btn hidden">📅 외부 일정 새로고침</button>
-                            <button id="gcal-push-btn" class="text-btn hidden" title="결단/슬롯을 Google Calendar로 일괄 동기화">📤 일괄 동기화</button>
+                            <button id="sync-btn" class="text-btn hidden">📅 일정 새로고침</button>
+                            <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기">📤 캘린더에 옮기기</button>
                         </div>
                     </div>
                     <div id="unified-timeline" class="unified-timeline">
                         <div class="utl-header">
                             <span>시간</span>
-                            <span>계획 (드래그 박기 + 캘린더)</span>
-                            <span>실제 (시계부)</span>
+                            <span>계획 (결단 · 캘린더)</span>
+                            <span>실제 (지난 일)</span>
                         </div>
                         <div id="utl-body" class="utl-body"></div>
                         <div id="utl-mobile-list" class="utl-mobile-list"></div>
@@ -152,18 +152,9 @@
                 </div>
             </div>
 
-            <!-- ── 토요일 회고 뷰 ── -->
-            <div id="view-saturday" class="view hidden">
-                <div id="saturday-review-container">
-                    <header class="page-header"><h1>📅 토요일 회고</h1></header>
-                    <div id="saturday-layer-nav" class="layer-nav"></div>
-                    <div id="saturday-layer-body" class="layer-body"></div>
-                </div>
-            </div>
-
             <!-- ── 목표 뷰 ── -->
             <div id="view-goals" class="view hidden">
-                <header class="page-header"><h1>🎯 나의 목표</h1><p class="subtitle">일 → 주 → 월 → 분기 → 연 → 5년 → 10년</p></header>
+                <header class="page-header"><h1>🎯 나의 목표</h1><p class="subtitle">오늘 → 이번 주 → 이번 달 → 분기 → 올해 → 5년 → 10년</p></header>
                 <div id="goals-container"></div>
             </div>
 
@@ -181,7 +172,7 @@
 
             <!-- ── 원칙 뷰 ── -->
             <div id="view-principles" class="view hidden">
-                <header class="page-header"><h1>📖 나의 원칙</h1><p class="subtitle">나다운 삶을 위한 흔들리지 않는 지침</p></header>
+                <header class="page-header"><h1>📖 나의 원칙</h1><p class="subtitle">나답게 살아가기 위한, 흔들리지 않는 약속</p></header>
                 <div id="principles-container"></div>
             </div>
 
@@ -189,11 +180,11 @@
             <div id="view-reports" class="view hidden">
                 <header class="page-header"><h1>📈 리포트</h1></header>
                 <div class="report-tabs">
-                    <button class="tab-btn active" data-tab="day">📖 일간</button>
-                    <button class="tab-btn" data-tab="week">📅 주간</button>
-                    <button class="tab-btn" data-tab="month">🗓 월간</button>
+                    <button class="tab-btn active" data-tab="day">📖 하루</button>
+                    <button class="tab-btn" data-tab="week">📅 한 주</button>
+                    <button class="tab-btn" data-tab="month">🗓 한 달</button>
                     <button class="tab-btn" data-tab="quarter">📊 분기</button>
-                    <button class="tab-btn" data-tab="year">🎯 연간</button>
+                    <button class="tab-btn" data-tab="year">🎯 한 해</button>
                 </div>
                 <div id="reports-list" class="reports-list"></div>
             </div>
@@ -201,8 +192,8 @@
             <!-- ── 설정 뷰 ── -->
             <div id="view-settings" class="view hidden">
                 <header class="page-header">
-                    <h1>⚙ 설정 & 보안</h1>
-                    <p class="subtitle">계정 설정, 데이터 복구 및 백업 관리를 수행합니다.</p>
+                    <h1>⚙ 설정·보안</h1>
+                    <p class="subtitle">계정 설정과 데이터를 안전하게 관리해요.</p>
                 </header>
                 <div id="settings-container">
                     <div class="card-section" style="border-left: 3px solid var(--accent)">
@@ -210,11 +201,11 @@
                             <h3 class="section-title">📦 데이터 복구</h3>
                         </div>
                         <p class="section-desc">
-                            예전에 작성한 묵상·도트·원칙·목표를 다시 가져와요.<br>
-                            [진단 시작]을 누르면 어디에 어떤 데이터가 있는지 알려드려요.
+                            예전에 적은 묵상·도트·원칙·목표를 다시 가져올 수 있어요.<br>
+                            [진단 시작]을 누르면 어떤 데이터가 어디에 있는지 알려드려요.
                         </p>
                         <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--text-secondary);">
-                            <p>준비됐어요. [진단 시작]을 눌러주세요.</p>
+                            <p>준비됐어요. [진단 시작]을 눌러볼까요?</p>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button id="btn-diagnose" class="primary-btn">진단 시작</button>
@@ -224,9 +215,9 @@
                     </div>
 
                     <div class="card-section">
-                        <h3 class="section-title">계정 및 보안</h3>
-                        <p class="section-desc">모든 데이터는 브라우저를 벗어나기 전에 암호화됩니다.</p>
-                        <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);">전체 데이터 암호화 백업 (JSON)</button>
+                        <h3 class="section-title">🔐 내 데이터 백업</h3>
+                        <p class="section-desc">내 모든 데이터를 안전하게 암호화한 파일로 받아둘 수 있어요. 브라우저를 벗어나기 전에 잠겨요.</p>
+                        <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);">📥 전체 데이터 받기</button>
                     </div>
                 </div>
             </div>

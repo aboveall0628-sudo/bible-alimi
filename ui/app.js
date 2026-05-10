@@ -77,7 +77,7 @@ const TOKEN_KEY = 'gcal_token';
 
 // ─── 초기화 ───
 async function init() {
-    setBootStatus('1/5 모듈 초기화 중...');
+    setBootStatus('잠깐만요, 준비 중이에요...');
     // 1. 잠금 화면 (일단 숨김 상태로 초기화)
     initLockScreen({
         onUnlock: onVaultUnlocked,
@@ -100,14 +100,14 @@ async function init() {
     document.addEventListener('sanctum:unlock-attempt', async (e) => {
         const { password } = e.detail;
         if (isLockoutActive()) {
-            showLockError(`연속 실패로 잠금 처리되었습니다. ${getLockoutRemainingSec()}초 후 시도하세요.`);
+            showLockError(`잠시 막아둘게요. ${getLockoutRemainingSec()}초 뒤에 다시 해볼까요?`);
             return;
         }
 
         try {
             const userData = await loadUserVaultData();
             if (!userData) {
-                showLockError('계정을 찾을 수 없어요. 오류가 있습니다.');
+                showLockError('계정 정보를 찾을 수 없어요. 한 번 새로고침해 주세요.');
                 return;
             }
             const dek = await unlockVault(
@@ -123,9 +123,9 @@ async function init() {
         } catch (e) {
             registerFailedAttempt(currentUserId);
             if (e.message === 'WRONG_PASSWORD') {
-                showLockError('비밀번호가 맞지 않아요.');
+                showLockError('비밀번호가 다른 것 같아요.');
             } else {
-                showLockError('오류가 발생했어요.');
+                showLockError('잠깐 문제가 있었어요. 다시 한 번 해볼까요?');
                 console.error(e);
             }
         }
@@ -142,7 +142,7 @@ async function init() {
     
     // 5. 부팅 시퀀스 시작
     hideLoading();
-    setBootStatus('2/5 Google API 로드 중...');
+    setBootStatus('Google과 연결하는 중이에요...');
     setupGoogleAuth(); // 여기서 로그인 상태 체크 후 부팅 분기
     setupDatePicker();
     // 성경 데이터 사전 로드 (인증 없이도 가능, 캐시 워밍업)
@@ -157,12 +157,12 @@ async function checkBootState() {
         hideLockScreen();
         hideSetupScreen();
         showGoogleLoginScreen();
-        setBootStatus('3/5 Google 로그인 대기 중', 'wait');
+        setBootStatus('Google 로그인을 기다리고 있어요', 'wait');
         return;
     }
 
     hideGoogleLoginScreen();
-    setBootStatus('4/5 보관함 조회 중...');
+    setBootStatus('내 보관함을 찾고 있어요...');
 
     let userData = null;
     try {
@@ -170,8 +170,8 @@ async function checkBootState() {
     } catch (e) {
         console.error('[boot] vault read failed:', e);
         const msg = e?.code === 'permission-denied'
-            ? 'Firestore 접근 거부 — 규칙 확인 필요'
-            : `보관함 조회 실패: ${e?.message || e}`;
+            ? '보관함 접근 권한이 막혀있어요. 잠시 후 다시 시도해 주세요.'
+            : `보관함을 못 가져왔어요: ${e?.message || e}`;
         setBootStatus(msg, 'error');
         return;
     }
@@ -179,11 +179,11 @@ async function checkBootState() {
     if (userData) {
         hideSetupScreen();
         showLockScreen();
-        setBootStatus('5/5 잠금 해제 대기 — 비밀번호 입력', 'wait');
+        setBootStatus('비밀번호로 열어주세요', 'wait');
     } else {
         hideLockScreen();
         showSetupScreen(currentUserId);
-        setBootStatus('5/5 비밀번호 설정 대기', 'wait');
+        setBootStatus('첫 비밀번호를 만들어 볼까요?', 'wait');
     }
 }
 
@@ -195,7 +195,7 @@ export async function loadUserVaultData() {
 }
 
 async function onVaultUnlocked(dek) {
-    setBootStatus('✅ 열림', 'ok');
+    setBootStatus('✅ 열렸어요', 'ok');
     showMainContent();
 
     // 시드 데이터 확인
@@ -232,7 +232,7 @@ async function onVaultUnlocked(dek) {
 
 function onVaultLocked() {
     hideMainContent();
-    setBootStatus('🔒 잠김 — 비밀번호 입력', 'wait');
+    setBootStatus('🔒 잠시 잠겨있어요', 'wait');
 }
 
 // 평가 모달 저장 후 호출되는 콜백 — 타임라인+결단 패널 동시 갱신
@@ -400,12 +400,12 @@ async function loadUserProfile() {
     try {
         const token = gapi.client.getToken();
         if (!token) {
-            setBootStatus('Google 토큰 없음 — 로그인 필요', 'wait');
+            setBootStatus('Google 로그인이 필요해요', 'wait');
             checkBootState();
             return;
         }
 
-        setBootStatus('3/5 Google 프로필 가져오는 중...');
+        setBootStatus('내 정보 가져오는 중...');
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
             headers: { Authorization: `Bearer ${token.access_token}` }
         });
@@ -413,7 +413,7 @@ async function loadUserProfile() {
         currentUserEmail = profile.email;
 
         // ── Firebase Auth 자격 증명 (Firestore 보안 규칙 매칭에 필수) ──
-        setBootStatus('3/5 Firebase 인증 중...');
+        setBootStatus('안전하게 인증 중...');
         try {
             const credential = GoogleAuthProvider.credential(null, token.access_token);
             const userCred = await signInWithCredential(auth, credential);
@@ -427,9 +427,9 @@ async function loadUserProfile() {
             // Auth 실패 시 fallback (보안 규칙 효력 없음 — 사용자에게 알림)
             currentUserId = currentUserEmail;
             const code = authErr?.code || 'unknown';
-            setBootStatus(`Firebase 인증 실패 (${code}) — 이메일 fallback`, 'error');
+            setBootStatus(`인증에 문제가 있어요 (${code})`, 'error');
             const status = document.getElementById('user-name');
-            if (status) status.textContent = '⚠ 보안 인증 실패';
+            if (status) status.textContent = '⚠ 인증 문제';
         }
 
         const nameEl = document.getElementById('user-name');
@@ -440,7 +440,7 @@ async function loadUserProfile() {
         checkBootState();
     } catch (e) {
         console.error('Profile load error:', e);
-        setBootStatus(`프로필 로드 실패: ${e?.message || e}`, 'error');
+        setBootStatus(`내 정보를 못 가져왔어요: ${e?.message || e}`, 'error');
         checkBootState();
     }
 }

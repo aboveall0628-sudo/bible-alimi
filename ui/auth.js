@@ -61,8 +61,8 @@ function renderSetupScreen() {
     loginOverlay.innerHTML = `
         <div class="lock-screen-box">
             <div class="lock-icon">🕊️</div>
-            <h2>Sanctum OS v2.0</h2>
-            <p class="lock-subtitle">성장을 위한 영적 거울 시스템</p>
+            <h2>Sanctum OS</h2>
+            <p class="lock-subtitle">하나님 앞에서 나를 정직하게 마주하는 거울</p>
             <button id="auth-main-google-btn" class="primary-btn" style="width:100%; font-size:16px; padding:16px">
                 Google 계정으로 시작하기
             </button>
@@ -79,23 +79,23 @@ function renderSetupScreen() {
             <!-- 단계 1: 비밀번호 설정 -->
             <div id="setup-step-1">
                 <div class="lock-icon">🗝️</div>
-                <h2>마스터 비밀번호 설정</h2>
-                <p class="lock-subtitle">나만의 데이터 암호화를 위한 키입니다.<br><strong style="color:var(--dot-red)">분실 시 절대 복구할 수 없습니다.</strong></p>
-                <input type="password" id="setup-pwd-1" class="lock-input" placeholder="비밀번호 입력" />
-                <input type="password" id="setup-pwd-2" class="lock-input" placeholder="비밀번호 확인" />
+                <h2>나만의 비밀번호 만들기</h2>
+                <p class="lock-subtitle">내 묵상과 기록을 안전하게 지켜줄 열쇠예요.<br><strong style="color:var(--dot-red)">잃어버리면 다시 만들 수 없으니 꼭 기억해 주세요.</strong></p>
+                <input type="password" id="setup-pwd-1" class="lock-input" placeholder="비밀번호 (4자 이상)" />
+                <input type="password" id="setup-pwd-2" class="lock-input" placeholder="한 번 더 입력" />
                 <div id="setup-error" class="lock-error hidden"></div>
-                <button id="setup-next-btn" class="primary-btn" style="width:100%">생성하기</button>
+                <button id="setup-next-btn" class="primary-btn" style="width:100%">다음으로</button>
             </div>
 
             <!-- 단계 2: 복구 코드 -->
             <div id="setup-step-2" class="hidden">
                 <div class="lock-icon">📄</div>
                 <h2>복구 코드 24단어</h2>
-                <p class="lock-subtitle" style="text-align:left; font-size:13px;">비밀번호 분실 시 데이터를 살릴 수 있는 <strong>유일한 수단</strong>입니다. 안전한 곳에 적어두세요. 이 창을 닫으면 다시 볼 수 없습니다.</p>
+                <p class="lock-subtitle" style="text-align:left; font-size:13px;">비밀번호를 잊었을 때 내 데이터를 다시 열 수 있는 <strong>유일한 열쇠</strong>예요.<br>종이에 적거나 비밀번호 매니저에 꼭 보관해 주세요. 창을 닫으면 다시 볼 수 없어요.</p>
                 <div id="recovery-words-box" class="recovery-words-grid"></div>
                 <label class="confirm-checkbox">
                     <input type="checkbox" id="setup-confirm-chk" />
-                    <span>안전한 곳에 기록했습니다.</span>
+                    <span>네, 안전한 곳에 적어뒀어요</span>
                 </label>
                 <button id="setup-finish-btn" class="primary-btn" style="width:100%" disabled>시작하기</button>
             </div>
@@ -110,15 +110,15 @@ function renderSetupScreen() {
     recoveryOverlay.innerHTML = `
         <div class="lock-screen-box" style="max-width: 440px;">
             <div class="lock-icon">📄</div>
-            <h2>복구 코드로 잠금 해제</h2>
-            <p class="lock-subtitle">저장해둔 24단어를 띄어쓰기로 구분하여 정확히 입력해주세요.</p>
+            <h2>복구 코드로 열기</h2>
+            <p class="lock-subtitle">적어두신 24단어를 띄어쓰기로 구분해서 적어주세요.</p>
             <textarea id="recovery-words-input" class="lock-input" style="height:120px; font-size:14px; text-align:left; resize:none;" placeholder="단어1 단어2 단어3 ..."></textarea>
             <div id="recovery-error" class="lock-error hidden"></div>
             <div style="display:flex; gap:8px;">
                 <button id="recovery-cancel-btn" class="text-btn" style="flex:1">취소</button>
-                <button id="recovery-submit-btn" class="primary-btn" style="flex:2">복구 및 잠금 해제</button>
+                <button id="recovery-submit-btn" class="primary-btn" style="flex:2">열기</button>
             </div>
-            <p style="font-size:12px; color:var(--text-secondary); margin-top:16px;">잠금 해제 후 즉시 설정에서 비밀번호를 새로 변경하세요.</p>
+            <p style="font-size:12px; color:var(--text-secondary); margin-top:16px;">열고 나면 설정·보안에서 새 비밀번호로 꼭 바꿔주세요.</p>
         </div>
     `;
     document.body.appendChild(recoveryOverlay);
@@ -140,15 +140,15 @@ function bindEvents() {
             const err = document.getElementById('setup-error');
 
             if (p1.length < 4) {
-                showErr(err, '비밀번호를 4자리 이상 입력해주세요.');
+                showErr(err, '비밀번호는 4자 이상이어야 해요.');
                 return;
             }
             if (p1 !== p2) {
-                showErr(err, '비밀번호가 일치하지 않습니다.');
+                showErr(err, '두 번 입력한 게 다른 것 같아요.');
                 return;
             }
 
-            e.target.textContent = '암호화 키 생성 중...';
+            e.target.textContent = '안전한 열쇠 만드는 중...';
             e.target.disabled = true;
 
             try {
@@ -183,8 +183,8 @@ function bindEvents() {
 
             } catch (error) {
                 console.error(error);
-                showErr(err, '생성 중 오류가 발생했습니다.');
-                e.target.textContent = '생성하기';
+                showErr(err, '잠깐 문제가 있었어요. 다시 한 번 해볼까요?');
+                e.target.textContent = '다음으로';
                 e.target.disabled = false;
             }
         }
@@ -218,19 +218,16 @@ function bindEvents() {
             const words = inputStr.split(/\s+/);
 
             if (words.length !== 24) {
-                showErr(err, `24단어를 모두 입력해주세요. (현재 ${words.length}개)`);
+                showErr(err, `24단어를 모두 적어주세요. 지금은 ${words.length}개예요.`);
                 return;
             }
 
-            e.target.textContent = '복구 중...';
+            e.target.textContent = '여는 중...';
             e.target.disabled = true;
 
             try {
-                // app.js에서 _currentUserId를 전역 변수로 관리하지만,
-                // 여기서는 loadUserVaultData를 호출하여 직접 가져옵니다.
-                // Firebase 문서를 직접 조회.
                 const userDoc = await getDoc(doc(db, 'users', _currentUserId || window.currentUserId || 'anonymous'));
-                if (!userDoc.exists()) throw new Error('사용자 정보가 없습니다.');
+                if (!userDoc.exists()) throw new Error('계정 정보를 찾을 수 없어요.');
                 const userData = userDoc.data();
 
                 const dek = await recoverWithWords(words, userData.wrappedDEK_recovery, userData.wrappedDEK_recovery_iv, userData.kdfParams || null);
@@ -242,9 +239,9 @@ function bindEvents() {
 
             } catch (error) {
                 console.error(error);
-                showErr(err, '복구에 실패했습니다. 단어 순서나 철자를 확인해주세요.');
+                showErr(err, '단어가 맞지 않는 것 같아요. 순서와 철자를 한 번 더 봐주세요.');
             } finally {
-                e.target.textContent = '복구 및 잠금 해제';
+                e.target.textContent = '열기';
                 e.target.disabled = false;
             }
         }
