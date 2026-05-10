@@ -88,8 +88,10 @@ async function init() {
 
     // 2. 인증 모듈 초기화
     initAuth({
-        onSetupComplete: (dek) => {
-            setUnlocked(dek); // 온보딩 완료 시 자동 잠금해제
+        onSetupComplete: (dek, opts = {}) => {
+            // 사용자 선택을 글로벌에 잠시 보관 → onVaultUnlocked가 시드 호출 시 사용
+            window.__sanctumSeedOpts = opts;
+            setUnlocked(dek);
         }
     });
 
@@ -198,9 +200,12 @@ async function onVaultUnlocked(dek) {
     setBootStatus('✅ 열렸어요', 'ok');
     showMainContent();
 
-    // 시드 데이터 확인
-    try { await initializeSeedData(dek, currentUserId); }
-    catch (e) { console.warn('seed init failed:', e); }
+    // 시드 데이터 확인 (가입 시 사용자 선택을 반영)
+    try {
+        const seedOpts = window.__sanctumSeedOpts || {};
+        await initializeSeedData(dek, currentUserId, seedOpts);
+        delete window.__sanctumSeedOpts;
+    } catch (e) { console.warn('seed init failed:', e); }
 
     // 오늘 뷰 컴포넌트 마운트 + 데이터 로드 (핀 원칙 띠, 묵상 노트, 결단 패널)
     initTodayView({ userId: currentUserId, date: currentDate });
@@ -276,13 +281,22 @@ function setupNavigation() {
         }
     });
 
-    // 모바일 메뉴 토글
+    // 모바일 메뉴 토글 (사이드바 + 백드롭)
     const menuToggle = document.getElementById('menu-toggle');
-    if (menuToggle) {
+    const sidebar = document.getElementById('sidebar');
+    if (menuToggle && sidebar) {
         menuToggle.addEventListener('click', () => {
-            document.getElementById('sidebar')?.classList.toggle('open');
+            const open = sidebar.classList.toggle('open');
+            document.body.classList.toggle('sidebar-open', open);
         });
     }
+    // 백드롭(body 가짜 요소) 클릭 시 닫기 — body 클릭 영역 중 사이드바 외 영역
+    document.body.addEventListener('click', (e) => {
+        if (!document.body.classList.contains('sidebar-open')) return;
+        if (sidebar?.contains(e.target) || menuToggle?.contains(e.target)) return;
+        sidebar?.classList.remove('open');
+        document.body.classList.remove('sidebar-open');
+    });
 }
 
 function switchView(viewId) {
@@ -313,6 +327,7 @@ function switchView(viewId) {
 
     // 모바일 사이드바 닫기
     document.getElementById('sidebar')?.classList.remove('open');
+    document.body.classList.remove('sidebar-open');
 }
 
 // 핀 원칙 띠는 ui/todayView.js로 이전
