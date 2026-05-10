@@ -42,6 +42,12 @@ export async function renderDashboardView(userId) {
     const meditationRate = Math.round((meditationCount / 7) * 100);
 
     container.innerHTML = `
+        <div class="dash-card" style="grid-column: 1/-1">
+            <h3>🗓 주간 히트맵</h3>
+            <p class="dash-desc" style="margin-bottom: var(--sp-3)">지난 7일 동안 시간을 어떻게 보냈는지 색으로 보여드릴게요.</p>
+            ${renderHeatmap(dots, startDate, endDate)}
+        </div>
+
         <div class="dash-card">
             <h3>🌟 이번 주 발자국</h3>
             <div class="dash-value">${stats.doneCount + stats.partialCount}<span style="font-size:14px;color:var(--text-secondary)"> / ${stats.totalSlots}</span></div>
@@ -103,6 +109,53 @@ export async function renderDashboardView(userId) {
                 : '📊 다시 닫기 ▴';
         });
     }
+}
+
+// ─── 주간 히트맵 (7일 × 24시간) ───
+function renderHeatmap(dots, startDate, endDate) {
+    // 날짜별 시간(0~23)별 도트 평균 만족도 매핑
+    const grid = {};
+    const days = [];
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = d.toISOString().split('T')[0];
+        days.push(key);
+        grid[key] = {};
+    }
+    dots.forEach(dot => {
+        if (!grid[dot.date]) return;
+        const hour = Math.floor((dot.timeSlot || 0) / 4);
+        if (!grid[dot.date][hour]) grid[dot.date][hour] = [];
+        grid[dot.date][hour].push(dot.executionSatisfaction || 0);
+    });
+
+    const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+    let html = '<div class="heatmap-wrap"><div class="heatmap-grid">';
+    // 시간 헤더
+    html += '<div class="heatmap-corner"></div>';
+    for (let h = 0; h < 24; h++) {
+        html += `<div class="heatmap-hour-label">${h % 6 === 0 ? String(h).padStart(2, '0') : ''}</div>`;
+    }
+    // 각 날짜 행
+    days.forEach(date => {
+        const d = new Date(date + 'T00:00:00');
+        html += `<div class="heatmap-day-label">${d.getMonth() + 1}/${d.getDate()} ${dayLabels[d.getDay()]}</div>`;
+        for (let h = 0; h < 24; h++) {
+            const sats = grid[date][h] || [];
+            const avg = sats.length ? sats.reduce((a, b) => a + b, 0) / sats.length : null;
+            const cls = avg == null ? 'empty'
+                : avg >= 4 ? 'lvl-4'
+                : avg >= 3 ? 'lvl-3'
+                : avg >= 2 ? 'lvl-2'
+                : 'lvl-1';
+            const tooltip = avg == null ? '' : `${date} ${h}시: 만족도 ${avg.toFixed(1)} (${sats.length}개)`;
+            html += `<div class="heatmap-cell ${cls}" title="${tooltip}"></div>`;
+        }
+    });
+    html += '</div></div>';
+    return html;
 }
 
 // ─── 통독 진도 ───

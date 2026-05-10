@@ -95,30 +95,71 @@ export async function renderPastMeditationsView(userId) {
         return;
     }
 
-    container.innerHTML = items.map(item => `
-        <div class="past-card" data-id="${item.id}">
-            <div class="past-card-header">
-                <span class="past-card-date">${formatDate(item.date)}</span>
-                <span class="past-card-day">${dayOfWeek(item.date)}</span>
-            </div>
-            <div class="past-card-preview">${escapeHtml(preview(item.content))}</div>
+    // 검색·필터 UI
+    container.innerHTML = `
+        <div class="past-toolbar">
+            <input id="past-search" type="search" class="past-search"
+                   placeholder="키워드로 찾기 (책 이름, 본문 단어 등)" />
+            <input id="past-from" type="date" class="past-date-input" title="시작 날짜" />
+            <span style="color:var(--text-secondary)">~</span>
+            <input id="past-to" type="date" class="past-date-input" title="끝 날짜" />
         </div>
-    `).join('');
+        <div id="past-results" class="past-list"></div>
+    `;
 
-    // 카드 클릭 → 펼침
-    container.querySelectorAll('.past-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const id = card.dataset.id;
-            const item = items.find(x => x.id === id);
-            if (!item) return;
-            const expanded = card.classList.toggle('expanded');
-            const preview = card.querySelector('.past-card-preview');
-            preview.textContent = expanded ? item.content : preview(item.content);
-            card.querySelector('.past-card-preview').textContent = expanded
-                ? item.content
-                : previewText(item.content);
+    const searchInput = container.querySelector('#past-search');
+    const fromInput = container.querySelector('#past-from');
+    const toInput = container.querySelector('#past-to');
+    const results = container.querySelector('#past-results');
+
+    const renderResults = () => {
+        const keyword = (searchInput.value || '').trim().toLowerCase();
+        const from = fromInput.value;
+        const to = toInput.value;
+
+        const filtered = items.filter(item => {
+            if (from && item.date < from) return false;
+            if (to && item.date > to) return false;
+            if (keyword && !(item.content || '').toLowerCase().includes(keyword)) return false;
+            return true;
         });
-    });
+
+        if (filtered.length === 0) {
+            results.innerHTML = `
+                <div class="empty-state" style="padding: var(--sp-5)">
+                    <p>조건에 맞는 묵상이 없어요. 키워드를 바꿔 볼까요?</p>
+                </div>
+            `;
+            return;
+        }
+
+        results.innerHTML = filtered.map(item => `
+            <div class="past-card" data-id="${item.id}">
+                <div class="past-card-header">
+                    <span class="past-card-date">${formatDate(item.date)}</span>
+                    <span class="past-card-day">${dayOfWeek(item.date)}</span>
+                </div>
+                <div class="past-card-preview">${escapeHtml(preview(item.content))}</div>
+            </div>
+        `).join('');
+
+        // 카드 펼치기
+        results.querySelectorAll('.past-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.dataset.id;
+                const item = items.find(x => x.id === id);
+                if (!item) return;
+                const expanded = card.classList.toggle('expanded');
+                const previewEl = card.querySelector('.past-card-preview');
+                previewEl.textContent = expanded ? item.content : preview(item.content);
+            });
+        });
+    };
+
+    searchInput.addEventListener('input', renderResults);
+    fromInput.addEventListener('change', renderResults);
+    toInput.addEventListener('change', renderResults);
+    renderResults();
 }
 
 function preview(text) {
@@ -126,7 +167,6 @@ function preview(text) {
     const lines = text.split('\n').filter(l => l.trim());
     return lines.slice(0, 2).join('  ').slice(0, 140) + (text.length > 140 ? '...' : '');
 }
-function previewText(text) { return preview(text); }
 
 function formatDate(dateStr) {
     if (!dateStr) return '?';
