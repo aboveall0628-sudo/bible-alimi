@@ -142,6 +142,51 @@ a { color: var(--accent); }
     word-break: keep-all;
 }
 
+/* ── 빈 상태 컴포넌트 (모든 뷰 공통) ── */
+.empty-state {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-7) var(--sp-5);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: var(--sp-3);
+}
+.empty-state h3 {
+    font-size: var(--fs-modal);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-3);
+}
+.empty-state-desc {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    max-width: 420px;
+    margin: 0 auto var(--sp-5);
+}
+.empty-state-hint {
+    background: var(--bg-elev);
+    border-radius: var(--radius);
+    padding: var(--sp-4) var(--sp-5);
+    text-align: left;
+    max-width: 460px;
+    margin: 0 auto;
+    font-size: var(--fs-small);
+}
+.empty-state-hint strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-2);
+}
+.empty-state-hint ol {
+    padding-left: var(--sp-5);
+    color: var(--text-secondary);
+    line-height: 1.9;
+}
+
 /* ── Content ── */
 .content-area {
     flex: 1; margin-left: 240px;
@@ -723,6 +768,26 @@ a { color: var(--accent); }
 }
 .goal-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .goal-desc { font-size: 13px; color: var(--text-secondary); }
+
+/* ═══ 지난 묵상 ═══ */
+.past-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.past-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--sp-4);
+    cursor: pointer; transition: all var(--ease);
+}
+.past-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.past-card-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: var(--sp-2);
+}
+.past-card-date { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.past-card-day { font-size: 12px; color: var(--text-secondary); }
+.past-card-preview {
+    font-size: 13px; color: var(--text-secondary); line-height: 1.65;
+    white-space: pre-wrap;
+}
+.past-card.expanded .past-card-preview { color: var(--text-primary); }
 
 /* ═══ Sensitive mode ═══ */
 .sensitive-masked .sensitive { filter: blur(6px); cursor: pointer; transition: filter 0.2s ease; user-select: none; }

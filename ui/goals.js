@@ -31,9 +31,24 @@ export async function renderGoalsView(userId) {
 
     if (roots.length === 0) {
         container.innerHTML = `
-            <div class="no-data">
-                설정된 목표가 없습니다.<br>
-                <button class="text-btn" onclick="alert('목표 추가 기능 준비 중')">10년 비전 세우기</button>
+            <div class="empty-state">
+                <div class="empty-state-icon">🎯</div>
+                <h3>아직 세운 목표가 없어요</h3>
+                <p class="empty-state-desc">
+                    10년 비전부터 오늘 할 일까지 7계층으로 세워볼 수 있어요.<br>
+                    먼 곳을 먼저 보고, 거기서 한 걸음씩 가까이 내려와요.
+                </p>
+                <div class="empty-state-hint">
+                    <strong>이렇게 시작해보세요</strong>
+                    <ol>
+                        <li>10년 후 어떤 모습이 되고 싶나요? 한 줄로 적어보세요</li>
+                        <li>그게 이뤄지려면 5년 안에 무엇이 자라야 할까요?</li>
+                        <li>올해 그 방향으로 어떤 한 걸음을 옮길 수 있을까요?</li>
+                    </ol>
+                </div>
+                <p style="margin-top:24px;font-size:12px;color:var(--text-secondary)">
+                    ※ 목표 추가 기능은 다음 단계에서 활성화됩니다.
+                </p>
             </div>
         `;
         return;

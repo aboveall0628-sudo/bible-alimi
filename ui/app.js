@@ -27,6 +27,7 @@ import { renderGoalsView } from './goals.js';
 import { renderDashboardView } from './dashboard.js';
 import { renderReportsView } from './reports.js';
 import { renderSettingsView } from './settings.js';
+import { renderPastMeditationsView } from './pastMeditations.js';
 
 // ─── 전역 상태 ───
 window.appStarted = true;
@@ -304,6 +305,8 @@ function switchView(viewId) {
         renderDashboardView(currentUserId);
     } else if (viewId === 'reports') {
         renderReportsView(currentUserId);
+    } else if (viewId === 'past') {
+        renderPastMeditationsView(currentUserId);
     } else if (viewId === 'settings') {
         renderSettingsView(currentUserId, currentUserEmail);
     }
