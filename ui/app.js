@@ -378,12 +378,30 @@ function setupGoogleAuth() {
             if (gapiInited && !gapi.client.getToken()) handleAuthClick();
         });
     }
-    const syncBtn = document.getElementById('sync-btn');
-    if (syncBtn) syncBtn.addEventListener('click', listUpcomingEvents);
+    const authBtn = document.getElementById('auth-btn');
+    if (authBtn) authBtn.addEventListener('click', () => {
+        if (gisInited) handleAuthClick();
+        else showToast('Google 모듈을 아직 가져오는 중이에요. 잠시 후에 다시 눌러볼까요?');
+    });
 
     gapiLoaded();
     gisLoaded();
 }
+
+/**
+ * Google 토큰이 활성 상태인가에 따라 툴바 버튼 표시 토글.
+ * 로그인 직후 / 토큰 만료 시 호출.
+ */
+function reflectGcalAuthUI() {
+    const hasToken = gapiInited && !!gapi.client.getToken();
+    const authBtn = document.getElementById('auth-btn');
+    const syncBtn = document.getElementById('sync-btn');
+    const pushBtn = document.getElementById('gcal-push-btn');
+    if (authBtn) authBtn.classList.toggle('hidden', hasToken);
+    if (syncBtn) syncBtn.classList.toggle('hidden', !hasToken);
+    if (pushBtn) pushBtn.classList.toggle('hidden', !hasToken);
+}
+window.__sanctumReflectGcalAuthUI = reflectGcalAuthUI;
 
 function gapiLoaded() {
     if (typeof gapi === 'undefined') return;
@@ -396,9 +414,11 @@ function gapiLoaded() {
             if (token.expires_at > Date.now()) {
                 gapi.client.setToken(token);
                 await loadUserProfile();
+                reflectGcalAuthUI();
                 return;
             }
         }
+        reflectGcalAuthUI();
         checkBootState(); // 토큰 만료 또는 없음
     });
 }
@@ -465,6 +485,7 @@ async function loadUserProfile() {
         const avatarEl = document.getElementById('user-avatar');
         if (avatarEl) { avatarEl.src = profile.picture; avatarEl.style.display = 'block'; }
 
+        reflectGcalAuthUI();
         checkBootState();
     } catch (e) {
         console.error('Profile load error:', e);
@@ -499,7 +520,7 @@ async function migrateVaultKeyIfNeeded(email, uid) {
 
 /**
  * 특정 날짜의 Google Calendar 이벤트 가져오기.
- * Chunk 3에서 통합 타임라인 컴포넌트가 이 함수를 호출해 events 배열을 받음.
+ * 통합 타임라인 컴포넌트가 이 함수를 호출해 events 배열을 받음.
  * @returns {Promise<Array>} GCal events
  */
 export async function listUpcomingEvents() {
@@ -517,6 +538,67 @@ export async function listUpcomingEvents() {
         console.error('GCal error:', e);
         return [];
     }
+}
+
+/**
+ * 박힌 결단들을 Google Calendar에 (없으면) 만들거나 (있으면) 갱신.
+ * 모바일 알림은 기본 reminder(팝업 10분 전)로 자동 옴.
+ * @param {Array} placedDecisions  timeSlot != null 인 결단들
+ * @returns {Promise<{created:number, updated:number, failed:number}>}
+ */
+export async function pushDecisionsToGoogleCalendar(placedDecisions) {
+    if (!gapiInited || !gapi.client.getToken()) {
+        return { created: 0, updated: 0, failed: 0, reason: 'no-token' };
+    }
+    let created = 0, updated = 0, failed = 0;
+
+    const [y, m, day] = currentDate.split('-').map(Number);
+    for (const d of placedDecisions) {
+        if (d.timeSlot == null) continue;
+        try {
+            const dur = d.durationSlots || 4;
+            const startMin = d.timeSlot * 15;
+            const endMin = (d.timeSlot + dur) * 15;
+            const startDate = new Date(y, m - 1, day, Math.floor(startMin / 60), startMin % 60, 0);
+            const endDate = new Date(y, m - 1, day, Math.floor(endMin / 60), endMin % 60, 0);
+            const body = {
+                summary: d.text || '(이름 없는 결단)',
+                description: `Sanctum OS 오늘의 결단\nid:${d.id}`,
+                start: { dateTime: startDate.toISOString() },
+                end: { dateTime: endDate.toISOString() },
+                reminders: {
+                    useDefault: false,
+                    overrides: [{ method: 'popup', minutes: 10 }],
+                },
+                extendedProperties: {
+                    private: { sanctumDecisionId: d.id },
+                },
+            };
+
+            if (d.gcalEventId) {
+                await gapi.client.calendar.events.update({
+                    calendarId: 'primary', eventId: d.gcalEventId, resource: body,
+                });
+                updated++;
+            } else {
+                const resp = await gapi.client.calendar.events.insert({
+                    calendarId: 'primary', resource: body,
+                });
+                d.gcalEventId = resp.result.id;
+                // 결단에 gcal id 박아두기 (다음에 갱신할 때 사용)
+                const dek = (await import('./lockScreen.js')).getDEK();
+                if (dek) {
+                    const { saveDecision } = await import('../data/decisionsRepo.js');
+                    await saveDecision(dek, d);
+                }
+                created++;
+            }
+        } catch (err) {
+            console.warn('GCal push failed for', d.id, err);
+            failed++;
+        }
+    }
+    return { created, updated, failed };
 }
 
 // ─── 로딩 ───

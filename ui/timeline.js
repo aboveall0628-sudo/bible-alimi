@@ -30,7 +30,7 @@ import {
     getDecisionsByDate, placeDecision, unplaceDecision, saveDecision,
 } from '../data/decisionsRepo.js';
 import { openQuickReview, showToast } from './quickReview.js';
-import { listUpcomingEvents } from './app.js';
+import { listUpcomingEvents, pushDecisionsToGoogleCalendar } from './app.js';
 
 const SLOTS_PER_DAY = 96;
 const ROW_HEIGHT = 16; // px per 15min slot
@@ -87,22 +87,8 @@ function renderDesktop() {
     const body = document.getElementById('utl-body');
     if (!body) return;
 
-    // 빈 상태: 결단/도트/캘린더 모두 없으면 안내 카드만
-    if (_decisions.length === 0 && _dots.length === 0 && _gcalEvents.length === 0) {
-        body.innerHTML = `
-            <div class="utl-empty-card">
-                <h4>오늘 하루를 어떻게 시작해볼까요?</h4>
-                <ol>
-                    <li>위에서 묵상 한 줄을 적어 보세요</li>
-                    <li>오늘의 결단을 한 줄 적어 보세요</li>
-                    <li>결단 카드의 ⋮⋮를 잡고 시간표로 끌어 옮겨 보세요</li>
-                    <li>지난 시간이 비어있다면 클릭해서 한 줄로 적어둘 수 있어요</li>
-                </ol>
-            </div>
-        `;
-        return;
-    }
-
+    // 항상 0~23시 그리드를 그리고, 그 위에 결단/캘린더/도트 슬롯을 띄움.
+    // (빈 상태에도 그리드가 보여야 결단을 그 시간대로 끌어다 박을 수 있음)
     body.innerHTML = '';
 
     const axisCol = document.createElement('div');
@@ -484,28 +470,36 @@ function openInlineActualInput(cell, slot) {
     input.addEventListener('blur', () => setTimeout(() => render(), 200));
 }
 
-// ─── 슬롯 리사이즈 (가장자리 드래그로 길이 조절) ───
+// ─── 슬롯 리사이즈 (가장자리 드래그로 15분 단위 길이 조절) ───
 function startResize(decisionId, startY, slotEl) {
     const decision = _decisions.find(x => x.id === decisionId);
     if (!decision) return;
     const startDuration = decision.durationSlots || 4;
+    slotEl.classList.add('resizing');
 
     const onMove = (e) => {
         const dy = e.clientY - startY;
         const dSlots = Math.round(dy / ROW_HEIGHT);
-        const newDuration = Math.max(1, startDuration + dSlots);
+        const newDuration = Math.max(1, Math.min(SLOTS_PER_DAY - (decision.timeSlot || 0), startDuration + dSlots));
         slotEl.style.height = `${newDuration * ROW_HEIGHT - 2}px`;
         slotEl.dataset.tempDuration = String(newDuration);
+        const titleEl = slotEl.querySelector('.slot-time');
+        if (titleEl) {
+            const startSlot = decision.timeSlot || 0;
+            titleEl.textContent = `${slotToTime(startSlot)}~${slotToTime(startSlot + newDuration)} (${newDuration * 15}분)`;
+        }
     };
     const onUp = async () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        slotEl.classList.remove('resizing');
         const newDuration = parseInt(slotEl.dataset.tempDuration || '0');
         if (newDuration > 0 && newDuration !== startDuration) {
             decision.durationSlots = newDuration;
             const dek = getDEK();
             if (dek) await saveDecision(dek, decision);
             await refreshTimeline({ userId: _userId, date: _date });
+            if (_onChange) await _onChange({ type: 'refresh' });
         }
     };
     document.addEventListener('mousemove', onMove);
@@ -519,10 +513,32 @@ function bindGlobalEvents() {
         await refreshTimeline({ userId: _userId, date: _date });
         showToast('일정 다시 가져왔어요');
     });
-    // 캘린더에 옮기기는 다음 단계에서 활성화 — 일단 안내만
     const push = document.getElementById('gcal-push-btn');
-    if (push) push.addEventListener('click', () => {
-        showToast('이 기능은 곧 추가될 예정이에요');
+    if (push) push.addEventListener('click', async () => {
+        const placed = _decisions.filter(d => d.timeSlot != null);
+        if (placed.length === 0) { showToast('시간에 박은 결단이 아직 없어요'); return; }
+        push.disabled = true;
+        const orig = push.textContent;
+        push.textContent = '📤 캘린더에 옮기는 중...';
+        try {
+            const r = await pushDecisionsToGoogleCalendar(placed);
+            if (r.reason === 'no-token') {
+                showToast('Google 로그인이 필요해요');
+            } else {
+                const parts = [];
+                if (r.created) parts.push(`새로 ${r.created}개`);
+                if (r.updated) parts.push(`갱신 ${r.updated}개`);
+                if (r.failed) parts.push(`실패 ${r.failed}개`);
+                showToast(parts.length ? `📤 ${parts.join(', ')} 옮겼어요` : '바뀐 게 없어요');
+                await refreshTimeline({ userId: _userId, date: _date });
+            }
+        } catch (e) {
+            console.error('gcal push error:', e);
+            showToast('옮기다 막혔어요. 다시 한 번 해볼까요?');
+        } finally {
+            push.disabled = false;
+            push.textContent = orig;
+        }
     });
 }
 

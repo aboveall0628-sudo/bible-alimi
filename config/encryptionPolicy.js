@@ -62,7 +62,7 @@ export const POLICY = {
     },
     // 결단: 시간 슬롯/배치 상태는 평문(타임라인 그리드 계산), 본문/링크는 암호화
     decisions: {
-        plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt'],
+        plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt', 'gcalEventId'],
         encrypted: ['text', 'linkedScriptureId', 'linkedGoalId', 'linkedPrincipleId']
     },
 

@@ -180,14 +180,7 @@ export async function renderScriptureForDate(date) {
         }
     }
 
-    container.innerHTML = `
-        <div class="scripture-toolbar">
-            <button id="scripture-copy-to-note" class="text-btn" disabled
-                    title="구절을 톡 누르면 활성화돼요">
-                ✏️ 고른 구절을 묵상 노트로 옮기기 (0개)
-            </button>
-        </div>
-    `;
+    container.innerHTML = '';
 
     BIBLE_METADATA.parts.forEach(part => {
         const { info, index, total } = getChapterForPart(part, calculateOffset(date));
@@ -205,7 +198,9 @@ export async function renderScriptureForDate(date) {
             </div>
             <div class="verse-list">
                 ${verses.map(v => `
-                    <div class="verse-item" data-key="${info.abbr}${info.chapter}:${v.num}">
+                    <div class="verse-item"
+                         data-abbr="${info.abbr}" data-full="${info.full || info.abbr}"
+                         data-chapter="${info.chapter}" data-num="${v.num}">
                         <span class="verse-num">${v.num}</span>
                         <span class="verse-text">${v.text}</span>
                     </div>
@@ -223,7 +218,7 @@ export async function renderScriptureForDate(date) {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 el.classList.toggle('selected');
-                updateCopyButton(container);
+                updateCopyButton();
             });
         });
 
@@ -231,18 +226,42 @@ export async function renderScriptureForDate(date) {
         container.appendChild(partEl);
     });
 
-    // 묵상 노트로 옮기기 버튼
-    const copyBtn = document.getElementById('scripture-copy-to-note');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => copySelectedToNote(container));
-    }
+    ensureStickyCopyBar(container);
+    updateCopyButton();
 }
 
-function updateCopyButton(container) {
+/**
+ * 묵상 노트 카드 안 하단에 sticky 복사 바를 만들어 둠 (한 번만)
+ * 카드 안에서 스크롤할 때 따라옴.
+ */
+function ensureStickyCopyBar(scriptureContainer) {
+    const noteSection = document.getElementById('section-meditation');
+    if (!noteSection) return;
+    let bar = document.getElementById('scripture-copy-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'scripture-copy-bar';
+        bar.className = 'scripture-copy-bar';
+        bar.innerHTML = `
+            <button id="scripture-copy-to-note" class="primary-btn" disabled
+                    title="위에서 구절을 톡 누르면 활성화돼요">
+                📋 고른 구절을 묵상 노트에 붙여넣기 (0개)
+            </button>
+        `;
+        noteSection.appendChild(bar);
+    }
+    // 매 렌더마다 핸들러 재바인딩 — clone-replace로 이전 리스너 제거
+    const oldBtn = bar.querySelector('#scripture-copy-to-note');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => copySelectedToNote(scriptureContainer));
+}
+
+function updateCopyButton() {
     const btn = document.getElementById('scripture-copy-to-note');
     if (!btn) return;
-    const count = container.querySelectorAll('.verse-item.selected').length;
-    btn.textContent = `✏️ 고른 구절을 묵상 노트로 옮기기 (${count}개)`;
+    const count = document.querySelectorAll('#meditation-content .verse-item.selected').length;
+    btn.textContent = `📋 고른 구절을 묵상 노트에 붙여넣기 (${count}개)`;
     btn.disabled = count === 0;
 }
 
@@ -250,44 +269,53 @@ function copySelectedToNote(container) {
     const selected = container.querySelectorAll('.verse-item.selected');
     if (selected.length === 0) return;
 
-    // 선택된 구절을 책+장 단위로 묶어 정리
-    const lines = [];
-    const grouped = new Map();
+    // 선택된 구절을 (책 풀네임 + 장) 단위로 묶어 정리
+    // 형식:
+    //   이사야 17
+    //   12 슬프다 ...
+    //   13 열방이 ...
+    const grouped = new Map();   // key = "이사야 17"
+    const order = [];
     selected.forEach(el => {
-        const key = el.dataset.key; // 예: "창1:1"
-        const num = el.querySelector('.verse-num')?.textContent || '';
+        const full = el.dataset.full || el.dataset.abbr || '';
+        const chapter = el.dataset.chapter || '';
+        const num = parseInt(el.dataset.num || '0');
         const text = el.querySelector('.verse-text')?.textContent || '';
-        const [book, chapter] = key.split(/(\d+):/).filter(Boolean);
-        const head = `${book}${chapter}`;
-        if (!grouped.has(head)) grouped.set(head, []);
-        grouped.get(head).push(`${num}. ${text}`);
+        const head = `${full} ${chapter}`;
+        if (!grouped.has(head)) {
+            grouped.set(head, []);
+            order.push(head);
+        }
+        grouped.get(head).push({ num, text });
     });
-    grouped.forEach((verses, head) => {
-        lines.push(`📖 ${head}장`);
-        verses.forEach(v => lines.push(v));
+
+    const lines = [];
+    order.forEach(head => {
+        lines.push(head);
+        grouped.get(head)
+            .sort((a, b) => a.num - b.num)
+            .forEach(v => lines.push(`${v.num} ${v.text}`));
         lines.push('');
     });
 
-    const noteText = lines.join('\n').trim();
+    const noteText = lines.join('\n').replace(/\n+$/, '');
 
-    // 묵상 노트 영역에 삽입 (커서 위치 또는 끝)
     const editor = document.getElementById('meditation-note');
     if (!editor) return;
 
-    const existing = editor.innerText.trim();
+    const existing = editor.innerText.replace(/\n+$/, '');
     editor.innerText = existing
-        ? existing + '\n\n' + noteText + '\n\n— 여기서부터 한 줄씩 적어 볼까요? —\n'
-        : noteText + '\n\n— 여기서부터 한 줄씩 적어 볼까요? —\n';
+        ? existing + '\n\n' + noteText + '\n'
+        : noteText + '\n';
 
-    // input 이벤트 트리거 → todayView의 자동 저장 디바운스 발동
+    // 자동 저장 디바운스 발동
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // 선택 해제 + 묵상 노트로 스크롤 + 포커스
+    // 선택 해제 + 노트로 스크롤 + 포커스 + 커서 끝으로
     selected.forEach(el => el.classList.remove('selected'));
-    updateCopyButton(container);
+    updateCopyButton();
     editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // 포커스 + 끝으로 커서 이동
     editor.focus();
     const range = document.createRange();
     range.selectNodeContents(editor);
