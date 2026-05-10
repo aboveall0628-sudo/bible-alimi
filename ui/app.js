@@ -12,6 +12,7 @@ import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideL
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen } from './auth.js';
 import { initAutoLock, registerFailedAttempt, isLockoutActive, getLockoutRemainingSec, resetFailedAttempts } from '../security/autoLock.js';
 import { logAuditAction } from '../security/auditLog.js';
+import { initGlobalErrorHandler } from '../security/errorHandler.js';
 import { initQuickReview, showToast } from './quickReview.js';
 import { initSensitiveMode } from './sensitiveMode.js';
 import { initThemeManager } from './themeManager.js';
@@ -77,6 +78,9 @@ const TOKEN_KEY = 'gcal_token';
 
 // ─── 초기화 ───
 async function init() {
+    // 0. 글로벌 에러 핸들러 (가장 먼저 — 이후 모든 에러를 안전하게 잡기)
+    initGlobalErrorHandler();
+
     setBootStatus('잠깐만요, 준비 중이에요...');
     // 1. 잠금 화면 (일단 숨김 상태로 초기화)
     initLockScreen({

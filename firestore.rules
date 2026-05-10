@@ -1,17 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    //  users/{uid} — 사용자 vault 메타 (wrappedDEK, salt 등)
+    // ─────────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read, write: if request.auth.uid == uid;
     }
-    
+
+    // ─────────────────────────────────────────────────────────────
+    //  공통 규칙 — 모든 사용자 데이터 컬렉션
+    //  요건: 본인 userId 필드를 가진 문서만 읽기/쓰기 가능
+    // ─────────────────────────────────────────────────────────────
     match /{collection}/{docId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
-    
-    // RESERVED FOR v2 (do not create yet):
-    // persons, organizations, interactions, 
-    // accounts, assets, liabilities, transactions, cashflowSnapshots
+
+    // ─────────────────────────────────────────────────────────────
+    //  RESERVED FOR v2 — 인물·경제 모듈 슬롯 (현재 비활성)
+    //  · persons, organizations, interactions
+    //  · accounts, assets, liabilities, transactions, cashflowSnapshots
+    //
+    //  현재 dots/reports 의 encrypted 필드에는 다음 슬롯이 빈 배열로 예약됨:
+    //  - linkedPersonIds[]      → 인물 모듈 활성화 시 채워짐
+    //  - linkedOrgIds[]         → 조직 모듈 활성화 시 채워짐
+    //  - linkedTransactionIds[] → 경제 모듈 활성화 시 채워짐
+    //
+    //  이 컬렉션들은 위 공통 규칙으로 자동 보호되지만, v2까지 데이터를
+    //  쓰지 않을 것을 코드 측에서 보장한다 (config/encryptionPolicy.js 주석).
+    // ─────────────────────────────────────────────────────────────
   }
 }

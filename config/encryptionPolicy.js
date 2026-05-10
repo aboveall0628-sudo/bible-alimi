@@ -65,7 +65,22 @@ export const POLICY = {
         plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt'],
         encrypted: ['text', 'linkedScriptureId', 'linkedGoalId', 'linkedPrincipleId']
     }
-    // RESERVED FOR v2 FUTURE MODULES
-    // persons: { plaintext: [], encrypted: [] },
-    // transactions: { plaintext: [], encrypted: [] },
+    // ─────────────────────────────────────────────
+    //  RESERVED FOR v2 — 인물·경제 모듈 (현재 비활성)
+    // ─────────────────────────────────────────────
+    // persons: {
+    //     plaintext: ['id', 'userId', 'createdAt', 'lastInteractionAt'],
+    //     encrypted: ['name', 'relationship', 'notes', 'tags']
+    // },
+    // organizations: {
+    //     plaintext: ['id', 'userId', 'type', 'createdAt'],
+    //     encrypted: ['name', 'role', 'notes']
+    // },
+    // transactions: {
+    //     plaintext: ['id', 'userId', 'date', 'amountBucket', 'category', 'createdAt'],
+    //     encrypted: ['amount', 'description', 'merchant', 'linkedPersonIds']
+    // },
+    // 활성화 시: dots.encrypted의 linkedPersonIds/linkedOrgIds/linkedTransactionIds가
+    //  실제 인물/조직/거래 ID 배열로 채워지며, 영적 안전장치(인물 라벨링 금지 등)는
+    //  docs/future-modules.md 참조.
 };
