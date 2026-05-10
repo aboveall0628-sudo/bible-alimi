@@ -1227,20 +1227,9 @@ async function fetchTodayDots(dateStr) {
         querySnapshot.forEach(doc => {
             todayDots.push({ id: doc.id, ...doc.data() });
         });
-        updateDotCounter();
     } catch (e) {
         console.error("Fetch dots error:", e);
     }
-}
-
-function updateDotCounter() {
-    const counter = document.getElementById('dot-counter');
-    if (!counter) return;
-    
-    // Count reviewed dots vs planned events
-    // This is a simplified version
-    const reviewedCount = todayDots.filter(d => d.executed).length;
-    counter.textContent = `오늘 도트 ${reviewedCount}개 평가완료`;
 }
 
 function renderCustomTimeboxEvents(events) {
@@ -1315,6 +1304,15 @@ function setupGoogleAuth() {
     const authBtn = document.getElementById('auth-btn');
     if (authBtn) {
         authBtn.addEventListener('click', handleAuthClick);
+    }
+    
+    const profile = document.getElementById('user-profile');
+    if (profile) {
+        profile.addEventListener('click', () => {
+            if (!gapi.client.getToken()) {
+                handleAuthClick();
+            }
+        });
     }
     
     const syncBtn = document.getElementById('sync-btn');
@@ -1412,13 +1410,14 @@ async function loadUserProfile() {
         const userInfo = await resp.json();
 
         if (userInfo.name) {
-            document.getElementById('user-profile').classList.remove('hidden');
             document.getElementById('user-name').textContent = userInfo.name;
             const avatar = document.getElementById('user-avatar');
             if (avatar && userInfo.picture) {
                 avatar.src = userInfo.picture;
                 avatar.style.display = 'block';
             }
+            const authBtn = document.getElementById('auth-btn');
+            if (authBtn) authBtn.classList.add('hidden');
             
             currentUserId = userInfo.email || userInfo.sub;
             await initializeSeedData(db, currentUserId);
