@@ -5,7 +5,7 @@
  * 메타 필드(date, timeSlot, satisfaction 등)는 평문, 텍스트 필드는 암호화.
  */
 
-import { db, doc, deleteDoc, collection, query, where, orderBy } from './firebase.js';
+import { db, doc, deleteDoc, collection, query, where } from './firebase.js';
 import { saveRecord, getRecord, queryRecords } from './baseRepo.js';
 
 /**
@@ -47,6 +47,8 @@ export async function getDot(dek, docId) {
 
 /**
  * 날짜 범위의 도트 조회 (리포트 집계용)
+ * orderBy 제거 + client-side sort — composite index 없이도 동작
+ * (89bd651 / goalsRepo 와 같은 패턴. 인덱스 미배포 환경에서 throw 방지)
  * @param {CryptoKey} dek
  * @param {string} userId
  * @param {string} startDate
@@ -58,11 +60,14 @@ export async function getDotsByDateRange(dek, userId, startDate, endDate) {
         collection(db, 'dots'),
         where('userId', '==', userId),
         where('date', '>=', startDate),
-        where('date', '<=', endDate),
-        orderBy('date', 'asc'),
-        orderBy('timeSlot', 'asc')
+        where('date', '<=', endDate)
     );
-    return await queryRecords(dek, q);
+    const dots = await queryRecords(dek, q);
+    return dots.sort((a, b) => {
+        const dc = (a.date || '').localeCompare(b.date || '');
+        if (dc) return dc;
+        return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
+    });
 }
 
 /**
