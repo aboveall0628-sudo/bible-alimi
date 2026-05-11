@@ -78,6 +78,8 @@ function hideMainContent() {
 let tokenClient;
 let gapiInited = false;
 let gisInited = false;
+// 비로그인 첫 진입 → landing.html 거쳐 ?login=true 로 돌아오면 GIS 준비 직후 자동 로그인 트리거
+let _isLoginFlow = false;
 const GOOGLE_CLIENT_ID = '760231593146-7gkia8st114oiojjgjljjk0rdduhgafl.apps.googleusercontent.com';
 const GOOGLE_API_KEY = 'AIzaSyDdQAmIWoKy5z1I6w4BWE3xK9a1ryBZXHQ';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
@@ -120,6 +122,22 @@ function disablePasswordManagerOnNonPasswordInputs() {
 
 // ─── 초기화 ───
 async function init() {
+    // 0-a. 비로그인 첫 진입 가드 — Firebase 세션 없으면 landing.html로
+    //      ?login=true 가 붙어 있으면 랜딩에서 돌아온 것이므로 통과 후 자동 로그인 트리거
+    const _params = new URLSearchParams(location.search);
+    _isLoginFlow = _params.get('login') === 'true';
+    if (!_isLoginFlow) {
+        const hasAuthSession = Object.keys(localStorage)
+            .some(k => k.startsWith('firebase:authUser:'));
+        if (!hasAuthSession) {
+            location.replace('landing.html');
+            return;
+        }
+    } else {
+        // ?login=true 즉시 정리 — 새로고침 시 무한 트리거 방지
+        history.replaceState({}, '', location.pathname);
+    }
+
     // 0. 글로벌 에러 핸들러 (가장 먼저 — 이후 모든 에러를 안전하게 잡기)
     initGlobalErrorHandler();
     disablePasswordManagerOnNonPasswordInputs();
@@ -542,6 +560,12 @@ function gisLoaded() {
         },
     });
     gisInited = true;
+
+    // 랜딩에서 돌아온 흐름이면 GIS 준비 직후 자동으로 Google 로그인 모달 발사
+    if (_isLoginFlow) {
+        _isLoginFlow = false; // 한 번만
+        document.dispatchEvent(new CustomEvent('sanctum:request-google-login'));
+    }
 }
 
 function handleAuthClick() {

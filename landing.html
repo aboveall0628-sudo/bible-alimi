@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanctum OS — 하나님 앞에서 나를 정직하게 마주하는 거울</title>
+    <meta name="description" content="Sanctum OS — 하나님 앞에서 나를 정직하게 마주하는 거울">
+    <link rel="icon" type="image/svg+xml" href="assets/sanctum-mark.svg">
+
+    <!-- 다크모드 FOUC 가드: CSS 로드 전에 data-theme 적용 (themeManager와 동일 정책: dark만 속성 부여) -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('sanctum-theme');
+                if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+                if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (_) {}
+        })();
+    </script>
+
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <link rel="stylesheet" href="landing.css">
+    <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js" defer></script>
+    <script src="landing.js" defer></script>
+</head>
+<body>
+    <main class="landing-root" aria-labelledby="landing-title">
+        <div class="landing-stack" id="landing-stack">
+
+            <!-- 1. 로고 -->
+            <div class="landing-logo" aria-hidden="true">
+                <svg viewBox="0 0 105 110" class="landing-logo-mark">
+                    <title>Sanctum OS 로고</title>
+                    <path fill="none" stroke="currentColor" stroke-width="6"
+                          stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="2"
+                          d="M 50 10 L 50 60 L 85 60 L 85 25 L 20 25 L 20 75 L 70 75 L 70 40 L 35 40 L 35 100"/>
+                </svg>
+            </div>
+
+            <!-- 2. 제목 -->
+            <h1 id="landing-title" class="landing-title">Sanctum OS</h1>
+
+            <!-- 3. 부제목 -->
+            <p class="landing-subtitle">하나님 앞에서 나를 정직하게 마주하는 거울</p>
+
+            <!-- 4. Primary CTA -->
+            <button id="landing-cta" class="landing-cta" type="button"
+                    aria-label="Google 계정으로 시작하기">
+                Google 계정으로 시작하기
+            </button>
+
+            <!-- 5. 자물쇠 안내 (두 줄) -->
+            <div class="landing-lock-note" aria-live="polite">
+                <i data-lucide="lock" class="landing-lock-icon" aria-hidden="true"></i>
+                <span class="landing-lock-text">
+                    비밀번호 없이는 못 봐요<br>
+                    <span class="landing-lock-text-soft">분실 시 복구되지 않아요</span>
+                </span>
+            </div>
+
+            <!-- 6. 스크린샷 (CSS-only placeholder) -->
+            <div class="landing-screenshot" role="img"
+                 aria-label="Sanctum OS 오늘 화면 미리보기 (준비 중)">
+                <span class="landing-screenshot-caption">스크린샷 자리</span>
+            </div>
+
+            <!-- 7. 푸터 -->
+            <footer class="landing-footer">© 2026 Sanctum OS</footer>
+
+        </div>
+    </main>
+</body>
+</html>

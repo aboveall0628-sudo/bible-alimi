@@ -6,6 +6,18 @@
     <title>Sanctum OS</title>
     <meta name="description" content="Sanctum OS">
     <link rel="icon" type="image/svg+xml" href="assets/sanctum-mark.svg">
+
+    <!-- 다크모드 FOUC 가드: style.css 로드 전에 data-theme 적용 (themeManager와 동일 정책) -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('sanctum-theme');
+                if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+                if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (_) {}
+        })();
+    </script>
+
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="style.css">
     <script type="module">
