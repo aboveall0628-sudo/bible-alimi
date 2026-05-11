@@ -20,7 +20,7 @@
  *   - 비교의 함정 회피 — "더 / 덜" 같은 표현은 데이터가 있을 때만 신중히.
  */
 
-import { db, collection, query, where, getDocs, limit } from '../data/firebase.js';
+import { db, collection, query, where, getDocs } from '../data/firebase.js';
 import { getDotsByDateRange, computeDotStats } from '../data/dotsRepo.js';
 import { getAllPersons } from '../data/personRepo.js';
 import { getAllOrganizations } from '../data/orgRepo.js';
@@ -29,6 +29,9 @@ import { readDocument } from '../crypto/cryptoService.js';
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { getDashboardWeeklyBrief } from './aiClient.js';
 import { getDEK } from './lockScreen.js';
+// Phase E-8/D: 통독 진도 = 활성 plan + anchor 기반 자동 계산. Firestore bibleProgress 의존 제거.
+import { computePlanProgress } from './scripture.js';
+import { getActivePlan } from './scriptureSettings.js';
 
 export async function renderDashboardView(userId) {
     const dek = getDEK();
@@ -48,15 +51,17 @@ export async function renderDashboardView(userId) {
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = fmt(yesterday);
 
-    const [pinned, yesterdayReport, dots, bibleProgress, meditationCount, persons, orgs] = await Promise.all([
+    const [pinned, yesterdayReport, dots, meditationCount, persons, orgs] = await Promise.all([
         getPinnedPrinciple(dek, userId).catch(() => null),
         getDayReport(dek, userId, yesterdayStr).catch(() => null),
         getDotsByDateRange(dek, userId, startDate, endDate).catch(() => []),
-        getBibleProgress(userId).catch(() => []),
         countMeditations(userId, startDate, endDate).catch(() => 0),
         getAllPersons(dek, userId).catch(() => []),
         getAllOrganizations(dek, userId).catch(() => []),
     ]);
+
+    // 통독 진도는 외부 fetch 없음 — 활성 plan + anchor로 즉시 계산
+    const bibleProgressView = computePlanProgress(getActivePlan());
 
     // 페이지 재진입 시 AI 캐시 초기화 — 다음 클릭에서 새 데이터로 다시 호출
     _aiBriefCache = null;
@@ -65,7 +70,7 @@ export async function renderDashboardView(userId) {
     renderCallSection(dots);                            // D-4: 토요일 CTA / 빈 상태 가이드
     renderProseLine(dots, pinned, persons, orgs);       // E-2: AI 듣기 인자 전달
     renderPeopleSection(dots, persons, orgs);           // D-3: 이번 주 관계의 결
-    renderNumberCards(dots, bibleProgress, meditationCount);
+    renderNumberCards(dots, bibleProgressView, meditationCount);
     bindNumbersToggle();
 
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
@@ -479,12 +484,11 @@ function avatarColor(id) {
 function escapeAttr(s) { return escapeHtml(s); }
 
 // ─── 4) 숫자로 보기 — 디폴트 접힘 ─────────────────────────
-function renderNumberCards(dots, bibleProgress, meditationCount) {
+function renderNumberCards(dots, bible, meditationCount) {
     const container = document.getElementById('dashboard-cards');
     if (!container) return;
 
     const stats = computeDotStats(dots);
-    const bible = computeBibleProgress(bibleProgress);
     const meditationRate = Math.round((meditationCount / 7) * 100);
 
     container.innerHTML = `
@@ -546,75 +550,26 @@ function bindNumbersToggle() {
 }
 
 // ─── 통독 진도 ────────────────────────────────────────────
-async function getBibleProgress(userId) {
-    try {
-        const q = query(
-            collection(db, 'bibleProgress'),
-            where('userId', '==', userId),
-            limit(2000)
-        );
-        const snap = await getDocs(q);
-        return snap.docs.map(d => d.data());
-    } catch (e) {
-        console.warn('bibleProgress query failed:', e);
-        return [];
-    }
-}
-
-// 파트별 총 챕터수 · 짧은 이름 (대시보드 표기용)
-const BIBLE_PART_META = {
-    1: { total: 281, label: '파트1: 시가서' },
-    2: { total: 410, label: '파트2: 모세+대선지' },
-    3: { total: 249, label: '파트3: 역사+소선지' },
-    4: { total: 260, label: '파트4: 신약' },
-};
-
-function computeBibleProgress(records) {
-    const completedByPart = { 1: 0, 2: 0, 3: 0, 4: 0 };
-    (records || []).forEach(r => {
-        if (r.completed && r.partId && completedByPart[r.partId] !== undefined) {
-            completedByPart[r.partId]++;
-        }
-    });
-
-    const parts = [1, 2, 3, 4].map(p => {
-        const total = BIBLE_PART_META[p].total;
-        const done = completedByPart[p];
-        return {
-            id: p,
-            label: BIBLE_PART_META[p].label,
-            done,
-            total,
-            percent: total === 0 ? 0 : Math.round((done / total) * 100),
-        };
-    });
-
-    // 전체 % = "내가 진짜로 읽은 챕터 / 전체 챕터" (1200장). 부분 plan과 무관.
-    const totalDone = parts.reduce((s, p) => s + p.done, 0);
-    const totalAll = parts.reduce((s, p) => s + p.total, 0);
-    const percent = totalAll === 0 ? 0 : Math.round((totalDone / totalAll) * 100);
-
-    const isEmpty = totalDone === 0;
-    return {
-        percent,
-        parts,
-        totalDone,
-        totalAll,
-        isEmpty,
-    };
-}
+// Phase E-8/D: bibleProgress Firestore + 수동 완료 체크는 폐기.
+// computePlanProgress(getActivePlan())가 활성 plan + 각 파트 anchor로 자동 계산해서 돌려줌.
 
 function renderBibleProgressCard(bible) {
+    if (!bible || bible.parts.length === 0) {
+        return `
+            <div class="dash-value highlight">0%</div>
+            <p class="dash-desc">묵상 계획이 비어있어요. 설정 → 말씀 본문에서 계획을 골라 주세요.</p>
+        `;
+    }
     if (bible.isEmpty) {
         return `
             <div class="dash-value highlight">0%</div>
-            <p class="dash-desc">아직 기록이 없어요. 오늘부터 한 장씩 시작해 볼까요?</p>
+            <p class="dash-desc">아직 시작 안 했어요. 오늘부터 한 장씩 시작해 볼까요?</p>
         `;
     }
     const partsHtml = bible.parts.map(p => `
         <div class="bible-part-row">
             <div class="bible-part-row-head">
-                <span class="bible-part-name">${p.label}</span>
+                <span class="bible-part-name">${escapeHtml(p.label)}</span>
                 <span class="bible-part-stat">${p.done} / ${p.total}장 · <strong>${p.percent}%</strong></span>
             </div>
             <div class="bible-part-bar"><div class="bible-part-bar-fill" style="width:${Math.min(100, p.percent)}%"></div></div>
@@ -624,7 +579,7 @@ function renderBibleProgressCard(bible) {
     return `
         <div class="bible-progress-head">
             <div class="dash-value highlight">${bible.percent}%</div>
-            <p class="dash-desc">전체 ${bible.totalDone} / ${bible.totalAll}장 읽었어요</p>
+            <p class="dash-desc">활성 계획 안에서 ${bible.totalDone} / ${bible.totalAll}장 읽었어요</p>
         </div>
         <div class="bible-parts-list">${partsHtml}</div>
     `;

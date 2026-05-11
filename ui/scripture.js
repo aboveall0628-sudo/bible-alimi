@@ -309,6 +309,74 @@ export async function renderScriptureForDate(date) {
 }
 
 /**
+ * Phase E-8/D: 통독 진도 자동 계산 — 별도 "완료 체크" 없이 anchor만으로 보람을 채움.
+ *
+ * 규칙:
+ *  - PRESET part: 기본 ANCHOR_DATE(2026-05-08) + ANCHOR_INDICES[partId] 기준.
+ *    한국 매일성경 일정에 따라 모든 사용자가 같은 출발선이라 가정.
+ *  - override가 있는 PRESET part: override.anchorDate + override 시작 (abbr,chapter) 기준.
+ *  - user plan part: 시작점 override가 addUserPlan에서 자동으로 박혀 있음. 그 anchor 기준.
+ *
+ * "본 챕터 수" = 시퀀스에서의 누적 인덱스 + 1 (시작점 포함, 오늘까지). total을 넘지 않음.
+ */
+export function computePlanProgress(plan) {
+    if (!plan) return { parts: [], totalDone: 0, totalAll: 0, percent: 0, isEmpty: true };
+    const parts = resolvePlanParts(plan).map(part => progressForPart(plan, part));
+    const totalDone = parts.reduce((s, p) => s + p.done, 0);
+    const totalAll = parts.reduce((s, p) => s + p.total, 0);
+    const percent = totalAll === 0 ? 0 : Math.round((totalDone / totalAll) * 100);
+    return {
+        parts,
+        totalDone,
+        totalAll,
+        percent,
+        isEmpty: totalDone === 0,
+    };
+}
+
+function progressForPart(plan, part) {
+    const partChapters = flattenPartChapters(part);
+    const total = partChapters.length;
+    const override = getPartOverride(plan.id, part.id);
+
+    let anchor, startIndex;
+    if (override) {
+        anchor = new Date(override.anchorDate + 'T00:00:00');
+        const found = partChapters.findIndex(x => x.abbr === override.abbr && x.chapter === override.chapter);
+        startIndex = found >= 0 ? found : 0;
+    } else if (typeof part.id === 'number' && ANCHOR_INDICES[part.id] !== undefined) {
+        // PRESET 기본 — 한국 매일성경 일정
+        anchor = ANCHOR_DATE;
+        startIndex = ANCHOR_INDICES[part.id];
+    } else {
+        // user plan인데 override가 없는 비정상 — 안전망: 오늘 시작
+        anchor = startOfToday();
+        startIndex = 0;
+    }
+
+    const today = startOfToday();
+    const anchorMid = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+    const daysElapsed = Math.floor((today - anchorMid) / (1000 * 60 * 60 * 24)); // 0-based
+    // 첫날 포함 → +1. anchor 이후로만 진행 (anchor가 미래면 0).
+    const cumulative = Math.max(0, startIndex + daysElapsed + 1);
+    const done = Math.min(total, cumulative);
+    const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    return {
+        id: part.id,
+        label: part.name || '내 계획',
+        done,
+        total,
+        percent,
+    };
+}
+
+function startOfToday() {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
  * 설정에서 표시할 파트가 바뀌면 같은 날짜로 다시 그림.
  * (날짜는 #calendar-input이 들고 있음 — 그게 비면 오늘.)
  */
