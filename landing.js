@@ -38,13 +38,9 @@
             window.lucide.createIcons();
         }
 
-        // 3) CTA — app.js가 ?login=true를 감지해 자동 Google 로그인 모달 발사
-        const cta = document.getElementById('landing-cta');
-        if (cta) {
-            cta.addEventListener('click', function () {
-                location.href = 'index.html?login=true';
-            });
-        }
+        // 3) CTA는 anchor(href="./index.html?login=true")로 자체 동작.
+        //    JS 핸들러로 location.href를 재할당하면 일부 환경에서 더블 navigation이 일어남.
+        //    app.js가 ?login=true를 감지해 GIS 준비 직후 Google 로그인 모달을 발사한다.
 
         // 4) 페이드인 트리거 (CSS의 .is-ready 토글)
         //    requestAnimationFrame 두 번이면 초기 transform/opacity가 확실히 페인트된 뒤 토글

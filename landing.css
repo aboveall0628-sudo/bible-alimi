@@ -134,6 +134,7 @@ html, body {
 }
 
 /* ── 4. Primary CTA ────────────────────────────────────────── */
+/* anchor 기반(점진적 향상). button과 동일 시각, JS 없이도 동작 */
 .landing-cta {
     margin-top: var(--sp-6);          /* 부제목 → CTA 40px */
     width: 100%;
@@ -150,6 +151,11 @@ html, body {
     cursor: pointer;
     box-shadow: var(--shadow-sm);
     transition: filter var(--motion), transform var(--motion), box-shadow var(--motion);
+    /* anchor 기본값 normalize */
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    box-sizing: border-box;
 }
 .landing-cta:hover { filter: brightness(0.95); }
 .landing-cta:active { transform: translateY(1px); box-shadow: none; }

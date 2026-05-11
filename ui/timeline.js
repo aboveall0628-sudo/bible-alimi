@@ -62,18 +62,19 @@ export async function refreshTimeline({ userId, date }) {
     const dek = getDEK();
     if (!dek) return;
 
-    try {
-        const [decisions, dots, gcal] = await Promise.all([
-            getDecisionsByDate(dek, _userId, _date),
-            getDotsByDate(dek, _userId, _date),
-            listUpcomingEvents(),
-        ]);
-        _decisions = decisions;
-        _dots = dots;
-        _gcalEvents = gcal;
-    } catch (e) {
-        console.error('timeline data load failed:', e);
-    }
+    // 하나가 실패해도 나머지는 살아남도록 allSettled. decisions 인덱스가 빠져 있어
+    // throw가 나도 도트/캘린더는 그대로 보임.
+    const [decisionsR, dotsR, gcalR] = await Promise.allSettled([
+        getDecisionsByDate(dek, _userId, _date),
+        getDotsByDate(dek, _userId, _date),
+        listUpcomingEvents(),
+    ]);
+    if (decisionsR.status === 'fulfilled') _decisions = decisionsR.value;
+    else console.error('decisions load failed:', decisionsR.reason);
+    if (dotsR.status === 'fulfilled') _dots = dotsR.value;
+    else console.error('dots load failed:', dotsR.reason);
+    if (gcalR.status === 'fulfilled') _gcalEvents = gcalR.value;
+    else console.error('gcal load failed:', gcalR.reason);
     render();
 }
 
