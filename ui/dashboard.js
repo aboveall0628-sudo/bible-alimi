@@ -222,7 +222,7 @@ function bindAiToggle(stats, pinned, persons, orgs, dots) {
             return;
         }
 
-        panel.innerHTML = `<p class="dash-ai-loading">잠깐만요, 이번 주의 결을 한 단락으로 모으는 중...</p>`;
+        panel.innerHTML = `<p class="dash-ai-loading">잠깐만요, 이번 주를 한 단락으로 모으는 중...</p>`;
         btn.disabled = true;
 
         try {
