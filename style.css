@@ -1092,6 +1092,80 @@ button .btn-icon { vertical-align: text-bottom; }
 }
 .tab-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
+/* Phase E-5-A: 리포트 카드 새 spec (사실/관찰/묵상 질문) */
+.reports-list { display: flex; flex-direction: column; gap: var(--sp-4); }
+.report-card { display: flex; flex-direction: column; gap: var(--sp-3); }
+.report-card-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--sp-3);
+}
+.report-card-header h3 {
+    font-size: 16px; font-weight: 600;
+    color: var(--text-primary);
+}
+.report-card-meta {
+    font-size: 12px; color: var(--text-secondary);
+}
+.report-stats-row {
+    display: flex; flex-wrap: wrap; gap: var(--sp-4);
+    padding: var(--sp-3) 0;
+    border-top: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px; color: var(--text-secondary);
+}
+.report-stat strong {
+    font-size: 18px; font-weight: 700;
+    color: var(--text-primary);
+    margin-right: 4px;
+}
+.report-stat small {
+    font-size: 11px; color: var(--text-secondary);
+    margin-left: 2px;
+}
+.report-summary p {
+    font-size: 14px; line-height: 1.7;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    margin: 0;
+}
+.report-summary-empty p {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+.report-observation,
+.report-questions {
+    padding: var(--sp-3);
+    background: var(--bg-elev);
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+}
+.report-questions { border-left-color: var(--brand-primary, var(--accent)); }
+.report-section-label {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+}
+.report-section-icon { width: 13px; height: 13px; }
+.report-observation p,
+.report-questions ul {
+    margin: 0;
+    font-size: 13px; line-height: 1.6;
+    color: var(--text-primary);
+}
+.report-questions ul {
+    padding-left: 1.2em;
+}
+.report-questions li { margin: 2px 0; }
+.report-card-foot {
+    font-size: 11px; color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    padding-top: var(--sp-2);
+    border-top: 1px dashed var(--border);
+}
+
 /* ═══ Dashboard ═══ */
 /* 대시보드 안의 큰 섹션 단위 (나의 목표 / 이번 주 흐름 등). 메뉴 통합 후 도입. */
 .dash-section {
