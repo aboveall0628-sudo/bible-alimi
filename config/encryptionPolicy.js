@@ -8,8 +8,9 @@
 export const POLICY = {
     dots: {
         plaintext: [
-            'id', 'userId', 'date', 'timeSlot', 'executionSatisfaction', 
-            'outcomeSatisfaction', 'executed', 'labelIds', 
+            'id', 'userId', 'date', 'timeSlot', 'durationSlots',
+            'executionSatisfaction',
+            'outcomeSatisfaction', 'executed', 'labelIds',
             'amountBucket', 'sentimentBucket', 'createdAt'
         ],
         encrypted: [

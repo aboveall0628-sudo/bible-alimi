@@ -599,6 +599,30 @@ button .btn-icon { vertical-align: text-bottom; }
 .utl-slot.gcal-source { background: var(--bg-card); }
 .utl-slot.gcal-source::before { background: var(--accent); }
 
+/* 슬롯 우상단 삭제 버튼 — 호버 시에만 노출. plan에선 unplace, actual에선 도트 삭제. */
+.utl-slot .slot-delete {
+    position: absolute; top: 2px; right: 2px;
+    width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: rgba(0,0,0,0.06); color: var(--text-secondary);
+    border-radius: 50%; cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 0;
+    opacity: 0; transition: opacity var(--ease), background var(--ease), color var(--ease);
+}
+.utl-slot:hover .slot-delete { opacity: 1; }
+.utl-slot .slot-delete:hover { background: var(--dot-red); color: #fff; }
+
+/* 실제 레인 드래그-생성 중 임시 박스. pointer-events:none — hit-test에 안 잡혀야
+   elementFromPoint가 아래 셀을 찾을 수 있다. */
+.utl-slot.utl-ghost {
+    pointer-events: none;
+    background: var(--accent-soft);
+    border: 1px dashed var(--accent);
+    opacity: 0.85;
+}
+.utl-slot.utl-ghost::before { display: none; }
+.utl-slot.utl-ghost .slot-time { color: var(--accent); font-weight: 600; }
+
 /* Empty-state guide */
 .utl-empty-card {
     grid-column: 1 / -1;

@@ -5,7 +5,7 @@
  * 메타 필드(date, timeSlot, satisfaction 등)는 평문, 텍스트 필드는 암호화.
  */
 
-import { db, collection, query, where, orderBy } from './firebase.js';
+import { db, doc, deleteDoc, collection, query, where, orderBy } from './firebase.js';
 import { saveRecord, getRecord, queryRecords } from './baseRepo.js';
 
 /**
@@ -61,6 +61,13 @@ export async function getDotsByDateRange(dek, userId, startDate, endDate) {
         orderBy('timeSlot', 'asc')
     );
     return await queryRecords(dek, q);
+}
+
+/**
+ * 도트 삭제 (시계부에서 X 버튼)
+ */
+export async function deleteDot(id) {
+    await deleteDoc(doc(db, 'dots', id));
 }
 
 /**

@@ -25,7 +25,7 @@
  */
 
 import { getDEK } from './lockScreen.js';
-import { saveDot, getDotsByDate } from '../data/dotsRepo.js';
+import { saveDot, getDotsByDate, deleteDot } from '../data/dotsRepo.js';
 import {
     getDecisionsByDate, placeDecision, unplaceDecision, saveDecision,
 } from '../data/decisionsRepo.js';
@@ -152,11 +152,11 @@ function renderDesktop() {
         planCol.appendChild(slotEl);
     });
 
-    // 도트 그리기 (actual 레인)
+    // 도트 그리기 (actual 레인) — durationSlots 지원, 없으면 1슬롯
     _dots.forEach(dot => {
         if (dot.timeSlot == null) return;
         const slotEl = createActualSlot(dot);
-        positionSlot(slotEl, dot.timeSlot, 1);
+        positionSlot(slotEl, dot.timeSlot, dot.durationSlots || 1);
         actualCol.appendChild(slotEl);
     });
 
@@ -215,10 +215,13 @@ function createPlanSlot(decision, source) {
     el.dataset.decisionId = decision.id;
     el.dataset.source = source;
     el.draggable = true;
+    const dur = decision.durationSlots || 4;
+    const endSlot = (decision.timeSlot || 0) + dur;
     el.innerHTML = `
-        <span class="slot-time">${slotToTime(decision.timeSlot)}</span>
+        <button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>
+        <span class="slot-time">${slotToTime(decision.timeSlot)}~${slotToTime(endSlot)}</span>
         <span class="slot-title">${escapeHtml(decision.text || '(아직 이름이 없어요)')}</span>
-        <span class="slot-resize" data-decision-id="${decision.id}"></span>
+        <span class="slot-resize" data-decision-id="${decision.id}" title="아래로 끌어 시간 늘리기"></span>
     `;
     return el;
 }
@@ -240,9 +243,16 @@ function createActualSlot(dot) {
     const el = document.createElement('div');
     el.className = `utl-slot ${dotColorClass(dot)}`;
     el.dataset.dotId = dot.id;
+    const dur = dot.durationSlots || 1;
+    const endSlot = dot.timeSlot + dur;
+    const timeLabel = dur > 1
+        ? `${slotToTime(dot.timeSlot)}~${slotToTime(endSlot)}`
+        : slotToTime(dot.timeSlot);
     el.innerHTML = `
-        <span class="slot-time">${slotToTime(dot.timeSlot)}</span>
+        <button class="slot-delete" type="button" title="이 기록 지우기" aria-label="이 기록 지우기">×</button>
+        <span class="slot-time">${timeLabel}</span>
         <span class="slot-title">${escapeHtml(dot.actualTask || dot.plannedTask || '(아직 평가 전이에요)')}</span>
+        <span class="slot-resize actual-resize" data-dot-id="${dot.id}" title="아래로 끌어 시간 늘리기"></span>
     `;
     return el;
 }
@@ -250,6 +260,49 @@ function createActualSlot(dot) {
 function positionSlot(el, slot, duration) {
     el.style.top = `${slot * ROW_HEIGHT}px`;
     el.style.height = `${Math.max(1, duration) * ROW_HEIGHT - 2}px`;
+}
+
+// ─── 자동 스크롤 (드래그/리사이즈 중 화면 가장자리 시 스크롤) ───
+// 마우스가 viewport 상하단 60px 안에 들어오면 그 거리에 비례해서 window를 스크롤.
+let _autoScrollDir = 0;     // -1=위, 0=정지, 1=아래
+let _autoScrollRAF = null;
+const SCROLL_EDGE_PX = 60;
+const SCROLL_MAX_SPEED = 14;  // 한 프레임 최대 픽셀
+
+function updateAutoScrollFromEvent(e) {
+    const vh = window.innerHeight;
+    if (e.clientY < SCROLL_EDGE_PX) {
+        const ratio = (SCROLL_EDGE_PX - e.clientY) / SCROLL_EDGE_PX;
+        _autoScrollDir = -Math.min(SCROLL_MAX_SPEED, Math.max(2, ratio * SCROLL_MAX_SPEED));
+    } else if (e.clientY > vh - SCROLL_EDGE_PX) {
+        const ratio = (e.clientY - (vh - SCROLL_EDGE_PX)) / SCROLL_EDGE_PX;
+        _autoScrollDir = Math.min(SCROLL_MAX_SPEED, Math.max(2, ratio * SCROLL_MAX_SPEED));
+    } else {
+        _autoScrollDir = 0;
+    }
+}
+function startAutoScroll() {
+    if (_autoScrollRAF) return;
+    const step = () => {
+        if (_autoScrollDir !== 0) {
+            // window.scrollBy는 main 컨테이너가 스크롤 가능한 경우에도 동작.
+            // body/html이 안 되면 가장 가까운 스크롤 부모를 찾아 fallback.
+            const before = window.scrollY;
+            window.scrollBy(0, _autoScrollDir);
+            if (window.scrollY === before) {
+                // window가 안 스크롤된다 — main-content가 자체 스크롤일 수 있음
+                const main = document.getElementById('main-content');
+                if (main) main.scrollTop += _autoScrollDir;
+            }
+        }
+        _autoScrollRAF = requestAnimationFrame(step);
+    };
+    _autoScrollRAF = requestAnimationFrame(step);
+}
+function stopAutoScroll() {
+    if (_autoScrollRAF) cancelAnimationFrame(_autoScrollRAF);
+    _autoScrollRAF = null;
+    _autoScrollDir = 0;
 }
 
 // ─── 색상 매핑 ───
@@ -291,10 +344,10 @@ function gcalEventToSlotRange(ev) {
     } catch { return null; }
 }
 
-// ─── 셀 이벤트 (drop, click) ───
+// ─── 셀 이벤트 (drop, mousedown-drag, click) ───
 function bindCellEvents(col, lane) {
     col.querySelectorAll('.utl-cell').forEach(cell => {
-        // 드래그 인 - 결단 카드를 받기
+        // 드래그 인 - 결단 카드를 받기 (plan 레인만)
         cell.addEventListener('dragover', (e) => {
             if (lane !== 'plan') return;
             if (!e.dataTransfer.types.includes('application/x-sanctum-decision') &&
@@ -317,9 +370,6 @@ function bindCellEvents(col, lane) {
 
             try {
                 if (decisionId) {
-                    // 새로 박기 / 다른 위치에서 옮기기.
-                    // timeline의 _decisions에 아직 없을 수 있어(방금 만든 카드 등),
-                    // 못 찾으면 repo에서 직접 가져와 placeDecision 호출.
                     let d = _decisions.find(x => x.id === decisionId);
                     if (!d) {
                         const all = await getDecisionsByDate(dek, _userId, _date);
@@ -346,18 +396,20 @@ function bindCellEvents(col, lane) {
             }
         });
 
-        // 클릭 — actual 빈 셀이면 인라인 입력 모달
-        cell.addEventListener('click', (e) => {
+        // actual 레인 빈 셀: mousedown → 드래그로 시간 범위 선택 → 인라인 입력
+        cell.addEventListener('mousedown', (e) => {
             if (lane !== 'actual') return;
-            if (e.target.closest('.utl-slot')) return;
+            if (e.button !== 0) return;                  // 좌클릭만
+            if (e.target.closest('.utl-slot')) return;   // 기존 도트 위에선 무시 (평가는 슬롯 클릭으로)
+            e.preventDefault();
             const slot = parseInt(cell.dataset.slot);
-            openInlineActualInput(cell, slot);
+            startActualCreateDrag(col, cell, slot);
         });
     });
 
-    // 슬롯 자체 클릭 → 평가 모달
+    // 슬롯 자체 — 클릭/리사이즈/삭제/드래그-이동
     col.querySelectorAll('.utl-slot').forEach(slot => {
-        // 본문 드래그 시작 (시간 이동)
+        // 본문 드래그 시작 (시간 이동) — plan 레인의 결단 슬롯만
         slot.addEventListener('dragstart', (e) => {
             const did = slot.dataset.decisionId;
             if (!did) { e.preventDefault(); return; }
@@ -366,50 +418,124 @@ function bindCellEvents(col, lane) {
         });
 
         slot.addEventListener('click', (e) => {
-            // resize 핸들 클릭은 무시 (mousedown으로 처리)
-            if (e.target.classList.contains('slot-resize')) return;
+            // 리사이즈 핸들 / 삭제 버튼 클릭은 자체 핸들러가 처리
+            if (e.target.closest('.slot-resize')) return;
+            if (e.target.closest('.slot-delete')) return;
+
             const decisionId = slot.dataset.decisionId;
             const dotId = slot.dataset.dotId;
             const gcalId = slot.dataset.gcalId;
 
+            // 계획 레인(결단/캘린더)에선 평가 모달을 띄우지 않음.
+            // 평가는 실제 레인의 도트에 대해서만.
             if (decisionId) {
-                const d = _decisions.find(x => x.id === decisionId);
-                if (d) openEvalForDecision(d);
+                showToast('평가는 아래 [실제] 레인에서 해 주세요. 계획은 의도를 적는 곳이에요.');
+            } else if (gcalId) {
+                showToast('이 일정에 대한 평가는 [실제] 레인에서 같은 시간에 도트를 만들어 해 주세요.');
             } else if (dotId) {
                 const dot = _dots.find(x => x.id === dotId);
                 if (dot) openEvalForDot(dot);
-            } else if (gcalId) {
-                const ev = _gcalEvents.find(x => x.id === gcalId);
-                if (ev) openEvalForGcalEvent(ev);
             }
         });
 
-        // 가장자리 리사이즈
+        // 가장자리 리사이즈 — 결단/도트 둘 다 지원
         const resizeHandle = slot.querySelector('.slot-resize');
         if (resizeHandle) {
             resizeHandle.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                const did = resizeHandle.dataset.decisionId;
-                if (!did) return;
-                startResize(did, e.clientY, slot);
+                const decisionId = resizeHandle.dataset.decisionId;
+                const dotId = resizeHandle.dataset.dotId;
+                if (decisionId) startResize('decision', decisionId, e.clientY, slot);
+                else if (dotId)  startResize('dot', dotId, e.clientY, slot);
+            });
+        }
+
+        // X 버튼 — 계획=시간표에서 빼기(unplace), 실제=완전 삭제
+        const deleteBtn = slot.querySelector('.slot-delete');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const decisionId = slot.dataset.decisionId;
+                const dotId = slot.dataset.dotId;
+                const dek = getDEK();
+                if (!dek) { showToast('잠시 잠겨 있어요.'); return; }
+                try {
+                    if (decisionId) {
+                        const d = _decisions.find(x => x.id === decisionId);
+                        if (!d) return;
+                        await unplaceDecision(dek, d);
+                        showToast('시간표에서 빼냈어요. 결단 카드로 다시 돌아갔어요.');
+                    } else if (dotId) {
+                        if (!confirm('이 시간 기록을 지울까요?')) return;
+                        await deleteDot(dotId);
+                    } else {
+                        return;
+                    }
+                    await refreshTimeline({ userId: _userId, date: _date });
+                    if (_onChange) await _onChange({ type: 'refresh' });
+                } catch (err) {
+                    console.error('slot delete failed:', err);
+                    showToast('지우는 중에 잠깐 막혔어요.');
+                }
             });
         }
     });
 }
 
-// ─── 평가 모달 진입점 ───
-function openEvalForDecision(decision) {
-    openQuickReview({
-        timeSlot: decision.timeSlot,
-        cells: [decision.timeSlot],
-        userId: _userId,
-        date: _date,
-        plannedTask: decision.text,
-        decisionId: decision.id,
-    });
+// ─── 실제 레인 드래그-생성 ───
+// 빈 actual 셀에서 mousedown → mousemove로 길이 늘림 → mouseup → 인라인 입력 → 저장 → 평가 모달
+function startActualCreateDrag(col, _startCell, startSlot) {
+    let endSlot = startSlot;
+
+    const ghost = document.createElement('div');
+    ghost.className = 'utl-slot utl-ghost';
+    ghost.innerHTML = `<span class="slot-time">${slotToTime(startSlot)}</span>`;
+    positionSlot(ghost, startSlot, 1);
+    col.appendChild(ghost);
+
+    const updateGhost = () => {
+        const min = Math.min(startSlot, endSlot);
+        const max = Math.max(startSlot, endSlot);
+        const duration = max - min + 1;
+        positionSlot(ghost, min, duration);
+        const timeEl = ghost.querySelector('.slot-time');
+        if (timeEl) {
+            timeEl.textContent = duration > 1
+                ? `${slotToTime(min)}~${slotToTime(min + duration)} (${duration * 15}분)`
+                : slotToTime(min);
+        }
+    };
+
+    startAutoScroll();
+
+    const onMove = (ev) => {
+        updateAutoScrollFromEvent(ev);
+        // ghost는 pointer-events:none 이므로 hit-test에 안 잡힘 (CSS 참조).
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        const targetCell = target?.closest('.utl-cell[data-lane="actual"]');
+        if (!targetCell) return;
+        endSlot = parseInt(targetCell.dataset.slot);
+        updateGhost();
+    };
+    const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        stopAutoScroll();
+        ghost.remove();
+        const min = Math.min(startSlot, endSlot);
+        const max = Math.max(startSlot, endSlot);
+        const duration = max - min + 1;
+        const targetCell = col.querySelector(`.utl-cell[data-slot="${min}"]`);
+        if (targetCell) openInlineActualInput(targetCell, min, duration);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
 }
 
+// ─── 평가 모달 진입점 ───
+// 사용자 정책: "계획에 평가는 일어날 수 없다" — 결단/캘린더 슬롯 클릭은 평가 모달 안 띄움.
+// 도트(실제 레인)만 평가 가능.
 function openEvalForDot(dot) {
     openQuickReview({
         timeSlot: dot.timeSlot,
@@ -421,23 +547,19 @@ function openEvalForDot(dot) {
     });
 }
 
-function openEvalForGcalEvent(ev) {
-    const range = gcalEventToSlotRange(ev);
-    openQuickReview({
-        timeSlot: range?.start ?? 0,
-        cells: [range?.start ?? 0],
-        userId: _userId,
-        date: _date,
-        plannedTask: ev.summary || '',
-    });
-}
-
 // ─── 인라인 actual 입력 ───
-function openInlineActualInput(cell, slot) {
+// duration 슬롯 만큼의 도트를 만들고, Enter 직후 quickReview 모달을 띄워
+// 한 호흡에 만족도/라벨까지 적도록 한다.
+function openInlineActualInput(cell, slot, duration = 1) {
+    if (!cell) return;
     if (cell.querySelector('.inline-input-row')) return;
+    const endSlot = slot + duration;
+    const timeLabel = duration > 1
+        ? `${slotToTime(slot)}~${slotToTime(endSlot)} (${duration * 15}분)`
+        : slotToTime(slot);
     cell.innerHTML = `
         <div class="inline-input-row">
-            <input type="text" placeholder="${slotToTime(slot)} — 이 시간에 뭐 했어요?" />
+            <input type="text" placeholder="${timeLabel} — 이 시간에 뭐 했어요?" />
             <button>저장</button>
         </div>
     `;
@@ -445,16 +567,20 @@ function openInlineActualInput(cell, slot) {
     const btn = cell.querySelector('button');
     input.focus();
 
+    let _saved = false;
     const save = async () => {
+        if (_saved) return;
         const text = input.value.trim();
         if (!text) { render(); return; }
+        _saved = true;
         const dek = getDEK();
         if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
         try {
-            await saveDot(dek, {
+            const dot = {
                 userId: _userId,
                 date: _date,
                 timeSlot: slot,
+                durationSlots: duration,
                 executed: 'done',
                 executionSatisfaction: 3,
                 outcomeSatisfaction: 3,
@@ -462,51 +588,72 @@ function openInlineActualInput(cell, slot) {
                 plannedTask: '',
                 reason: '',
                 labelIds: [],
-            });
+            };
+            await saveDot(dek, dot);              // dotsRepo가 dot.id를 채워줌
             await refreshTimeline({ userId: _userId, date: _date });
-            showToast('🔐 안전하게 보관됐어요');
+            // Enter 직후 평가 모달 — 만족도/라벨/인물·조직 칩까지 한 호흡에
+            openQuickReview({
+                timeSlot: slot,
+                cells: [slot],
+                userId: _userId,
+                date: _date,
+                plannedTask: '',
+                existingDot: dot,
+            });
         } catch (e) {
             console.error('actual save failed:', e);
             showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
+            _saved = false;
         }
     };
 
     btn.addEventListener('click', save);
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') save();
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
         if (e.key === 'Escape') render();
     });
-    input.addEventListener('blur', () => setTimeout(() => render(), 200));
+    // blur는 모달 오픈 시에도 트리거되므로 사용하지 않음. ESC로 닫기 가능.
 }
 
 // ─── 슬롯 리사이즈 (가장자리 드래그로 15분 단위 길이 조절) ───
-function startResize(decisionId, startY, slotEl) {
-    const decision = _decisions.find(x => x.id === decisionId);
-    if (!decision) return;
-    const startDuration = decision.durationSlots || 4;
+// kind: 'decision' | 'dot'. 둘 다 같은 인터랙션이지만 저장 대상이 다름.
+function startResize(kind, id, startY, slotEl) {
+    let item = null;
+    if (kind === 'decision') item = _decisions.find(x => x.id === id);
+    else if (kind === 'dot')  item = _dots.find(x => x.id === id);
+    if (!item) return;
+    const startDuration = item.durationSlots || (kind === 'dot' ? 1 : 4);
+    const startSlot = item.timeSlot || 0;
     slotEl.classList.add('resizing');
+    startAutoScroll();
 
     const onMove = (e) => {
+        updateAutoScrollFromEvent(e);
         const dy = e.clientY - startY;
         const dSlots = Math.round(dy / ROW_HEIGHT);
-        const newDuration = Math.max(1, Math.min(SLOTS_PER_DAY - (decision.timeSlot || 0), startDuration + dSlots));
+        const newDuration = Math.max(1, Math.min(SLOTS_PER_DAY - startSlot, startDuration + dSlots));
         slotEl.style.height = `${newDuration * ROW_HEIGHT - 2}px`;
         slotEl.dataset.tempDuration = String(newDuration);
         const titleEl = slotEl.querySelector('.slot-time');
         if (titleEl) {
-            const startSlot = decision.timeSlot || 0;
             titleEl.textContent = `${slotToTime(startSlot)}~${slotToTime(startSlot + newDuration)} (${newDuration * 15}분)`;
         }
     };
     const onUp = async () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        stopAutoScroll();
         slotEl.classList.remove('resizing');
         const newDuration = parseInt(slotEl.dataset.tempDuration || '0');
         if (newDuration > 0 && newDuration !== startDuration) {
-            decision.durationSlots = newDuration;
+            item.durationSlots = newDuration;
             const dek = getDEK();
-            if (dek) await saveDecision(dek, decision);
+            if (!dek) return;
+            if (kind === 'decision') {
+                await saveDecision(dek, item);
+            } else {
+                await saveDot(dek, item);
+            }
             await refreshTimeline({ userId: _userId, date: _date });
             if (_onChange) await _onChange({ type: 'refresh' });
         }
