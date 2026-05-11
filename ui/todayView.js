@@ -20,6 +20,8 @@ import {
 // Reports 모듈 v3 — 새 spec dayReport 표시
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { generateDailyReport } from '../reports/dailyReportFlow.js';
+// Phase E-5-B: 주간 리포트 토요일 흐름
+import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 // 토요일이면 주/월/분기/연/5·10년 회고가 단계별로 추가 (eveningLoop의 토요일 감지 재사용)
 import { determineLayers } from './eveningLoop.js';
 
@@ -170,7 +172,7 @@ function renderTodayReportButton(body, dek) {
 }
 
 // 토요일 추가 회고 — 단계별 버튼.
-// 주간/월간/분기/연간 리포트 흐름은 STEP 1.5+에서 구현 예정. 지금은 placeholder.
+// week 는 실제 generateWeeklyReport 흐름. month/quarter/year/decade 는 placeholder 유지.
 function renderSaturdayLayers(body) {
     const date = new Date(_date + 'T00:00:00');
     const layers = determineLayers(date);
@@ -196,17 +198,22 @@ function renderSaturdayLayers(body) {
     section.style.cssText = 'margin-top:20px; padding-top:16px; border-top:1px solid var(--border, rgba(0,0,0,0.1))';
     section.innerHTML = `
         ${layerButtonsHtml}
+        <div id="today-week-report-inline"></div>
         <div style="text-align:center; margin-top:10px">
             <button class="primary-btn" id="today-go-next-day-btn">🌅 내일 묵상 시작하기 →</button>
         </div>
     `;
     body.appendChild(section);
 
-    // 단계별 회고 버튼 — 흐름은 STEP 1.5+에서. 지금은 placeholder 토스트.
+    // 단계별 회고 버튼 — week 만 실제 흐름. 나머지는 placeholder.
     section.querySelectorAll('button[data-layer]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             const layer = btn.dataset.layer;
-            showToast(`${layerLabels[layer].label}는 곧 만들어질 예정이에요`);
+            if (layer !== 'week') {
+                showToast(`${layerLabels[layer].label}는 곧 만들어질 예정이에요`);
+                return;
+            }
+            await handleWeekReportClick(btn);
         });
     });
 
@@ -216,6 +223,139 @@ function renderSaturdayLayers(body) {
             window.__sanctumGoToNextDay();
         }
     });
+}
+
+/**
+ * 이번 주 리포트 생성 트리거 — 토요일 회고 인라인 표시.
+ * weekStart = today-6, weekEnd = today (대시보드와 같은 7일 윈도우).
+ */
+async function handleWeekReportClick(btn) {
+    const dek = getDEK();
+    if (!dek) { showToast('잠금 해제가 필요해요'); return; }
+
+    const inline = document.getElementById('today-week-report-inline');
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '만드는 중이에요...';
+
+    try {
+        const { weekStart, weekEnd } = computeWeekWindow(_date);
+        const result = await generateWeeklyReport(dek, _userId, weekStart, weekEnd);
+
+        if (result.status === 'no-dots') {
+            if (inline) {
+                inline.innerHTML = `<p style="color:var(--text-secondary); font-size:13px; margin-top:12px; text-align:center">이번 주는 아직 기록된 도트가 없어서 리포트가 만들어지지 않았어요.</p>`;
+            }
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+            return;
+        }
+
+        if (inline) inline.innerHTML = renderWeekReportInline(result.report);
+        btn.style.display = 'none';   // 이미 만들었으니 같은 버튼 숨김
+        if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+
+        // 인라인 카드의 재작성 버튼
+        document.getElementById('week-report-regenerate-btn')?.addEventListener('click', async () => {
+            const rb = document.getElementById('week-report-regenerate-btn');
+            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            try {
+                const r2 = await generateWeeklyReport(dek, _userId, weekStart, weekEnd, { force: true });
+                if (inline) inline.innerHTML = renderWeekReportInline(r2.report);
+                if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+                showToast('주간 리포트가 새로 만들어졌어요');
+            } catch (e) {
+                console.error('weekly regenerate failed:', e);
+                showToast('재작성이 잠깐 막혔어요');
+                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+            }
+        });
+    } catch (e) {
+        console.error('weekly report generate failed:', e);
+        showToast('주간 리포트 생성이 잠깐 막혔어요');
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+    }
+}
+
+function computeWeekWindow(todayStr) {
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = new Date(todayStr + 'T00:00:00');
+    const past = new Date(today);
+    past.setDate(today.getDate() - 6);
+    return { weekStart: fmt(past), weekEnd: fmt(today) };
+}
+
+/**
+ * 주간 리포트 인라인 카드 — 토요일 회고 안에서 표시.
+ * ui/reports.js 의 week 탭 카드와 같은 시각 언어를 쓰되, 인라인용으로 약간 축소.
+ */
+function renderWeekReportInline(r) {
+    if (!r) return '';
+    const stats = r.stats || {};
+    const totalDots = stats.totalDots ?? 0;
+
+    // 시간대 가장 만족도 높은 구간 하나만 stat 행에 노출
+    const bands = Object.values(stats.timeBandPattern || {}).filter(b => typeof b?.avg === 'number');
+    const topBand = bands.length > 0 ? bands.reduce((a, b) => a.avg > b.avg ? a : b) : null;
+
+    const hypothesesHtml = (r.hypotheses || []).length > 0
+        ? `<div class="report-section" style="margin-top:14px">
+               <div class="report-section-label" style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="lightbulb" class="report-section-icon"></i> 가설
+               </div>
+               <ul style="margin:0; padding-left:20px">
+                   ${r.hypotheses.map(h => `
+                       <li style="margin-bottom:6px">
+                           ${h.repetitionCount ? `<span style="display:inline-block; padding:1px 6px; background:var(--bg-secondary, #f0f0f0); border-radius:10px; font-size:11px; margin-right:6px">${escapeHtml(h.repetitionCount)}</span>` : ''}
+                           ${escapeHtml(h.text)}
+                       </li>
+                   `).join('')}
+               </ul>
+           </div>`
+        : '';
+
+    const decisionFlowHtml = r.decisionFlow
+        ? `<div class="report-section" style="margin-top:14px">
+               <div class="report-section-label" style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름
+               </div>
+               <p style="margin:0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+           </div>`
+        : '';
+
+    const questionsHtml = (r.questionsForMeditation || []).length > 0
+        ? `<div class="report-section" style="margin-top:14px">
+               <div class="report-section-label" style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="message-circle-question" class="report-section-icon"></i> 묵상에 가져갈 질문
+               </div>
+               <ul style="margin:0; padding-left:20px">${r.questionsForMeditation.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    return `
+        <article class="card-section" style="margin-top:16px; padding:16px">
+            <header style="margin-bottom:10px">
+                <h3 style="margin:0; font-size:15px">${escapeHtml(r.startDate || '')} ~ ${escapeHtml(r.endDate || '')}</h3>
+            </header>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px; font-size:13px; color:var(--text-secondary)">
+                <span><strong>${totalDots}</strong> 도트</span>
+                ${topBand ? `<span><strong>${topBand.avg}</strong> ${escapeHtml(topBand.label)}</span>` : ''}
+            </div>
+            ${r.aiSummary ? `<div class="ai-summary-card"><p style="margin:0; white-space:pre-wrap">${escapeHtml(r.aiSummary)}</p></div>` : ''}
+            ${hypothesesHtml}
+            ${decisionFlowHtml}
+            ${questionsHtml}
+            <div style="text-align:center; margin-top:14px">
+                <button id="week-report-regenerate-btn" class="text-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
+                    ↻ 리포트 재작성하기
+                </button>
+            </div>
+            <div style="text-align:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border, rgba(0,0,0,0.08)); font-size:12px; color:var(--text-secondary)">
+                여기까지가 데이터예요. 다음은 묵상 안에서.
+            </div>
+        </article>
+    `;
 }
 
 // ─── 다음 날 묵상 버튼 ───

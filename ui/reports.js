@@ -1,25 +1,26 @@
 /**
  * reports.js — 리포트 뷰 UI
  *
- * Phase E-5-A: day 탭은 새 dayReport spec(reports/dayReportRepo) 으로 표시.
- *   ## 사실 (aiSummary) / 관찰(observations) / 묵상 질문(questionsForMeditation)
- *   stats 는 새 객체 구조 (dotStats / satisfactionDistribution / alignment 등).
- * 나머지 탭(week/month/quarter/year)은 옛 data/reportPipeline 그대로 — weekly 흐름
- * 구축 전엔 옛 빈 리포트가 있을 수 있어 호환 유지.
+ * Phase E-5-A: day 탭 새 dayReport spec.
+ * Phase E-5-B: week 탭 새 weekReport spec(reports/weekReportRepo) 으로 전환.
+ *   카드 — 통계 행 + 사실(aiSummary) + 가설(반복 횟수 뱃지) + 결단의 흐름 + 묵상 질문.
+ * 나머지 탭(month/quarter/year)은 옛 data/reportPipeline 그대로 — 새 spec 구축 전 호환 유지.
  */
 
 import { listDayReports } from '../reports/dayReportRepo.js';
+import { listWeekReports } from '../reports/weekReportRepo.js';
+import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 import { getReports } from '../data/reportPipeline.js';
 import { getDEK } from './lockScreen.js';
+import { showToast } from './quickReview.js';
 
 let _userId = null;
 let _currentTab = 'day';
 
 const OLD_COLLECTION_MAP = {
-    week: 'weekReports',
-    month: 'monthReports',
+    month:   'monthReports',
     quarter: 'quarterReports',
-    year: 'yearReports',
+    year:    'yearReports',
 };
 
 export async function renderReportsView(userId) {
@@ -53,8 +54,12 @@ async function loadReports() {
         if (_currentTab === 'day') {
             const reports = await listDayReports(dek, _userId, 30);
             container.innerHTML = renderDayList(reports);
+        } else if (_currentTab === 'week') {
+            const reports = await listWeekReports(dek, _userId, 12);
+            container.innerHTML = renderWeekList(reports);
+            bindWeekRegenerateButtons(dek);
         } else {
-            // 옛 흐름 (week/month/quarter/year) — 아직 새 spec 구축 전이라 호환 유지
+            // 옛 흐름 (month/quarter/year) — 아직 새 spec 구축 전이라 호환 유지
             const reports = await getReports(dek, OLD_COLLECTION_MAP[_currentTab], _userId, 10);
             container.innerHTML = renderOldList(reports);
         }
@@ -133,7 +138,128 @@ function renderDayCard(r) {
     `;
 }
 
-// ─── 옛 탭 (week/month/quarter/year) — weekly 구축 전 호환 ───
+// ─── week 탭 (새 spec — Phase E-5-B) ────────────────────
+function renderWeekList(reports) {
+    if (!reports || reports.length === 0) {
+        return `
+            <div class="no-data">
+                아직 만든 주간 리포트가 없어요. 토요일 저녁 회고에서 [이번 주 리포트 만들기]를 눌러 보세요.
+            </div>
+        `;
+    }
+    return reports.map(renderWeekCard).join('');
+}
+
+function renderWeekCard(r) {
+    const stats     = r.stats || {};
+    const totalDots = stats.totalDots ?? 0;
+
+    // 시간대 가장 만족도 높은 구간 (요약 통계용)
+    const bands = Object.values(stats.timeBandPattern || {}).filter(b => typeof b?.avg === 'number');
+    const topBand = bands.length > 0 ? bands.reduce((a, b) => a.avg > b.avg ? a : b) : null;
+
+    const decisionDistance = stats.decisionFlow?.avgDistanceDays;
+    const decisionSample   = stats.decisionFlow?.sampleSize ?? 0;
+
+    const pinnedTotal = (stats.pinnedPrincipleApplication?.items || [])
+        .reduce((sum, p) => sum + (p.appliedCount || 0), 0);
+    const personCount = (stats.personCounts?.items || []).length;
+
+    const statsRow = `
+        <div class="report-stats-row">
+            <span class="report-stat"><strong>${totalDots}</strong> <small>도트</small></span>
+            ${topBand ? `<span class="report-stat"><strong>${topBand.avg}</strong> <small>${escapeHtml(topBand.label)} 만족도</small></span>` : ''}
+            ${decisionSample > 0 ? `<span class="report-stat"><strong>${decisionDistance}일</strong> <small>결단→실행 평균 거리</small></span>` : ''}
+            ${pinnedTotal > 0 ? `<span class="report-stat"><strong>${pinnedTotal}</strong> <small>핀 원칙 적용</small></span>` : ''}
+            ${personCount > 0 ? `<span class="report-stat"><strong>${personCount}</strong> <small>만난 사람</small></span>` : ''}
+        </div>
+    `;
+
+    const summaryBlock = r.aiSummary
+        ? `<div class="report-summary"><p>${escapeHtml(r.aiSummary)}</p></div>`
+        : `<div class="report-summary report-summary-empty">
+               이 주는 아직 AI 산문이 채워지지 않았어요. 카드 하단의 [리포트 재작성하기]를 눌러 보세요.
+           </div>`;
+
+    const hypotheses = r.hypotheses || [];
+    const hypothesesBlock = hypotheses.length > 0
+        ? `<div class="report-section report-hypotheses" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="lightbulb" class="report-section-icon"></i> 가설</span>
+               <ul style="margin:6px 0 0 0; padding-left:20px">
+                   ${hypotheses.map(h => `
+                       <li style="margin-bottom:6px">
+                           ${h.repetitionCount ? `<span class="hypothesis-badge" style="display:inline-block; padding:1px 6px; background:var(--bg-secondary, #f0f0f0); border-radius:10px; font-size:11px; margin-right:6px">${escapeHtml(h.repetitionCount)}</span>` : ''}
+                           ${escapeHtml(h.text)}
+                       </li>
+                   `).join('')}
+               </ul>
+           </div>`
+        : '';
+
+    const decisionFlowBlock = r.decisionFlow
+        ? `<div class="report-section" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름</span>
+               <p style="margin:6px 0 0 0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+           </div>`
+        : '';
+
+    const questions = r.questionsForMeditation || [];
+    const qBlock = questions.length > 0
+        ? `<div class="report-questions">
+               <span class="report-section-label"><i data-lucide="message-circle-question" class="report-section-icon"></i> 묵상에 가져갈 질문</span>
+               <ul>${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    return `
+        <article class="report-card card-section" data-year-week="${escapeHtml(stats.yearWeek || '')}" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}">
+            <header class="report-card-header">
+                <h3>${escapeHtml(r.startDate || '')} ~ ${escapeHtml(r.endDate || '')}</h3>
+                ${stats.yearWeek ? `<span class="report-card-meta">${escapeHtml(stats.yearWeek)}</span>` : ''}
+            </header>
+            ${statsRow}
+            ${summaryBlock}
+            ${hypothesesBlock}
+            ${decisionFlowBlock}
+            ${qBlock}
+            <div style="text-align:center; margin-top:14px">
+                <button class="text-btn week-regenerate-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
+                    ↻ 리포트 재작성하기
+                </button>
+            </div>
+            <div class="report-card-foot">여기까지가 데이터예요. 다음은 묵상 안에서.</div>
+        </article>
+    `;
+}
+
+function bindWeekRegenerateButtons(dek) {
+    document.querySelectorAll('.week-regenerate-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const card = e.target.closest('[data-year-week]');
+            if (!card) return;
+            const weekStart = card.dataset.start;
+            const weekEnd   = card.dataset.end;
+            if (!weekStart || !weekEnd) {
+                showToast('이 카드는 기간 정보가 없어요');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '다시 만드는 중이에요...';
+            try {
+                await generateWeeklyReport(dek, _userId, weekStart, weekEnd, { force: true });
+                await loadReports();   // 목록 통째로 다시
+                showToast('주간 리포트가 새로 만들어졌어요');
+            } catch (e) {
+                console.error('week regenerate failed:', e);
+                showToast('재작성이 잠깐 막혔어요. 잠시 후 다시 시도해 주세요');
+                btn.disabled = false;
+                btn.textContent = '↻ 리포트 재작성하기';
+            }
+        });
+    });
+}
+
+// ─── 옛 탭 (month/quarter/year) — 새 spec 구축 전 호환 ───
 function renderOldList(reports) {
     if (!reports || reports.length === 0) {
         return `<div class="no-data">아직 이 단계의 리포트가 없어요. 곧 만들어질 예정이에요.</div>`;
