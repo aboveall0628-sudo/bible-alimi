@@ -20,7 +20,7 @@ import { initThemeManager } from './themeManager.js';
 import { renderScriptureForDate, loadBibleData as loadBibleDataModule } from './scripture.js';
 import { initTodayView, refreshTodayView } from './todayView.js';
 import { initTimeline, refreshTimeline } from './timeline.js';
-import { runReportChecks } from '../data/reportPipeline.js';
+// 기존 v2 자동 리포트 생성은 사용자 버튼 트리거로 대체 (reports/dailyReportFlow.js)
 import { initializeSeedData } from '../seeds.js';
 
 // ── UI Views ──
@@ -312,10 +312,8 @@ async function onVaultUnlocked(dek) {
         console.warn('scripture render failed:', e)
     );
 
-    // 리포트 자동 생성 체크
-    runReportChecks(dek, currentUserId).then(ids => {
-        if (ids.length > 0) console.log('Auto-generated reports:', ids);
-    });
+    // 일간 리포트 자동 생성 제거 — 사용자가 "오늘 리포트 만들기" 버튼으로 직접 트리거
+    // (todayView.js / reports/dailyReportFlow.js)
 
     showToast('🔓 안전하게 열렸어요');
 }
@@ -338,7 +336,6 @@ function setupNavigation() {
     const navMap = {
         'nav-dashboard': 'dashboard',
         'nav-today': 'today',
-        'nav-evening': 'evening',
         'nav-past': 'past',
         'nav-principles': 'principles',
         'nav-reports': 'reports',
@@ -353,8 +350,6 @@ function setupNavigation() {
             btn.addEventListener('click', () => switchView(viewId));
         }
     });
-
-    reflectSaturdayMenuVisibility();
 
     // 모바일 메뉴 토글 (사이드바 + 백드롭)
     const menuToggle = document.getElementById('menu-toggle');
@@ -408,16 +403,9 @@ function renderLucideIcons() {
 }
 window.__sanctumRenderLucide = renderLucideIcons;
 
-/**
- * [저녁 회고] 사이드바 메뉴는 매일 노출 (사용자 결정 2026-05-11).
- * 일간 회고는 매일 진입 가능. 토요일에는 주/월/분기/연/5·10년 추가 단계가 붙음
- * (eveningLoop.determineLayers 처리).
- */
-function reflectSaturdayMenuVisibility() {
-    const navEvening = document.getElementById('nav-evening');
-    if (!navEvening) return;
-    navEvening.classList.remove('hidden');
-}
+// "저녁 회고" 메뉴는 제거됨 (사용자 결정 2026-05-11).
+// 도트 평가는 시간표에서 이미 끝남. 리포트 생성은 오늘 화면의 "오늘 리포트 만들기" 버튼.
+// 토요일 추가 회고(주/월/분기/연)는 토요일에만 오늘 화면에 단계별로 버튼이 더 붙음.
 
 function switchView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));

@@ -12,12 +12,16 @@ import { db, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimes
 import { readDocument, prepareDocument } from '../crypto/cryptoService.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
+// Phase B: 결단 → daily 목표 흡수. goalsRepo 가 단일 source of truth.
+// DOM ID(decisions-list 등)와 CSS 클래스는 점진 정리를 위해 일부 유지.
 import {
-    getDecisionsByDate, saveDecision, deleteDecision
-} from '../data/decisionsRepo.js';
+    getDailyGoals, saveGoal, deleteGoal
+} from '../data/goalsRepo.js';
 // Reports 모듈 v3 — 새 spec dayReport 표시
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { generateDailyReport } from '../reports/dailyReportFlow.js';
+// 토요일이면 주/월/분기/연/5·10년 회고가 단계별로 추가 (eveningLoop의 토요일 감지 재사용)
+import { determineLayers } from './eveningLoop.js';
 
 let _userId = null;
 let _date = null;
@@ -103,6 +107,8 @@ async function loadTodayReport(dek) {
                 여기까지가 데이터입니다. 다음은 하나님 앞에서.
             </div>
         `;
+        // 리포트가 이미 있을 때도 토요일이면 주/월/분기/연 회고 단계별 버튼 노출
+        renderSaturdayLayers(body);
     } catch (e) {
         console.warn('today report load failed:', e);
         body.innerHTML = `<p style="color:var(--text-secondary); font-size:13px">리포트를 불러오는 중에 잠깐 막혔어요.</p>`;
@@ -125,6 +131,7 @@ function renderTodayReportButton(body, dek) {
             const result = await generateDailyReport(dek, _userId, _date);
             if (result.status === 'no-dots') {
                 body.innerHTML = `<p style="color:var(--text-secondary); font-size:13px">오늘 기록된 도트가 아직 없어요. 평가를 채워가 봐요.</p>`;
+                renderSaturdayLayers(body);
                 return;
             }
             // 생성 성공 → 다시 로드해서 새 spec 카드로 갱신
@@ -133,6 +140,51 @@ function renderTodayReportButton(body, dek) {
             console.error('today report generate failed:', e);
             body.innerHTML = `<p style="color:var(--dot-red); font-size:13px">리포트를 만드는 중에 잠깐 막혔어요. 잠시 후 다시 시도해 주실래요?</p>`;
         }
+    });
+
+    // 일간 리포트 버튼 아래에 토요일이면 주/월/분기/연 회고 단계별 버튼 노출
+    renderSaturdayLayers(body);
+}
+
+// 토요일 추가 회고 — 단계별 버튼.
+// 주간/월간/분기/연간 리포트 흐름은 STEP 1.5+에서 구현 예정. 지금은 placeholder.
+function renderSaturdayLayers(body) {
+    const date = new Date(_date + 'T00:00:00');
+    const layers = determineLayers(date);
+    if (layers.length === 0) return;   // 토요일 아니면 종료
+
+    const layerLabels = {
+        week:    { label: '이번 주 리포트',   icon: '📅' },
+        month:   { label: '이번 달 리포트',   icon: '🗓️' },
+        quarter: { label: '이번 분기 리포트', icon: '📊' },
+        year:    { label: '올해 리포트',      icon: '🎯' },
+        decade:  { label: '5·10년 점검',     icon: '🌌' },
+    };
+
+    const buttonsHtml = layers.map(layer => `
+        <div style="text-align:center; margin-top:10px">
+            <button class="primary-btn" data-layer="${layer}" style="opacity:0.85">
+                ${layerLabels[layer].icon} ${layerLabels[layer].label} 만들기 →
+            </button>
+        </div>
+    `).join('');
+
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-top:20px; padding-top:16px; border-top:1px solid var(--border, rgba(0,0,0,0.1))';
+    section.innerHTML = `
+        <p style="font-size:13px; color:var(--text-secondary); margin:0 0 12px; text-align:center">
+            토요일이에요. 더 큰 결을 정리해 볼게요.
+        </p>
+        ${buttonsHtml}
+    `;
+    body.appendChild(section);
+
+    // 클릭 핸들러 — 흐름은 STEP 1.5+에서 붙음. 지금은 안내 토스트.
+    section.querySelectorAll('button[data-layer]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const layer = btn.dataset.layer;
+            showToast(`${layerLabels[layer].label}는 곧 만들어질 예정이에요`);
+        });
     });
 }
 

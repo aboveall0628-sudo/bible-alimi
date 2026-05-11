@@ -87,7 +87,6 @@
             <nav class="sidebar-nav">
                 <button class="sidebar-item active" id="nav-dashboard"><i class="icon" data-lucide="layout-dashboard"></i> 대시보드</button>
                 <button class="sidebar-item" id="nav-today"><i class="icon" data-lucide="calendar"></i> 오늘</button>
-                <button class="sidebar-item" id="nav-evening"><i class="icon" data-lucide="moon"></i> 저녁 회고</button>
                 <hr class="nav-divider">
                 <button class="sidebar-item" id="nav-past"><i class="icon" data-lucide="scroll-text"></i> 지난 묵상</button>
                 <button class="sidebar-item" id="nav-principles"><i class="icon" data-lucide="book-open"></i> 나의 원칙</button>
@@ -145,12 +144,12 @@
                     <div id="meditation-note" class="note-editor" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
                 </section>
 
-                <!-- 오늘의 결단 (동적) -->
+                <!-- 오늘의 목표 (동적) — Phase B: 결단을 daily 목표로 흡수. ID는 호환 유지. -->
                 <section id="section-decisions" class="card-section">
-                    <h2 class="section-title"><i class="section-icon" data-lucide="hand"></i> 오늘의 결단</h2>
-                    <p class="section-desc">오늘 어디에 순종할까요? ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
+                    <h2 class="section-title"><i class="section-icon" data-lucide="target"></i> 오늘의 목표</h2>
+                    <p class="section-desc">오늘 옮길 한 걸음을 적어 보세요. ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
                     <div id="decisions-list" class="decisions-list"></div>
-                    <button id="decision-add-btn" class="decision-add-btn">+ 새 결단 적기</button>
+                    <button id="decision-add-btn" class="decision-add-btn">+ 새 목표 적기</button>
                 </section>
 
                 <!-- 통합 타임라인 -->
