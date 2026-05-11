@@ -548,6 +548,8 @@ button .btn-icon { vertical-align: text-bottom; }
     font-size: 10px; color: var(--accent);
     pointer-events: none;
 }
+/* 인라인 평가 패널이 열려 있는 동안엔 빈 셀의 호버 가이드 라벨을 숨김 */
+.utl-actual-col:has(.utl-inline-panel) .utl-cell:hover::after { display: none; }
 
 .utl-now-line {
     position: absolute; left: 0; right: 0; height: 2px;
@@ -599,6 +601,14 @@ button .btn-icon { vertical-align: text-bottom; }
 .utl-slot.gcal-source { background: var(--bg-card); }
 .utl-slot.gcal-source::before { background: var(--accent); }
 
+/* 계획 vs 실제 시각 구분 — 계획 슬롯은 점선 보더로 "의도"임을 표시.
+   실제 슬롯은 실선(기본) — 실제로 일어난 일임. */
+.utl-plan-col .utl-slot:not(.gcal-source) {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--bg-elev) 94%, transparent);
+}
+.utl-plan-col .utl-slot:not(.gcal-source) .slot-title { opacity: 0.92; }
+
 /* 슬롯 우상단 삭제 버튼 — 호버 시에만 노출. plan에선 unplace, actual에선 도트 삭제. */
 .utl-slot .slot-delete {
     position: absolute; top: 2px; right: 2px;
@@ -636,23 +646,74 @@ button .btn-icon { vertical-align: text-bottom; }
 .utl-empty-card h4 { color: var(--text-primary); margin-bottom: var(--sp-2); font-size: 14px; }
 .utl-empty-card ol { text-align: left; max-width: 380px; margin: var(--sp-3) auto 0; padding-left: var(--sp-5); line-height: 1.9; }
 
-/* Inline timebox row modal */
-.inline-input-row {
-    display: flex; gap: var(--sp-2);
-    padding: var(--sp-2);
+/* ── 실제 레인 인라인 평가 패널 (드래그 끝나면 펼쳐짐) ──
+   드래그 범위 전체에 absolute로 떠서 그 자리에서 텍스트+상태버튼+저장 한 줄로.
+   actualCol 안에 absolute로 띄움 (positionSlot과 같은 좌표계). */
+.utl-inline-panel {
+    position: absolute;
+    left: 4px; right: 4px;
     background: var(--bg-card);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    z-index: 5;
+    overflow: hidden;
+    display: flex; align-items: center;
+    padding: 0 var(--sp-3);
+    animation: inlinePanelIn 120ms ease-out;
 }
-.inline-input-row input {
-    flex: 1; border: none; outline: none; background: transparent;
-    font-size: var(--fs-small);
+@keyframes inlinePanelIn {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
-.inline-input-row button {
+.utl-inline-row {
+    display: flex; align-items: center; gap: var(--sp-2);
+    width: 100%;
+}
+.utl-inline-time {
+    flex-shrink: 0;
+    font-size: 11px; font-weight: 600;
+    color: var(--accent);
+    padding: 2px 6px;
+    background: var(--accent-soft);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.utl-inline-text {
+    flex: 1; min-width: 0;
+    border: none; outline: none; background: transparent;
+    font-size: 13px; color: var(--text-primary);
+    padding: 4px 0;
+}
+.utl-inline-status {
+    display: flex; gap: 2px;
+    flex-shrink: 0;
+}
+.utl-inline-status-btn {
+    width: 26px; height: 26px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px; line-height: 1;
+    padding: 0;
+    transition: background var(--ease), border-color var(--ease), transform var(--ease);
+}
+.utl-inline-status-btn:hover {
+    background: var(--bg-elev);
+    border-color: var(--border);
+    transform: scale(1.08);
+}
+.utl-inline-save {
+    flex-shrink: 0;
     background: var(--accent); color: white; border: none;
-    padding: 4px 10px; border-radius: 6px; cursor: pointer;
-    font-size: 11px;
+    padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 600;
 }
+.utl-inline-save:hover { filter: brightness(1.05); }
+
+/* 패널 높이가 좁을 때(1슬롯=16px) row가 절대 안 잘리도록 최소 높이 보장 */
+.utl-inline-panel { min-height: 36px; }
 
 /* ═══ Quick review modal ═══ */
 .modal-overlay {

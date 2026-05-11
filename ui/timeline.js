@@ -486,6 +486,7 @@ function bindCellEvents(col, lane) {
 // ─── 실제 레인 드래그-생성 ───
 // 빈 actual 셀에서 mousedown → mousemove로 길이 늘림 → mouseup → 인라인 입력 → 저장 → 평가 모달
 function startActualCreateDrag(col, _startCell, startSlot) {
+    closeAllInlinePanels(); // 새 드래그 시작 시 기존 인라인 패널 정리
     let endSlot = startSlot;
 
     const ghost = document.createElement('div');
@@ -526,8 +527,7 @@ function startActualCreateDrag(col, _startCell, startSlot) {
         const min = Math.min(startSlot, endSlot);
         const max = Math.max(startSlot, endSlot);
         const duration = max - min + 1;
-        const targetCell = col.querySelector(`.utl-cell[data-slot="${min}"]`);
-        if (targetCell) openInlineActualInput(targetCell, min, duration);
+        openInlineActualInput(col, min, duration);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -547,59 +547,82 @@ function openEvalForDot(dot) {
     });
 }
 
-// ─── 인라인 actual 입력 ───
-// duration 슬롯 만큼의 도트를 만들고, Enter 직후 quickReview 모달을 띄워
-// 한 호흡에 만족도/라벨까지 적도록 한다.
-function openInlineActualInput(cell, slot, duration = 1) {
-    if (!cell) return;
-    if (cell.querySelector('.inline-input-row')) return;
+// ─── 인라인 평가 패널 (옵션 A) ───
+// 빈 셀에서 드래그하면 그 범위 전체에 펼쳐진 인라인 패널이 뜬다.
+// [텍스트] 😀 🙂 🔄 😣 [저장] 한 줄.
+//  - 텍스트만 적고 [저장] → 기본 'done', 만족도 3 으로 도트 저장
+//  - 4개 상태 버튼 중 하나 클릭 → 그 상태로 즉시 저장
+//  - 평가 모달 자동 오픈은 하지 않음 (자세한 평가는 도트 슬롯 클릭 시)
+//  - 외부 클릭 / ESC → 닫기. 새 드래그 시작 시 자동 정리.
+const STATUS_BUTTONS = [
+    { key: 'done',     emoji: '😀', label: '잘 했어요',     sat: 4 },
+    { key: 'partial',  emoji: '🙂', label: '조금 했어요',   sat: 3 },
+    { key: 'replaced', emoji: '🔄', label: '다른 걸 했어요', sat: 3 },
+    { key: 'skipped',  emoji: '😣', label: '못 했어요',     sat: 1 },
+];
+
+function closeAllInlinePanels() {
+    document.querySelectorAll('.utl-inline-panel').forEach(el => el.remove());
+}
+
+function openInlineActualInput(col, slot, duration = 1) {
+    if (!col) return;
+    // 누적 방지: 기존 인라인 패널은 모두 정리
+    closeAllInlinePanels();
+
     const endSlot = slot + duration;
     const timeLabel = duration > 1
-        ? `${slotToTime(slot)}~${slotToTime(endSlot)} (${duration * 15}분)`
+        ? `${slotToTime(slot)}~${slotToTime(endSlot)} · ${duration * 15}분`
         : slotToTime(slot);
-    cell.innerHTML = `
-        <div class="inline-input-row">
-            <input type="text" placeholder="${timeLabel} — 이 시간에 뭐 했어요?" />
-            <button>저장</button>
+
+    // 드래그 범위 전체에 펼쳐진 패널을 actualCol 위에 absolute로 띄움
+    const panel = document.createElement('div');
+    panel.className = 'utl-inline-panel';
+    panel.style.top = `${slot * ROW_HEIGHT}px`;
+    panel.style.height = `${Math.max(2, duration) * ROW_HEIGHT - 2}px`;
+    panel.innerHTML = `
+        <div class="utl-inline-row">
+            <span class="utl-inline-time">${timeLabel}</span>
+            <input type="text" class="utl-inline-text" placeholder="이 시간에 뭐 했어요?" autocomplete="off" />
+            <div class="utl-inline-status" role="group" aria-label="상태">
+                ${STATUS_BUTTONS.map(b => `
+                    <button type="button" class="utl-inline-status-btn" data-status="${b.key}" data-sat="${b.sat}" title="${b.label}">${b.emoji}</button>
+                `).join('')}
+            </div>
+            <button type="button" class="utl-inline-save">저장</button>
         </div>
     `;
-    const input = cell.querySelector('input');
-    const btn = cell.querySelector('button');
+    col.appendChild(panel);
+
+    const input = panel.querySelector('.utl-inline-text');
     input.focus();
 
     let _saved = false;
-    const save = async () => {
+    const saveWith = async (status, sat) => {
         if (_saved) return;
         const text = input.value.trim();
-        if (!text) { render(); return; }
+        if (!text) { input.focus(); return; }
         _saved = true;
         const dek = getDEK();
-        if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
+        if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); _saved = false; return; }
         try {
             const dot = {
                 userId: _userId,
                 date: _date,
                 timeSlot: slot,
                 durationSlots: duration,
-                executed: 'done',
-                executionSatisfaction: 3,
-                outcomeSatisfaction: 3,
+                executed: status,
+                executionSatisfaction: sat,
+                outcomeSatisfaction: sat,
                 actualTask: text,
                 plannedTask: '',
                 reason: '',
                 labelIds: [],
             };
-            await saveDot(dek, dot);              // dotsRepo가 dot.id를 채워줌
+            await saveDot(dek, dot);
+            panel.remove();
             await refreshTimeline({ userId: _userId, date: _date });
-            // Enter 직후 평가 모달 — 만족도/라벨/인물·조직 칩까지 한 호흡에
-            openQuickReview({
-                timeSlot: slot,
-                cells: [slot],
-                userId: _userId,
-                date: _date,
-                plannedTask: '',
-                existingDot: dot,
-            });
+            showToast('🔐 안전하게 보관됐어요. 자세히 평가는 도트를 다시 눌러 주세요.');
         } catch (e) {
             console.error('actual save failed:', e);
             showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
@@ -607,12 +630,36 @@ function openInlineActualInput(cell, slot, duration = 1) {
         }
     };
 
-    btn.addEventListener('click', save);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); save(); }
-        if (e.key === 'Escape') render();
+    // 상태 버튼 클릭 → 그 상태로 저장
+    panel.querySelectorAll('.utl-inline-status-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const status = btn.dataset.status;
+            const sat = parseInt(btn.dataset.sat);
+            saveWith(status, sat);
+        });
     });
-    // blur는 모달 오픈 시에도 트리거되므로 사용하지 않음. ESC로 닫기 가능.
+
+    // 기본 저장 = 'done', sat=3 (보통)
+    panel.querySelector('.utl-inline-save').addEventListener('click', () => saveWith('done', 3));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveWith('done', 3); }
+        if (e.key === 'Escape') { e.preventDefault(); panel.remove(); }
+    });
+
+    // 외부 클릭 시 닫기 — 패널 바깥을 누르면 정리. 단 자기 자신 안 클릭은 무시.
+    // panel이 외부 경로(ESC/저장/closeAllInlinePanels)로 사라져도 다음 클릭에서 자동 정리.
+    const onOutside = (ev) => {
+        if (!panel.isConnected) {
+            document.removeEventListener('mousedown', onOutside, true);
+            return;
+        }
+        if (!panel.contains(ev.target)) {
+            panel.remove();
+            document.removeEventListener('mousedown', onOutside, true);
+        }
+    };
+    // mousedown 캡처 단계로 잡아야 다른 핸들러보다 먼저 동작
+    setTimeout(() => document.addEventListener('mousedown', onOutside, true), 0);
 }
 
 // ─── 슬롯 리사이즈 (가장자리 드래그로 15분 단위 길이 조절) ───
