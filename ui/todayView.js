@@ -17,6 +17,9 @@ import { showToast } from './quickReview.js';
 import {
     getDailyGoals, saveGoal, deleteGoal
 } from '../data/goalsRepo.js';
+import { getDotsByDate } from '../data/dotsRepo.js';
+import { computeTopTasks, computeTopLabels, computeTopCategories, formatMinutesShort } from '../data/dotInsights.js';
+import { findCategory } from '../data/dotCategories.js';
 // Reports 모듈 v3 — 새 spec dayReport 표시
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { generateDailyReport } from '../reports/dailyReportFlow.js';
@@ -94,12 +97,20 @@ async function loadTodayReport(dek) {
                    </ul>
                </div>` : '';
 
+        // 오늘 도트 가져와 '어떤 일을 했나' 블록 만들기 (실패해도 리포트 본체는 살리기)
+        let insightsHtml = '';
+        try {
+            const todayDots = await getDotsByDate(dek, _userId, _date);
+            insightsHtml = buildInsightsBlock(todayDots);
+        } catch (e) { console.warn('today insights load failed:', e); }
+
         body.innerHTML = `
             <div class="el-stat-row">
                 <div class="el-stat"><span class="el-stat-num">${ds.doneCount || 0}<small>/${ds.totalDots || 0}</small></span><span class="el-stat-lbl">완료</span></div>
                 <div class="el-stat"><span class="el-stat-num">${sat.avg ?? '-'}</span><span class="el-stat-lbl">만족도</span></div>
                 <div class="el-stat"><span class="el-stat-num">${matchPct}<small>%</small></span><span class="el-stat-lbl">결단 실행률</span></div>
             </div>
+            ${insightsHtml}
             <div class="ai-summary-card" style="margin-top: 12px">
                 <p style="margin:0; white-space:pre-wrap">${escapeHtml(report.aiSummary)}</p>
             </div>
@@ -536,6 +547,48 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
+}
+
+/**
+ * '오늘 어떤 일을 했나' 블록 — 대시보드 주간 카드의 dash-insights 와 같은 톤,
+ * 같은 CSS 클래스 재사용. 오늘 도트 한정.
+ */
+function buildInsightsBlock(dots) {
+    if (!dots || dots.length === 0) return '';
+    const topTasks  = computeTopTasks(dots, 3);
+    const topCats   = computeTopCategories(dots, 3);
+    const topLabels = computeTopLabels(dots, 3);
+
+    const taskItems = topTasks.length
+        ? topTasks.map(t => `<li>${escapeHtml(t.task)} <span class="dash-insight-meta">${formatMinutesShort(t.minutes)}</span></li>`).join('')
+        : '<li class="dash-insight-empty">아직 적힌 일이 없어요</li>';
+    const catItems = topCats.length
+        ? topCats.map(c => {
+            const meta = findCategory(c.categoryId);
+            const label = meta ? `${meta.icon} ${meta.label}` : c.categoryId;
+            return `<li>${escapeHtml(label)} <span class="dash-insight-meta">${formatMinutesShort(c.minutes)}</span></li>`;
+        }).join('')
+        : '<li class="dash-insight-empty">카테고리를 골라보세요</li>';
+    const labelItems = topLabels.length
+        ? topLabels.map(l => `<li>${escapeHtml(l.label)} <span class="dash-insight-meta">×${l.count}</span></li>`).join('')
+        : '<li class="dash-insight-empty">아직 고른 라벨이 없어요</li>';
+
+    return `
+        <div class="dash-insights" style="margin-top: 12px;">
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">오늘 시간을 많이 쓴 일</div>
+                <ol class="dash-insight-list">${taskItems}</ol>
+            </div>
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">활동 카테고리</div>
+                <ol class="dash-insight-list">${catItems}</ol>
+            </div>
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">고른 라벨</div>
+                <ol class="dash-insight-list">${labelItems}</ol>
+            </div>
+        </div>
+    `;
 }
 
 function bindCardEvents() {

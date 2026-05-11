@@ -2973,6 +2973,82 @@ svg.person-radar { display: block; }
 }
 .member-add-btn .btn-icon { width: 14px; height: 14px; }
 
+/* 도트 평가 활동 카테고리 (2026-05-12) */
+.qr-category-row {
+    margin: 12px 0;
+    padding: 12px;
+    border: 1px solid var(--border, var(--line));
+    border-radius: 10px;
+    background: var(--bg-elev, var(--surface-elevated));
+}
+.qr-category-label {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary, var(--ink-secondary));
+    margin-bottom: 8px;
+}
+.qr-category-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 8px;
+}
+.qr-category-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid var(--border, var(--line));
+    background: var(--bg-card, var(--surface-card));
+    border-radius: 999px;
+    font-size: 12px; cursor: pointer;
+    color: var(--text-primary, var(--ink-primary));
+    transition: all 160ms ease;
+}
+.qr-category-chip:hover { border-color: var(--brand-primary, var(--accent)); }
+.qr-category-chip.selected {
+    background: var(--brand-primary, var(--accent));
+    color: #fff;
+    border-color: var(--brand-primary, var(--accent));
+}
+.qr-cat-icon { font-size: 14px; line-height: 1; }
+.qr-category-add-row {
+    display: flex; gap: 6px; align-items: center;
+}
+.qr-category-add-row .qr-text-input { flex: 1; font-size: 12px; padding: 6px 10px; }
+
+/* '어떤 일을 많이 했나' 인사이트 블록 — 대시보드 주간 / 오늘 리포트 공용 */
+.dash-insights {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 14px 0;
+    padding: 14px;
+    background: var(--bg-elev, var(--surface-elevated));
+    border-radius: 10px;
+}
+@media (max-width: 640px) {
+    .dash-insights { grid-template-columns: 1fr; }
+}
+.dash-insight-col { min-width: 0; }
+.dash-insight-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    color: var(--text-secondary, var(--ink-secondary));
+    margin-bottom: 6px;
+}
+.dash-insight-list {
+    list-style: decimal; padding-left: 18px; margin: 0;
+    font-size: 13px; color: var(--text-primary, var(--ink-primary));
+    display: flex; flex-direction: column; gap: 2px;
+}
+.dash-insight-list li {
+    line-height: 1.4; word-break: keep-all;
+}
+.dash-insight-meta {
+    color: var(--text-secondary, var(--ink-secondary));
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.dash-insight-empty {
+    color: var(--text-tertiary, var(--ink-tertiary));
+    font-size: 12px; list-style: none; margin-left: -18px;
+}
+
 /* 도트 평가 마이크로 confirm (26번 — 새 멤버 연결 묻기) */
 .qr-mini-confirm-overlay {
     position: fixed; inset: 0; z-index: 1100;

@@ -11,7 +11,9 @@ export const POLICY = {
             'id', 'userId', 'date', 'timeSlot', 'durationSlots',
             'executionSatisfaction',
             'outcomeSatisfaction', 'executed', 'labelIds',
-            'amountBucket', 'sentimentBucket', 'createdAt'
+            'amountBucket', 'sentimentBucket', 'createdAt',
+            // 활동 카테고리 (2026-05-12) — 시간 분석용 큰 분류. id만 평문, 라벨/아이콘은 클라이언트에서 메타 매핑.
+            'category'
         ],
         encrypted: [
             'plannedTask', 'actualTask', 'reason', 'notes',

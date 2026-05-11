@@ -20,6 +20,7 @@ import { getDEK } from './lockScreen.js';
 import { personDisplayHtml } from './personNameFormat.js';
 import { computeAllPersonStats, computeAllOrgStats } from '../data/cardStats.js';
 import { applyDerivedToPerson, applyDerivedToOrg } from '../data/derivedScores.js';
+import { getAllCategories, getRecentCategories, pushRecentCategory, addUserCategory, findCategory } from '../data/dotCategories.js';
 
 let _currentSlot = null;
 let _currentCells = [];
@@ -40,6 +41,8 @@ let _orgRatings = {};
 // 이번 평가 세션 중 stub으로 새로 만든 인물·조직 id 추적 (26번 — 멤버 연결 묻기)
 let _newlyCreatedPersonIds = new Set();
 let _newlyCreatedOrgIds = new Set();
+// 활동 카테고리 (2026-05-12) — 도트 1개당 1개. null 허용.
+let _selectedCategoryId = null;
 let _cachedLoadedFor = null;  // userId — 다른 사용자로 바뀌면 다시 로드
 
 const STATUS_OPTIONS = [
@@ -105,6 +108,10 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     document.querySelectorAll('.qr-label-chip').forEach(chip => {
         chip.classList.toggle('selected', restoredLabels.includes(chip.dataset.label));
     });
+
+    // 활동 카테고리 — existingDot.category 복원
+    _selectedCategoryId = ed?.category || null;
+    renderCategoryChips();
 
     // 상세 접기 — 단, 기존 도트에 reason/라벨/만족도≠3 같은 자세한 정보가 있으면 자동으로 펼침
     const hasDetail = !!(ed?.reason || restoredLabels.length > 0
@@ -178,6 +185,16 @@ function renderModal() {
                 <label>얼마나 만족?</label>
                 <input type="range" id="qr-satisfaction" min="1" max="5" value="3" class="neon-slider-light" />
                 <span id="qr-sat-value" class="qr-sat-display">3</span>
+            </div>
+
+            <div class="qr-category-row" id="qr-category-row">
+                <div class="qr-category-label">이 시간, 어떤 일이었어요?</div>
+                <div class="qr-category-chips" id="qr-category-chips"></div>
+                <div class="qr-category-add-row qr-ac-wrap">
+                    <input type="text" id="qr-category-new" class="qr-text-input"
+                           placeholder="새 카테고리 (예: 부업)" autocomplete="off" />
+                    <button id="qr-category-add-btn" type="button" class="text-btn">+ 추가</button>
+                </div>
             </div>
 
             <div class="qr-labels-row">
@@ -259,6 +276,36 @@ function bindEvents() {
     document.addEventListener('click', (e) => {
         const chip = e.target.closest('.qr-label-chip');
         if (chip) chip.classList.toggle('selected');
+    });
+
+    // 활동 카테고리 칩 — 단일 선택. 같은 칩을 다시 누르면 해제.
+    document.addEventListener('click', (e) => {
+        const chip = e.target.closest('.qr-category-chip');
+        if (!chip) return;
+        const id = chip.dataset.categoryId;
+        _selectedCategoryId = (_selectedCategoryId === id) ? null : id;
+        renderCategoryChips();
+    });
+
+    // 새 카테고리 추가 (사용자 정의)
+    document.addEventListener('click', (e) => {
+        if (e.target.id !== 'qr-category-add-btn') return;
+        const input = document.getElementById('qr-category-new');
+        const label = (input?.value || '').trim();
+        if (!label) return;
+        const cat = addUserCategory(label);
+        if (cat) {
+            _selectedCategoryId = cat.id;
+            input.value = '';
+            renderCategoryChips();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.target.id !== 'qr-category-new') return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('qr-category-add-btn')?.click();
+        }
     });
 
     // 만족도 슬라이더
@@ -790,6 +837,26 @@ async function refreshDerivedScoresFor(dek, personIds, orgIds) {
     }
 }
 
+/**
+ * 카테고리 칩 행 렌더 — 최근 사용 우선, 그 다음 프리셋, 마지막 사용자 정의.
+ * _selectedCategoryId 가 active.
+ */
+function renderCategoryChips() {
+    const root = document.getElementById('qr-category-chips');
+    if (!root) return;
+    const all = getAllCategories();
+    const recent = getRecentCategories(4).map(id => all.find(c => c.id === id)).filter(Boolean);
+    const rest = all.filter(c => !recent.some(r => r.id === c.id));
+    const ordered = [...recent, ...rest];
+    root.innerHTML = ordered.map(c => `
+        <button type="button" class="qr-category-chip ${c.id === _selectedCategoryId ? 'selected' : ''}"
+                data-category-id="${escapeAttr(c.id)}">
+            <span class="qr-cat-icon">${c.icon || '🏷️'}</span>
+            <span class="qr-cat-label">${escapeHtml(c.label)}</span>
+        </button>
+    `).join('');
+}
+
 async function handleSave() {
     const dek = getDEK();
     if (!dek) return;
@@ -836,7 +903,9 @@ async function handleSave() {
             personRatings: { ..._personRatings },
             orgRatings: { ..._orgRatings },
             linkedTransactionIds: _currentExistingDot?.linkedTransactionIds || [],
+            category: _selectedCategoryId || null,
         };
+        if (_selectedCategoryId) pushRecentCategory(_selectedCategoryId);
         // 기존 도트가 있으면 id 유지하여 덮어쓰기
         if (_currentExistingDot?.id) dotData.id = _currentExistingDot.id;
 

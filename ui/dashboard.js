@@ -32,6 +32,8 @@ import { getDEK } from './lockScreen.js';
 // Phase E-8/D: 통독 진도 = 활성 plan + anchor 기반 자동 계산. Firestore bibleProgress 의존 제거.
 import { computePlanProgress } from './scripture.js';
 import { getActivePlan } from './scriptureSettings.js';
+import { computeTopTasks, computeTopLabels, computeTopCategories, formatMinutesShort } from '../data/dotInsights.js';
+import { findCategory } from '../data/dotCategories.js';
 
 export async function renderDashboardView(userId) {
     const dek = getDEK();
@@ -191,6 +193,7 @@ function renderProseLine(dots, pinned, persons, orgs) {
             이번 주 도트 <strong>${total}개</strong> 중 <strong>${done}개</strong> 완료,
             평균 <strong>${avg}점</strong>${patternNote ? '.' + patternNote : '.'}
         </p>
+        ${renderInsightsBlock(dots)}
         <p class="dash-prose-quiet">여기까지가 데이터예요. 다음은 묵상 안에서.</p>
 
         <div class="dash-ai-row">
@@ -202,6 +205,49 @@ function renderProseLine(dots, pinned, persons, orgs) {
         <div id="dash-ai-panel" class="dash-ai-panel hidden" aria-live="polite"></div>
     `;
     bindAiToggle(stats, pinned, persons, orgs, dots);
+}
+
+/**
+ * '어떤 일을 했나' 블록 — 시간 TOP 3 + 카테고리 TOP 3 + 라벨 TOP 3 나란히.
+ * 도트가 1개라도 있어야 부르는 자리.
+ */
+function renderInsightsBlock(dots) {
+    const topTasks = computeTopTasks(dots, 3);
+    const topCats = computeTopCategories(dots, 3);
+    const topLabels = computeTopLabels(dots, 3);
+
+    const taskItems = topTasks.length
+        ? topTasks.map(t => `<li>${escapeHtml(t.task)} <span class="dash-insight-meta">${formatMinutesShort(t.minutes)}</span></li>`).join('')
+        : '<li class="dash-insight-empty">아직 적힌 일이 없어요</li>';
+
+    const catItems = topCats.length
+        ? topCats.map(c => {
+            const meta = findCategory(c.categoryId);
+            const label = meta ? `${meta.icon} ${meta.label}` : c.categoryId;
+            return `<li>${escapeHtml(label)} <span class="dash-insight-meta">${formatMinutesShort(c.minutes)}</span></li>`;
+        }).join('')
+        : '<li class="dash-insight-empty">카테고리를 골라보세요</li>';
+
+    const labelItems = topLabels.length
+        ? topLabels.map(l => `<li>${escapeHtml(l.label)} <span class="dash-insight-meta">×${l.count}</span></li>`).join('')
+        : '<li class="dash-insight-empty">아직 고른 라벨이 없어요</li>';
+
+    return `
+        <div class="dash-insights">
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">시간을 많이 쓴 일</div>
+                <ol class="dash-insight-list">${taskItems}</ol>
+            </div>
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">활동 카테고리</div>
+                <ol class="dash-insight-list">${catItems}</ol>
+            </div>
+            <div class="dash-insight-col">
+                <div class="dash-insight-title">자주 고른 라벨</div>
+                <ol class="dash-insight-list">${labelItems}</ol>
+            </div>
+        </div>
+    `;
 }
 
 // ─── AI 한 단락 — 클릭 시 호출, 결과 캐시. 정책: 묵상의 자리 톤 / 처방 X ───
