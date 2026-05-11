@@ -38,25 +38,75 @@ export const POLICY = {
         plaintext: ['id', 'userId', 'period', 'parentGoalId', 'startDate', 'endDate', 'progress', 'status', 'createdAt'],
         encrypted: ['title', 'description', 'notes', 'scriptureRef']
     },
+    // ───────── v3 Reports 모듈 (5계층 진단 전용) ─────────
+    // docs/reports-spec.md + docs/reports-tone-guide.md 기준
+    // - stats는 평문 (인덱싱·쿼리 가능, 수치 계산은 코드가 담당)
+    // - AI 산문·관찰·가설·묵상 질문은 모두 암호화 (개인적 진단 내용)
+    // - keyPatterns/suggestedPrinciples는 v2 호환 유지 — 새 코드는 사용 X
     dayReports: {
         plaintext: ['id', 'userId', 'period', 'startDate', 'endDate', 'stats', 'drillDownChildIds', 'createdAt'],
-        encrypted: ['aiSummary', 'keyPatterns', 'suggestedPrinciples', 'userNotes']
+        encrypted: [
+            'aiSummary',                 // AI 산문 (그림자의 윤곽)
+            'observations',              // 일간 관찰 1개 (가설 아님)
+            'questionsForMeditation',    // 묵상에 가져갈 질문 1~2개
+            'userNotes',
+            // v2 호환 (deprecated — 새 코드는 사용 X):
+            'keyPatterns', 'suggestedPrinciples'
+        ]
     },
     weekReports: {
         plaintext: ['id', 'userId', 'period', 'startDate', 'endDate', 'stats', 'drillDownChildIds', 'createdAt'],
-        encrypted: ['aiSummary', 'keyPatterns', 'suggestedPrinciples', 'userNotes']
+        encrypted: [
+            'aiSummary',
+            'hypotheses',                // 가설 2~3개 (반복 횟수 표기 필수)
+            'decisionFlow',              // A3 — 결단의 흐름 추상화 (라벨 명시 X)
+            'questionsForMeditation',    // 묵상 질문 3개
+            'userNotes',
+            'keyPatterns', 'suggestedPrinciples'
+        ]
     },
     monthReports: {
         plaintext: ['id', 'userId', 'period', 'startDate', 'endDate', 'stats', 'drillDownChildIds', 'createdAt'],
-        encrypted: ['aiSummary', 'keyPatterns', 'suggestedPrinciples', 'userNotes']
+        encrypted: [
+            'aiSummary',
+            'hypotheses',                // 가설 3~5개 (2주+ 반복)
+            'patternsObserved',          // A1 — 이번 달 자주 관찰된 패턴 N개 (도트 ID 노출 X)
+            'decisionFlow',
+            'questionsForMeditation',    // 묵상 질문 4~5개
+            'userNotes',
+            'keyPatterns', 'suggestedPrinciples'
+        ]
     },
     quarterReports: {
         plaintext: ['id', 'userId', 'period', 'startDate', 'endDate', 'stats', 'drillDownChildIds', 'createdAt'],
-        encrypted: ['aiSummary', 'keyPatterns', 'suggestedPrinciples', 'userNotes']
+        encrypted: [
+            'aiSummary',
+            'hypotheses',                // 가설 5~7개 (3개월 일관성)
+            'decisionFlow',
+            'principleValidation',       // 분기 검증 결과 (promote/archive)
+            'questionsForMeditation',
+            'userNotes',
+            'keyPatterns', 'suggestedPrinciples'
+        ]
     },
     yearReports: {
         plaintext: ['id', 'userId', 'period', 'startDate', 'endDate', 'stats', 'drillDownChildIds', 'createdAt'],
-        encrypted: ['aiSummary', 'keyPatterns', 'suggestedPrinciples', 'userNotes']
+        encrypted: [
+            'aiSummary',
+            'hypotheses',                // 가설 7~10개 (4분기 일관성, 원칙급)
+            'decisionFlow',
+            'principleValidation',       // 연간 원칙 정착/archive 일괄
+            'questionsForMeditation',    // 묵상 질문 5개
+            'userNotes',
+            'keyPatterns', 'suggestedPrinciples'
+        ]
+    },
+    // 리포트 Q&A 응답 누적 (A3 확장)
+    // 사용자가 리포트에 "왜 X였어?"를 물으면 AI 흐름 응답을 여기 저장
+    // 다음 묵상 화면에 자동 노출
+    reportQuestions: {
+        plaintext: ['id', 'userId', 'reportId', 'reportType', 'askedAt', 'createdAt'],
+        encrypted: ['question', 'observationFlow', 'returnToMeditation']
     },
     // 통독 진행률: 챕터/날짜는 평문(통계 가능), 메모만 암호화
     bibleProgress: {
