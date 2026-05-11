@@ -51,16 +51,19 @@ async function getMeditationForDate(dek, userId, date) {
  * @param {CryptoKey} dek
  * @param {string} userId
  * @param {string} date - 'YYYY-MM-DD'
+ * @param {Object} [opts]
+ * @param {boolean} [opts.force=false] - true면 기존 리포트 무시하고 새로 생성, 캐시도 우회
+ *                                        ("리포트 재작성하기" 버튼이 사용)
  * @returns {Promise<{
  *   status: 'created'|'existed'|'no-dots',
  *   report: Object|null,
  *   fallback: boolean
  * }>}
  */
-export async function generateDailyReport(dek, userId, date) {
-    // 1) 이미 차있으면 그대로
+export async function generateDailyReport(dek, userId, date, opts = {}) {
+    // 1) 이미 차있으면 그대로 (단 force=true면 무시하고 재생성)
     const existing = await getDayReport(dek, userId, date);
-    if (existing && existing.aiSummary) {
+    if (!opts.force && existing && existing.aiSummary) {
         return { status: 'existed', report: existing, fallback: false };
     }
 
@@ -77,7 +80,7 @@ export async function generateDailyReport(dek, userId, date) {
     ]);
     const aiResult = await callDailyReport(stats, {
         persons: [], orgs: [], places: [], amounts: [],
-    }, meditation);
+    }, meditation, { force: !!opts.force });
 
     await saveDayReport(dek, userId, date, stats, {
         aiSummary:              aiResult.aiSummary,

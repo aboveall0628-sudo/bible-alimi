@@ -51,12 +51,14 @@ export async function callLLM(task, plain, opts = {}) {
     // pseudonymize는 { safeText, mapping } 반환 — 가명화된 텍스트를 masked로 받음
     const { safeText: masked, mapping } = pseudonymize(JSON.stringify(plain), plain.context || {});
 
-    // 캐시 확인
+    // 캐시 확인 (opts.bypassCache가 true면 건너뛰고 새로 호출 — 재작성 버튼용)
     const cacheKey = await hashKey(task, masked);
-    try {
-        const cached = await getCachedLLM(cacheKey);
-        if (cached) return { text: depseudonymize(cached, mapping), fallback: false };
-    } catch { /* IndexedDB 사용 불가 시 무시 */ }
+    if (!opts.bypassCache) {
+        try {
+            const cached = await getCachedLLM(cacheKey);
+            if (cached) return { text: depseudonymize(cached, mapping), fallback: false };
+        } catch { /* IndexedDB 사용 불가 시 무시 */ }
+    }
 
     // Cloud Function 호출 시도
     const callable = await getCallable();
@@ -263,7 +265,7 @@ function parseBriefingResponse(text) {
  * @param {Object|null} meditation - { content, decisions, prayer } — 그날의 묵상 노트 (있으면)
  * @returns {Promise<{aiSummary, observation, questionsForMeditation, fallback}>}
  */
-export async function callDailyReport(dailyStats, context = {}, meditation = null) {
+export async function callDailyReport(dailyStats, context = {}, meditation = null, opts = {}) {
     const plain = {
         stats: dailyStats,
         meditation: meditation || null,    // { content, decisions, prayer } | null
@@ -278,6 +280,7 @@ export async function callDailyReport(dailyStats, context = {}, meditation = nul
     const result = await callLLM('dailyReport', plain, {
         deep: false,   // flash 모델 (일간은 가벼움 — spec §3.1)
         stats: dailyStats,
+        bypassCache: !!opts.force,        // 재작성 버튼 누른 경우 캐시 무시
     });
 
     if (result.fallback) {

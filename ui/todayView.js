@@ -103,9 +103,35 @@ async function loadTodayReport(dek) {
             </div>
             ${observationHtml}
             ${questionsHtml}
+            <div style="text-align:center; margin-top:14px">
+                <button id="today-regenerate-report-btn" class="text-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer">
+                    ↻ 리포트 재작성하기
+                </button>
+            </div>
         `;
         // 리포트가 이미 있을 때도 토요일이면 주/월/분기/연 회고 단계별 버튼 노출
         renderSaturdayLayers(body);
+
+        // 재작성 버튼 — 기존 리포트 + 캐시 모두 무시하고 Gemini 새로 호출
+        document.getElementById('today-regenerate-report-btn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('today-regenerate-report-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '다시 만드는 중이에요...'; }
+            try {
+                const result = await generateDailyReport(dek, _userId, _date, { force: true });
+                if (result.status === 'no-dots') {
+                    showToast('오늘 기록된 도트가 없어요');
+                    if (btn) { btn.disabled = false; btn.textContent = '↻ 리포트 재작성하기'; }
+                    return;
+                }
+                // 성공 → 새 카드로 다시 그림
+                await loadTodayReport(dek);
+                showToast('리포트가 새로 만들어졌어요');
+            } catch (e) {
+                console.error('today report regenerate failed:', e);
+                showToast('재작성이 잠깐 막혔어요. 잠시 후 다시 시도해 주세요');
+                if (btn) { btn.disabled = false; btn.textContent = '↻ 리포트 재작성하기'; }
+            }
+        });
     } catch (e) {
         console.warn('today report load failed:', e);
         body.innerHTML = `<p style="color:var(--text-secondary); font-size:13px">리포트를 불러오는 중에 잠깐 막혔어요.</p>`;
