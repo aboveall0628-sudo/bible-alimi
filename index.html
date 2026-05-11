@@ -109,6 +109,27 @@
             </div>
         </aside>
 
+        <!-- 우측 상단 알람 종 + dropdown 패널 (Phase E-7) — 잠금 해제 후에만 노출 -->
+        <div id="reminder-bell-wrap" class="reminder-bell-wrap hidden">
+            <button id="reminder-bell-btn" class="reminder-bell-btn" title="알람" aria-label="알람 패널 열기">
+                <i data-lucide="bell"></i>
+                <span id="reminder-bell-badge" class="reminder-bell-badge hidden">0</span>
+            </button>
+            <div id="reminder-panel" class="reminder-panel hidden" role="dialog" aria-label="알람 패널">
+                <div class="reminder-panel-head">
+                    <h3>알람</h3>
+                    <button id="reminder-close-btn" class="reminder-close-btn" aria-label="닫기">×</button>
+                </div>
+                <div class="reminder-manual-input">
+                    <input id="reminder-manual-text" type="text" placeholder="알람으로 남길 한 줄" maxlength="200" />
+                    <button id="reminder-manual-add-btn" class="primary-btn">+</button>
+                </div>
+                <ul id="reminder-list" class="reminder-list">
+                    <li class="reminder-empty">아직 알람이 없어요.</li>
+                </ul>
+            </div>
+        </div>
+
         <!-- 메인 — 잠금 해제 전엔 숨김 (부팅 안전장치) -->
         <main id="main-content" class="content-area hidden">
 
