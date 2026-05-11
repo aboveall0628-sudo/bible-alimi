@@ -39,6 +39,13 @@ import { generateAllAutoReminders } from '../data/reminderGenerator.js';
 // 단축키 / 모달 매니저 — Phase E-9 (Step 1)
 import { initShortcuts } from '../shortcuts/router.js';
 
+// 옛 형식(v1) 데이터를 처음 만난 순간에 한 번만 사용자에게 알림.
+// cryptoService.readDocument 가 dispatchEvent 함. 모듈 로드 시 한 번 등록.
+window.addEventListener('sanctum:legacy-data-seen', () => {
+    // showToast 가 이미 위에서 import 됨
+    showToast('🗂️ 옛 형식 데이터가 일부 보여요. 안전하게 읽었어요. 설정에서 한 번에 정리할 수 있어요.');
+}, { once: true });
+
 // ─── 전역 상태 ───
 window.appStarted = true;
 let currentUserId = 'anonymous';   // Firebase Auth UID (보안 규칙 매칭용)

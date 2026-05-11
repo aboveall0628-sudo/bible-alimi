@@ -82,16 +82,30 @@ export async function prepareDocument(dek, metaFields, sensitiveFields) {
 
 /**
  * Firestore 문서에서 암호화 필드 복호화 후 병합
- * @param {CryptoKey} dek
- * @param {Object} firestoreDoc - Firestore에서 읽은 문서
- * @returns {Object} 평문 필드 + 복호화된 필드 병합
+ *
+ * 정책 (옵션 A — v1/v2 양방향 호환):
+ *  - v2 문서(encryptedPayload + iv 보유) → 자물쇠 풀어서 sensitive 병합
+ *  - v1 문서(평문, encryptedPayload 없음) → 그대로 반환 + 한 번만 사용자 알림
+ *
+ * v1 도큐먼트는 모든 필드가 평문으로 한 객체에 있으니 spread 만으로 충분.
+ * 호출하는 repo 코드는 어느 쪽이든 동일한 모양의 객체를 받음 → 깨지지 않음.
  */
 export async function readDocument(dek, firestoreDoc) {
     const { encryptedPayload, iv, encVersion, ...metaFields } = firestoreDoc;
 
     if (!encryptedPayload || !iv) {
-        // 암호화 이전 레거시 데이터: STEP 0 보안 정책에 의해 평문으로 접근하는 것을 차단
-        throw new Error('LEGACY_DATA_NOT_MIGRATED');
+        // v1 옛 형식 — 평문 그대로 반환.
+        // 한 세션에 한 번만 사용자 알림 이벤트 발생 (listener 는 ui/app.js).
+        if (typeof window !== 'undefined' && !window.__sanctumLegacyDataSeen) {
+            window.__sanctumLegacyDataSeen = true;
+            try {
+                window.dispatchEvent(new CustomEvent('sanctum:legacy-data-seen', {
+                    detail: { docId: firestoreDoc.id || firestoreDoc.userId || null },
+                }));
+            } catch (_) {}
+        }
+        console.warn('[crypto] v1 legacy plaintext doc — passing through:', firestoreDoc.id || '(no id)');
+        return { ...firestoreDoc };
     }
 
     const sensitiveFields = await decryptPayload(dek, encryptedPayload, iv, encVersion);
