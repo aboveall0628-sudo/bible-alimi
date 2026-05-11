@@ -81,31 +81,36 @@ const actions = {
     },
 
     toggleSensitive() {
+        // input.click() 이 가장 안전 — checked 토글 + change/click 이벤트 자동 발화.
+        // initSensitiveMode 가 input 에 listener 를 붙여둠.
         const input = document.getElementById('sensitive-setting-toggle');
+        let masked;
         if (input) {
-            input.checked = !input.checked;
-            input.dispatchEvent(new Event('change'));
-            return;
+            input.click();
+            masked = input.checked;
+        } else {
+            // 설정 페이지가 한 번도 렌더 안 됐을 가능성: 직접 body class + localStorage.
+            masked = !document.body.classList.contains('sensitive-masked');
+            document.body.classList.toggle('sensitive-masked', masked);
+            localStorage.setItem('sanctum-sensitive-mode', masked ? 'true' : 'false');
         }
-        // 설정 페이지 미렌더 상태: body 클래스로 직접 토글하고 localStorage 갱신
-        const willMask = !document.body.classList.contains('sensitive-masked');
-        document.body.classList.toggle('sensitive-masked', willMask);
-        localStorage.setItem('sanctum-sensitive-mode', willMask ? 'true' : 'false');
+        showSavedToast(masked ? '🙈 화면을 가렸어요' : '👀 화면이 보여요', 1200);
     },
 
     toggleTheme() {
         const input = document.getElementById('theme-setting-toggle');
+        let isDark;
         if (input) {
-            input.checked = !input.checked;
-            input.dispatchEvent(new Event('change'));
-            return;
+            input.click();
+            isDark = input.checked;
+        } else {
+            const html = document.documentElement;
+            isDark = html.getAttribute('data-theme') !== 'dark';
+            if (isDark) html.setAttribute('data-theme', 'dark');
+            else html.removeAttribute('data-theme');
+            localStorage.setItem('sanctum-theme', isDark ? 'dark' : 'light');
         }
-        // 설정 페이지 미렌더 상태: data-theme 직접 토글
-        const html = document.documentElement;
-        const isDark = html.getAttribute('data-theme') === 'dark';
-        if (isDark) html.removeAttribute('data-theme');
-        else html.setAttribute('data-theme', 'dark');
-        localStorage.setItem('sanctum-theme', isDark ? 'light' : 'dark');
+        showSavedToast(isDark ? '🌙 다크 모드' : '☀️ 라이트 모드', 1000);
     },
 
     async openBackup() {

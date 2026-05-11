@@ -107,9 +107,10 @@ async function onKeyDown(e) {
         }
 
         // preventDefault — 브라우저 기본 동작 가로채기 (Ctrl+S 등)
-        if (shortcut.preventDefault !== false) {
-            // Esc 는 일부 폼 reset 동작이 있을 수 있으니 명시적으로만 막음
-            if (shortcut.preventDefault === true || hasModifier(combo) || combo.key === 'Escape') {
+        // 정책: ESC 는 통과시킨다 (기존 모달들이 자체 ESC 핸들러로 닫히도록).
+        //      우리 modalManager 가 닫은 뒤에도 기존 모달이 별도로 열려있을 수 있음.
+        if (shortcut.preventDefault !== false && combo.key !== 'Escape') {
+            if (shortcut.preventDefault === true || hasModifier(combo)) {
                 e.preventDefault();
             }
         }

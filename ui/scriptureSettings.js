@@ -71,6 +71,8 @@ const DEFAULTS = {
     // Phase E-8/B-3: plan별로 파트의 시작점 override.
     // 모양: { [planId]: { [partId]: { abbr, chapter, anchorDate } } }
     partOverrides: {},
+    // Phase E-8/C: 본문 카드 맨 아래 "매일성경 사이트 바로가기" 링크 행을 보일지.
+    showDailyBibleLink: true,
 };
 
 const PRESET_IDS = new Set(PRESETS.map(p => p.id));
@@ -101,7 +103,9 @@ function read() {
         }
         const partOverrides = (parsed.partOverrides && typeof parsed.partOverrides === 'object')
             ? parsed.partOverrides : {};
-        _cache = { fontSize, activePlanId, partOverrides };
+        const showDailyBibleLink = typeof parsed.showDailyBibleLink === 'boolean'
+            ? parsed.showDailyBibleLink : DEFAULTS.showDailyBibleLink;
+        _cache = { fontSize, activePlanId, partOverrides, showDailyBibleLink };
         return _cache;
     } catch {
         _cache = { ...DEFAULTS };
@@ -214,6 +218,10 @@ export function setFontSize(size) {
     if (!FONT_SIZES[size]) return;
     write({ ...read(), fontSize: size });
     applyFontSizeToCSS(size);
+}
+
+export function setShowDailyBibleLink(show) {
+    write({ ...read(), showDailyBibleLink: !!show });
 }
 
 /**

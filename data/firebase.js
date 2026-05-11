@@ -11,9 +11,6 @@ import {
     getAuth, GoogleAuthProvider, signInWithCredential, signOut,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
-import {
-    getFunctions, httpsCallable
-} from "https://www.gstatic.com/firebasejs/10.11.1/firebase-functions.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBz_-F3Gp7bK2DvWBGfwjf6jevSnFaHess",
@@ -28,13 +25,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-// Phase E-8/C: suProxy 등 Callable Function 호출용. region은 functions/src와 일치.
-const functions = getFunctions(app, "asia-northeast3");
 
 export {
-    db, auth, functions,
+    db, auth,
     doc, setDoc, getDoc, getDocs, deleteDoc,
     collection, query, where, orderBy, limit, serverTimestamp,
-    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged,
-    httpsCallable
+    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
 };

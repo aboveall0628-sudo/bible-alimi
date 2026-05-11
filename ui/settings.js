@@ -18,11 +18,11 @@ import { getAllDecisions, deleteDecision } from '../data/decisionsRepo.js';
 import { deleteCalendarEventById } from './app.js';
 // 자동 잠금 분 단위 영속화
 import { getSavedTimeoutMinutes, saveTimeoutMinutes } from '../security/autoLock.js';
-// Phase E-8/A·B-1·B-2·B-3: 말씀 본문 표시 설정 (폰트 크기, 계획 프리셋, 시작점, 내 계획)
+// Phase E-8/A·B-1·B-2·B-3·C: 말씀 본문 표시 설정 (폰트, 계획 프리셋, 시작점, 내 계획, 매일성경 링크)
 import {
     getScriptureSettings, getActivePlan, setFontSize, setActivePlanId,
     getPartOverride, setPartOverride, clearPartOverride,
-    getUserPlans, addUserPlan, deleteUserPlan,
+    getUserPlans, addUserPlan, deleteUserPlan, setShowDailyBibleLink,
     FONT_SIZES, PRESETS, applyFontSizeToCSS,
 } from './scriptureSettings.js';
 import { BIBLE_METADATA, resolvePlanParts } from './scripture.js';
@@ -599,6 +599,17 @@ function renderScriptureSettingsHTML() {
             <p class="setting-hint">"오늘부터 시편 1편" 같이 시작점을 직접 박을 수 있어요. 다음날부터 한 장씩 자동으로 넘어가요.</p>
             <div id="scripture-anchor-panel" class="anchor-panel"></div>
         </div>
+
+        <div class="settings-row" style="margin-top: var(--sp-4);">
+            <div class="settings-row-text">
+                <h4 style="margin:0;font-size:14px;font-weight:600;">매일성경 링크 보이기</h4>
+                <p class="section-desc" style="margin-top:4px;">본문 카드 맨 아래에 "매일성경에서 본문·해설 보기" 한 줄을 띄워요. 누르면 새 창에서 성서유니온 사이트로 이동해요.</p>
+            </div>
+            <label class="switch" for="daily-bible-link-toggle">
+                <input type="checkbox" id="daily-bible-link-toggle" ${cur.showDailyBibleLink ? 'checked' : ''}>
+                <span class="switch-slider"></span>
+            </label>
+        </div>
     `;
 }
 
@@ -779,6 +790,14 @@ function bindScriptureSettingsEvents() {
             refreshScriptureCard();
         });
     });
+
+    // Phase E-8/C: 매일성경 링크 보이기 토글
+    const dbLinkToggle = document.getElementById('daily-bible-link-toggle');
+    if (dbLinkToggle) {
+        dbLinkToggle.addEventListener('change', (e) => {
+            setShowDailyBibleLink(e.target.checked);
+        });
+    }
 
     // 시작점 패널 초기 렌더
     renderAnchorPanel();

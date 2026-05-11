@@ -8,6 +8,7 @@
  */
 
 import { getActivePlan, getPartOverride } from './scriptureSettings.js';
+import { renderDailyBibleLink } from './suDaily.js';
 
 const BIBLE_METADATA = {
     parts: [
@@ -299,6 +300,9 @@ export async function renderScriptureForDate(date) {
         partEl.appendChild(passageContainer);
         container.appendChild(partEl);
     });
+
+    // Phase E-8/C: 본문 카드 맨 아래 "매일성경 사이트 바로가기" 링크 (설정 토글로 on/off)
+    renderDailyBibleLink(container);
 
     ensureStickyCopyBar(container);
     updateCopyButton();
