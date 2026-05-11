@@ -103,9 +103,6 @@ async function loadTodayReport(dek) {
             </div>
             ${observationHtml}
             ${questionsHtml}
-            <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--border, rgba(0,0,0,0.1)); text-align:center; color:var(--text-secondary, #888); font-size:12px">
-                여기까지가 데이터입니다. 다음은 하나님 앞에서.
-            </div>
         `;
         // 리포트가 이미 있을 때도 토요일이면 주/월/분기/연 회고 단계별 버튼 노출
         renderSaturdayLayers(body);
@@ -161,7 +158,7 @@ function renderSaturdayLayers(body) {
         decade:  { label: '5·10년 점검',     icon: '🌌' },
     };
 
-    const buttonsHtml = layers.map(layer => `
+    const layerButtonsHtml = layers.map(layer => `
         <div style="text-align:center; margin-top:10px">
             <button class="primary-btn" data-layer="${layer}" style="opacity:0.85">
                 ${layerLabels[layer].icon} ${layerLabels[layer].label} 만들기 →
@@ -172,19 +169,26 @@ function renderSaturdayLayers(body) {
     const section = document.createElement('div');
     section.style.cssText = 'margin-top:20px; padding-top:16px; border-top:1px solid var(--border, rgba(0,0,0,0.1))';
     section.innerHTML = `
-        <p style="font-size:13px; color:var(--text-secondary); margin:0 0 12px; text-align:center">
-            토요일이에요. 더 큰 결을 정리해 볼게요.
-        </p>
-        ${buttonsHtml}
+        ${layerButtonsHtml}
+        <div style="text-align:center; margin-top:10px">
+            <button class="primary-btn" id="today-go-next-day-btn">🌅 내일 묵상 시작하기 →</button>
+        </div>
     `;
     body.appendChild(section);
 
-    // 클릭 핸들러 — 흐름은 STEP 1.5+에서 붙음. 지금은 안내 토스트.
+    // 단계별 회고 버튼 — 흐름은 STEP 1.5+에서. 지금은 placeholder 토스트.
     section.querySelectorAll('button[data-layer]').forEach(btn => {
         btn.addEventListener('click', () => {
             const layer = btn.dataset.layer;
             showToast(`${layerLabels[layer].label}는 곧 만들어질 예정이에요`);
         });
+    });
+
+    // "내일 묵상 시작하기" — 페이지 하단 next-day-btn과 동일 동작
+    section.querySelector('#today-go-next-day-btn')?.addEventListener('click', () => {
+        if (typeof window.__sanctumGoToNextDay === 'function') {
+            window.__sanctumGoToNextDay();
+        }
     });
 }
 
