@@ -482,7 +482,8 @@ function bindDecisionsPanel() {
 async function loadDecisions(dek) {
     try {
         // Phase B: 결단 컬렉션 대신 goals(period=daily)에서 가져옴.
-        _decisions = await getDailyGoals(dek, _userId);
+        // 현재 보고 있는 날짜(_date)의 daily 목표만 표시 (날짜별 캘린더 모델).
+        _decisions = await getDailyGoals(dek, _userId, _date);
     } catch (e) {
         console.error('daily goals load failed:', e);
         _decisions = [];

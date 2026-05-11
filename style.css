@@ -351,8 +351,14 @@ button .btn-icon { vertical-align: text-bottom; }
     color: var(--text-secondary); font-size: 12px; padding: 4px 8px;
 }
 .collapsible-toggle:hover { color: var(--accent); }
-/* 카드 본문 접기 — collapsible-toggle data-target이 가리키는 요소 숨김 */
+/* 카드 본문 접기 — collapsible-body 클래스 가진 요소가 .collapsed 되면 숨김 */
+.collapsible-body.collapsed { display: none; }
 #meditation-content.collapsed { display: none; }
+
+/* 페이지 헤더의 우측 액션 묶음 (날짜 입력 + 전체 접기 버튼) */
+.page-header-actions {
+    display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
 
 /* ── Date picker ── */
 .date-picker {
@@ -441,6 +447,12 @@ button .btn-icon { vertical-align: text-bottom; }
 /* ═══ Decisions panel ═══ */
 .decisions-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .decision-card {
+    transition:
+        opacity 160ms ease,
+        transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 160ms ease;
+}
+.decision-card {
     display: flex; align-items: center; gap: var(--sp-2);
     padding: var(--sp-3); border-radius: var(--radius);
     border: 1px solid var(--border); background: var(--bg-elev);
@@ -450,7 +462,11 @@ button .btn-icon { vertical-align: text-bottom; }
     background: var(--accent-soft);
     border-color: var(--accent);
 }
-.decision-card.dragging { opacity: 0.5; }
+.decision-card.dragging {
+    opacity: 0.55;
+    transform: scale(0.97);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
 .decision-handle {
     font-size: 14px; color: var(--text-secondary); cursor: grab;
     padding: 0 var(--sp-1); user-select: none;
@@ -543,7 +559,11 @@ button .btn-icon { vertical-align: text-bottom; }
     background: rgba(229, 101, 74, 0.08);
     border-top: 1px solid var(--dot-red);
 }
-.utl-cell.drop-target { background: var(--accent-soft); }
+.utl-cell.drop-target {
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    transition: background 120ms ease, box-shadow 120ms ease;
+}
 .utl-actual-col .utl-cell:hover::after {
     content: '+ 지금 뭐 했어요?';
     position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
@@ -569,10 +589,22 @@ button .btn-icon { vertical-align: text-bottom; }
     font-size: 11px; line-height: 1.3;
     overflow: hidden; cursor: pointer;
     background: var(--bg-elev); border: 1px solid var(--border);
-    transition: box-shadow var(--ease);
+    transition:
+        box-shadow 160ms ease,
+        transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 160ms ease,
+        top 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        height 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
     user-select: none;
+    will-change: transform;
 }
 .utl-slot:hover { box-shadow: var(--shadow-sm); }
+.utl-slot.dragging {
+    opacity: 0.5;
+    transform: scale(0.97);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    transition-duration: 80ms;
+}
 .utl-slot::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
     background: var(--dot-gray); border-radius: 6px 0 0 6px;
@@ -2813,6 +2845,37 @@ svg.person-radar { display: block; }
     display: flex; gap: var(--sp-2); align-items: center;
 }
 .qr-link-add-row .qr-text-input { flex: 1; }
+
+/* 자동완성 패널 — 입력값이 비어 있으면 .hidden, 있으면 input 아래에 떠 있는 카드.
+   클릭/터치로 인물·조직 선택. native datalist 대체. */
+.qr-ac-wrap { position: relative; }
+.qr-ac-panel {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    z-index: 30;
+    background: var(--bg-card, var(--surface-card));
+    border: 1px solid var(--border, var(--line));
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+    padding: 4px;
+    display: flex; flex-direction: column;
+    max-height: 260px; overflow-y: auto;
+}
+.qr-ac-panel.hidden { display: none; }
+.qr-ac-item {
+    background: transparent; border: none; cursor: pointer;
+    text-align: left; padding: 8px 10px; border-radius: 6px;
+    color: var(--text-primary, var(--ink-primary));
+    font-size: 13px; line-height: 1.3;
+    display: flex; align-items: baseline; gap: 6px;
+}
+.qr-ac-item:hover, .qr-ac-item:focus-visible {
+    background: var(--hover);
+    outline: none;
+}
+.qr-ac-item .qr-ac-sub {
+    color: var(--text-secondary, var(--ink-secondary));
+    font-size: 12px;
+}
 .qr-chip-row {
     display: flex; flex-wrap: wrap; gap: 6px;
     min-height: 4px;
@@ -3241,4 +3304,41 @@ svg.person-radar { display: block; }
 .switch input:focus-visible + .switch-slider {
     outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   대시보드 — 통독 진도 카드 (전체 % + 파트별 막대)
+   ═══════════════════════════════════════════════════════════════ */
+
+.bible-progress-head {
+    display: flex; align-items: baseline; gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.bible-progress-head .dash-value { margin: 0; }
+.bible-progress-head .dash-desc { margin: 0; }
+
+.bible-parts-list {
+    display: grid; gap: 10px;
+}
+.bible-part-row { display: flex; flex-direction: column; gap: 4px; }
+.bible-part-row-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-size: 13px; gap: 8px;
+}
+.bible-part-name { color: var(--text-primary, var(--ink-primary)); font-weight: 500; }
+.bible-part-stat {
+    color: var(--text-secondary, var(--ink-secondary));
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+.bible-part-bar {
+    height: 6px; width: 100%;
+    background: var(--surface-elevated, rgba(0,0,0,0.06));
+    border-radius: 999px; overflow: hidden;
+}
+.bible-part-bar-fill {
+    height: 100%; background: var(--brand-primary);
+    border-radius: 999px;
+    transition: width 300ms ease;
 }

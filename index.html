@@ -102,11 +102,6 @@
                 <span id="user-name" style="font-size:14px">로그인</span>
             </div>
             <div id="boot-status" class="boot-status">초기화 중...</div>
-            <div class="sidebar-footer">
-                <button id="sensitive-toggle-btn" title="민감 정보 숨기기" aria-label="민감 정보 숨기기"><i data-lucide="eye-off"></i></button>
-                <span id="lock-timer-display" class="lock-timer"><i data-lucide="lock" class="lock-timer-icon"></i> 15분</span>
-                <button id="theme-toggle-btn" title="테마 전환" aria-label="테마 전환"><i data-lucide="moon"></i></button>
-            </div>
         </aside>
 
         <!-- 우측 상단 알람 종 + dropdown 패널 (Phase E-7) — 잠금 해제 후에만 노출 -->
@@ -144,7 +139,12 @@
                 <!-- 날짜 -->
                 <header class="page-header">
                     <h1 id="current-date-display"></h1>
-                    <input type="date" id="calendar-input" class="date-picker">
+                    <div class="page-header-actions">
+                        <input type="date" id="calendar-input" class="date-picker">
+                        <button id="today-collapse-all-btn" class="text-btn" type="button" data-state="expanded">
+                            <i data-lucide="chevrons-up-down" class="btn-icon"></i> 전체 접기
+                        </button>
+                    </div>
                 </header>
 
                 <!-- 말씀 -->
@@ -153,7 +153,7 @@
                         <h2 class="section-title"><i class="section-icon" data-lucide="book-open"></i> 오늘의 말씀</h2>
                         <button class="collapsible-toggle" data-target="meditation-content">접기</button>
                     </div>
-                    <div id="meditation-content" class="meditation-box"></div>
+                    <div id="meditation-content" class="meditation-box collapsible-body"></div>
                 </section>
 
                 <!-- 묵상 노트 -->
@@ -161,16 +161,22 @@
                     <div class="section-header-flex">
                         <h2 class="section-title"><i class="section-icon" data-lucide="pen-line"></i> 묵상 노트</h2>
                         <span id="meditation-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
+                        <button class="collapsible-toggle" data-target="meditation-note">접기</button>
                     </div>
-                    <div id="meditation-note" class="note-editor" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
+                    <div id="meditation-note" class="note-editor collapsible-body" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
                 </section>
 
                 <!-- 오늘의 목표 (동적) — Phase B: 결단을 daily 목표로 흡수. ID는 호환 유지. -->
                 <section id="section-decisions" class="card-section">
-                    <h2 class="section-title"><i class="section-icon" data-lucide="target"></i> 오늘의 목표</h2>
-                    <p class="section-desc">오늘 옮길 한 걸음을 적어 보세요. ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
-                    <div id="decisions-list" class="decisions-list"></div>
-                    <button id="decision-add-btn" class="decision-add-btn">+ 새 목표 적기</button>
+                    <div class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="target"></i> 오늘의 목표</h2>
+                        <button class="collapsible-toggle" data-target="decisions-body">접기</button>
+                    </div>
+                    <div id="decisions-body" class="collapsible-body">
+                        <p class="section-desc">오늘 옮길 한 걸음을 적어 보세요. ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
+                        <div id="decisions-list" class="decisions-list"></div>
+                        <button id="decision-add-btn" class="decision-add-btn">+ 새 목표 적기</button>
+                    </div>
                 </section>
 
                 <!-- 통합 타임라인 -->
@@ -181,9 +187,10 @@
                             <button id="auth-btn" class="text-btn">Google 연결</button>
                             <button id="sync-btn" class="text-btn hidden"><i data-lucide="refresh-cw" class="btn-icon"></i> 일정 새로고침</button>
                             <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기"><i data-lucide="upload" class="btn-icon"></i> 캘린더에 옮기기</button>
+                            <button class="collapsible-toggle" data-target="unified-timeline">접기</button>
                         </div>
                     </div>
-                    <div id="unified-timeline" class="unified-timeline">
+                    <div id="unified-timeline" class="unified-timeline collapsible-body">
                         <div class="utl-header">
                             <span>시간</span>
                             <span>계획 (결단 · 캘린더)</span>
@@ -196,8 +203,11 @@
 
                 <!-- 오늘의 리포트 (자동 생성) -->
                 <section id="section-today-report" class="card-section">
-                    <h2 class="section-title"><i class="section-icon" data-lucide="trending-up"></i> 오늘의 리포트</h2>
-                    <div id="today-report-body" class="today-report-body">
+                    <div class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="trending-up"></i> 오늘의 리포트</h2>
+                        <button class="collapsible-toggle" data-target="today-report-body">접기</button>
+                    </div>
+                    <div id="today-report-body" class="today-report-body collapsible-body">
                         <p style="color:var(--ink-secondary); font-size:13px">시간표에서 도트 평가를 채워가면, 오늘의 결이 여기에 자동으로 정리돼요.</p>
                     </div>
                 </section>
@@ -327,6 +337,47 @@
                         <h3 class="section-title"><i class="section-icon" data-lucide="shield-check"></i> 내 데이터 백업</h3>
                         <p class="section-desc">내 모든 데이터를 안전하게 암호화한 파일로 받아둘 수 있어요. 브라우저를 벗어나기 전에 잠겨요.</p>
                         <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);"><i data-lucide="download" class="btn-icon"></i> 전체 데이터 받기</button>
+                    </div>
+
+                    <!-- 화면 가리기 (민감 정보 마스킹) -->
+                    <div class="card-section">
+                        <div class="settings-row">
+                            <div class="settings-row-text">
+                                <h3 class="section-title"><i class="section-icon" data-lucide="eye-off"></i> 화면 가리기</h3>
+                                <p class="section-desc">옆 사람 눈에 띌까 걱정될 때 켜두세요. 인물 이름·메모처럼 민감한 칸이 흐리게 가려지고, 한 번 누르면 5초 동안만 보여요.</p>
+                            </div>
+                            <label class="switch" for="sensitive-setting-toggle">
+                                <input type="checkbox" id="sensitive-setting-toggle">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 자동 잠금 시간 -->
+                    <div class="card-section">
+                        <h3 class="section-title"><i class="section-icon" data-lucide="lock"></i> 자동 잠금 시간</h3>
+                        <p class="section-desc">아무 동작이 없으면 설정한 시간 뒤 자동으로 잠겨요. 브라우저를 다른 창으로 옮겨두면 3분 뒤 즉시 잠겨요.</p>
+                        <div class="settings-inline">
+                            <input type="number" id="autolock-minutes-input" min="1" max="120" step="1" class="settings-number-input"> <span class="settings-unit">분 뒤 잠금</span>
+                            <button id="autolock-save-btn" class="text-btn">저장</button>
+                            <span id="autolock-save-status" class="settings-status"></span>
+                        </div>
+                        <p class="section-desc" style="margin-top:8px">남은 시간: <span id="lock-timer-display" class="lock-timer-inline">—</span></p>
+                    </div>
+
+                    <!-- 화면 모드 -->
+                    <div class="card-section">
+                        <div class="settings-row">
+                            <div class="settings-row-text">
+                                <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
+                                <p class="section-desc">어두운 곳에서는 다크모드가 눈에 편해요. 한 번 정하면 다음에도 그대로예요.</p>
+                            </div>
+                            <label class="switch" for="theme-setting-toggle">
+                                <input type="checkbox" id="theme-setting-toggle">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <p class="section-desc" style="margin-top:8px">켜짐 = 다크모드 · 꺼짐 = 라이트모드</p>
                     </div>
                 </div>
             </div>

@@ -69,7 +69,7 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     // 하나가 실패해도 나머지는 살아남도록 allSettled. decisions 인덱스가 빠져 있어
     // throw가 나도 도트/캘린더는 그대로 보임.
     const [decisionsR, dotsR, gcalR] = await Promise.allSettled([
-        getDailyGoals(dek, _userId),
+        getDailyGoals(dek, _userId, _date),
         getDotsByDate(dek, _userId, _date),
         listUpcomingEvents(),
     ]);
@@ -87,7 +87,7 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
         try {
             const sync = await syncGcalEventsToDailyGoals(dek, _userId, _gcalEvents, _date);
             if (sync.created > 0 || sync.updated > 0) {
-                _decisions = await getDailyGoals(dek, _userId);
+                _decisions = await getDailyGoals(dek, _userId, _date);
             }
         } catch (e) {
             console.warn('[gcalSync] failed:', e);
@@ -104,7 +104,7 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
  * 시간표 컨테이너의 현재 시간 라인을 상단 근처로 스크롤.
  * isToday일 때만 동작. 그 외 날짜는 09:00 근처로 스크롤(아침에 시작).
  */
-function scrollTimelineToNow() {
+export function scrollTimelineToNow() {
     const body = document.getElementById('utl-body');
     if (!body) return;
     let targetSlot;
@@ -451,6 +451,10 @@ function bindCellEvents(col, lane) {
             if (!did) { e.preventDefault(); return; }
             e.dataTransfer.setData('application/x-sanctum-slot', did);
             e.dataTransfer.effectAllowed = 'move';
+            slot.classList.add('dragging');
+        });
+        slot.addEventListener('dragend', () => {
+            slot.classList.remove('dragging');
         });
 
         slot.addEventListener('click', (e) => {

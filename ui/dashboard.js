@@ -65,7 +65,7 @@ export async function renderDashboardView(userId) {
     renderCallSection(dots);                            // D-4: 토요일 CTA / 빈 상태 가이드
     renderProseLine(dots, pinned, persons, orgs);       // E-2: AI 듣기 인자 전달
     renderPeopleSection(dots, persons, orgs);           // D-3: 이번 주 관계의 결
-    renderNumberCards(dots, bibleProgress, meditationCount, startDate, endDate);
+    renderNumberCards(dots, bibleProgress, meditationCount);
     bindNumbersToggle();
 
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
@@ -479,7 +479,7 @@ function avatarColor(id) {
 function escapeAttr(s) { return escapeHtml(s); }
 
 // ─── 4) 숫자로 보기 — 디폴트 접힘 ─────────────────────────
-function renderNumberCards(dots, bibleProgress, meditationCount, startDate, endDate) {
+function renderNumberCards(dots, bibleProgress, meditationCount) {
     const container = document.getElementById('dashboard-cards');
     if (!container) return;
 
@@ -488,22 +488,15 @@ function renderNumberCards(dots, bibleProgress, meditationCount, startDate, endD
     const meditationRate = Math.round((meditationCount / 7) * 100);
 
     container.innerHTML = `
-        <div class="dash-card" style="grid-column: 1/-1">
-            <h3><i class="dash-icon" data-lucide="calendar-days"></i> 주간 히트맵</h3>
-            <p class="dash-desc" style="margin-bottom: var(--sp-3)">지난 7일 동안 시간을 어떻게 보냈는지 색으로 보여드릴게요.</p>
-            ${renderHeatmap(dots, startDate, endDate)}
-        </div>
-
         <div class="dash-card">
             <h3><i class="dash-icon" data-lucide="footprints"></i> 이번 주 발자국</h3>
             <div class="dash-value">${stats.doneCount + stats.partialCount}<span style="font-size:14px;color:var(--ink-secondary)"> / ${stats.totalSlots}</span></div>
             <p class="dash-desc">지난 7일 동안 남긴 시간 흔적</p>
         </div>
 
-        <div class="dash-card">
+        <div class="dash-card" style="grid-column: 1/-1">
             <h3><i class="dash-icon" data-lucide="book-open"></i> 통독 진도</h3>
-            <div class="dash-value highlight">${bible.percent}%</div>
-            <p class="dash-desc">${bible.detail}</p>
+            ${renderBibleProgressCard(bible)}
             <button class="dash-card-action" data-go="today-scripture">
                 <i data-lucide="arrow-right" class="btn-icon"></i> 오늘의 말씀으로
             </button>
@@ -552,51 +545,6 @@ function bindNumbersToggle() {
     };
 }
 
-// ─── 주간 히트맵 (7일 × 24시간) ────────────────────────────
-function renderHeatmap(dots, startDate, endDate) {
-    const grid = {};
-    const days = [];
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T00:00:00');
-    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = fmt(d);
-        days.push(key);
-        grid[key] = {};
-    }
-    dots.forEach(dot => {
-        if (!grid[dot.date]) return;
-        const hour = Math.floor((dot.timeSlot || 0) / 4);
-        if (!grid[dot.date][hour]) grid[dot.date][hour] = [];
-        grid[dot.date][hour].push(dot.executionSatisfaction || 0);
-    });
-
-    const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
-
-    let html = '<div class="heatmap-wrap"><div class="heatmap-grid">';
-    html += '<div class="heatmap-corner"></div>';
-    for (let h = 0; h < 24; h++) {
-        html += `<div class="heatmap-hour-label">${h % 6 === 0 ? String(h).padStart(2, '0') : ''}</div>`;
-    }
-    days.forEach(date => {
-        const d = new Date(date + 'T00:00:00');
-        html += `<div class="heatmap-day-label">${d.getMonth() + 1}/${d.getDate()} ${dayLabels[d.getDay()]}</div>`;
-        for (let h = 0; h < 24; h++) {
-            const sats = grid[date][h] || [];
-            const avg = sats.length ? sats.reduce((a, b) => a + b, 0) / sats.length : null;
-            const cls = avg == null ? 'empty'
-                : avg >= 4 ? 'lvl-4'
-                : avg >= 3 ? 'lvl-3'
-                : avg >= 2 ? 'lvl-2'
-                : 'lvl-1';
-            const tooltip = avg == null ? '' : `${date} ${h}시: 만족도 ${avg.toFixed(1)} (${sats.length}개)`;
-            html += `<div class="heatmap-cell ${cls}" title="${tooltip}"></div>`;
-        }
-    });
-    html += '</div></div>';
-    return html;
-}
-
 // ─── 통독 진도 ────────────────────────────────────────────
 async function getBibleProgress(userId) {
     try {
@@ -613,25 +561,73 @@ async function getBibleProgress(userId) {
     }
 }
 
-function computeBibleProgress(records) {
-    if (!records || records.length === 0) {
-        return { percent: 0, detail: '아직 기록이 없어요. 오늘부터 한 장씩 시작해 볼까요?' };
-    }
-    const partTotals = { 1: 281, 2: 410, 3: 249, 4: 260 };
-    const completedByPart = { 1: 0, 2: 0, 3: 0, 4: 0 };
+// 파트별 총 챕터수 · 짧은 이름 (대시보드 표기용)
+const BIBLE_PART_META = {
+    1: { total: 281, label: '파트1: 시가서' },
+    2: { total: 410, label: '파트2: 모세+대선지' },
+    3: { total: 249, label: '파트3: 역사+소선지' },
+    4: { total: 260, label: '파트4: 신약' },
+};
 
-    records.forEach(r => {
+function computeBibleProgress(records) {
+    const completedByPart = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    (records || []).forEach(r => {
         if (r.completed && r.partId && completedByPart[r.partId] !== undefined) {
             completedByPart[r.partId]++;
         }
     });
 
-    const partPercents = [1, 2, 3, 4].map(p => Math.round((completedByPart[p] / partTotals[p]) * 100));
-    const overall = Math.round(partPercents.reduce((a, b) => a + b, 0) / 4);
+    const parts = [1, 2, 3, 4].map(p => {
+        const total = BIBLE_PART_META[p].total;
+        const done = completedByPart[p];
+        return {
+            id: p,
+            label: BIBLE_PART_META[p].label,
+            done,
+            total,
+            percent: total === 0 ? 0 : Math.round((done / total) * 100),
+        };
+    });
+
+    // 전체 % = "내가 진짜로 읽은 챕터 / 전체 챕터" (1200장). 부분 plan과 무관.
+    const totalDone = parts.reduce((s, p) => s + p.done, 0);
+    const totalAll = parts.reduce((s, p) => s + p.total, 0);
+    const percent = totalAll === 0 ? 0 : Math.round((totalDone / totalAll) * 100);
+
+    const isEmpty = totalDone === 0;
     return {
-        percent: overall,
-        detail: `시가 ${partPercents[0]}% · 모세+대선지 ${partPercents[1]}% · 역사+소선지 ${partPercents[2]}% · 신약 ${partPercents[3]}%`,
+        percent,
+        parts,
+        totalDone,
+        totalAll,
+        isEmpty,
     };
+}
+
+function renderBibleProgressCard(bible) {
+    if (bible.isEmpty) {
+        return `
+            <div class="dash-value highlight">0%</div>
+            <p class="dash-desc">아직 기록이 없어요. 오늘부터 한 장씩 시작해 볼까요?</p>
+        `;
+    }
+    const partsHtml = bible.parts.map(p => `
+        <div class="bible-part-row">
+            <div class="bible-part-row-head">
+                <span class="bible-part-name">${p.label}</span>
+                <span class="bible-part-stat">${p.done} / ${p.total}장 · <strong>${p.percent}%</strong></span>
+            </div>
+            <div class="bible-part-bar"><div class="bible-part-bar-fill" style="width:${Math.min(100, p.percent)}%"></div></div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="bible-progress-head">
+            <div class="dash-value highlight">${bible.percent}%</div>
+            <p class="dash-desc">전체 ${bible.totalDone} / ${bible.totalAll}장 읽었어요</p>
+        </div>
+        <div class="bible-parts-list">${partsHtml}</div>
+    `;
 }
 
 // ─── 묵상 작성 횟수 ───────────────────────────────────────

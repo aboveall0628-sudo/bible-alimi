@@ -11,7 +11,7 @@ import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../cry
 import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen, showPasswordMigrationModal } from './auth.js';
 import { POLICY_VERSION } from '../crypto/passwordPolicy.js';
-import { initAutoLock, registerFailedAttempt, isLockoutActive, getLockoutRemainingSec, resetFailedAttempts } from '../security/autoLock.js';
+import { initAutoLock, registerFailedAttempt, isLockoutActive, getLockoutRemainingSec, resetFailedAttempts, getSavedTimeoutMinutes, saveTimeoutMinutes } from '../security/autoLock.js';
 import { logAuditAction } from '../security/auditLog.js';
 import { initGlobalErrorHandler } from '../security/errorHandler.js';
 import { initQuickReview, showToast } from './quickReview.js';
@@ -20,7 +20,7 @@ import { initThemeManager } from './themeManager.js';
 import { renderScriptureForDate, loadBibleData as loadBibleDataModule, bindScriptureSettingsListener } from './scripture.js';
 import { applyFontSizeToCSS as applyScriptureFontSize } from './scriptureSettings.js';
 import { initTodayView, refreshTodayView } from './todayView.js';
-import { initTimeline, refreshTimeline } from './timeline.js';
+import { initTimeline, refreshTimeline, scrollTimelineToNow } from './timeline.js';
 // 기존 v2 자동 리포트 생성은 사용자 버튼 트리거로 대체 (reports/dailyReportFlow.js)
 import { initializeSeedData } from '../seeds.js';
 
@@ -165,8 +165,8 @@ async function init() {
         }
     });
 
-    // 3. 자동 잠금 머신 초기화
-    initAutoLock(15);
+    // 3. 자동 잠금 머신 초기화 (사용자가 설정에서 바꾼 분 단위 적용)
+    initAutoLock(getSavedTimeoutMinutes());
 
     // 4. 잠금 해제 이벤트 핸들러
     document.addEventListener('sanctum:unlock-attempt', async (e) => {
@@ -285,7 +285,9 @@ export async function loadUserVaultData() {
 }
 
 async function onVaultUnlocked(dek) {
-    setBootStatus('✅ 열렸어요', 'ok');
+    // 잠금 해제 후엔 부팅 상태 표시가 더 이상 필요 없음. 사이드바를 깨끗하게 둠.
+    const bootEl = document.getElementById('boot-status');
+    if (bootEl) { bootEl.textContent = ''; bootEl.style.display = 'none'; }
     showMainContent();
 
     // 시드 데이터 확인 (가입 시 사용자 선택을 반영)
@@ -337,6 +339,8 @@ async function onVaultUnlocked(dek) {
 
 function onVaultLocked() {
     hideMainContent();
+    const bootEl = document.getElementById('boot-status');
+    if (bootEl) bootEl.style.display = '';
     setBootStatus('🔒 잠시 잠겨있어요', 'wait');
 }
 
@@ -397,6 +401,28 @@ function setupNavigation() {
         target.classList.toggle('collapsed', willCollapse);
         toggle.textContent = willCollapse ? '펼치기' : '접기';
     });
+
+    // 오늘 뷰 전체 접기/펼치기
+    const collapseAllBtn = document.getElementById('today-collapse-all-btn');
+    if (collapseAllBtn) {
+        collapseAllBtn.addEventListener('click', () => {
+            const willCollapse = collapseAllBtn.dataset.state !== 'collapsed';
+            // 오늘 뷰 안의 모든 카드 본문 + 각 토글 버튼 라벨을 일괄 토글
+            const view = document.getElementById('view-today');
+            if (!view) return;
+            view.querySelectorAll('.collapsible-body').forEach(el => {
+                el.classList.toggle('collapsed', willCollapse);
+            });
+            view.querySelectorAll('.collapsible-toggle').forEach(btn => {
+                btn.textContent = willCollapse ? '펼치기' : '접기';
+            });
+            collapseAllBtn.dataset.state = willCollapse ? 'collapsed' : 'expanded';
+            collapseAllBtn.innerHTML = willCollapse
+                ? '<i data-lucide="chevrons-up-down" class="btn-icon"></i> 전체 펼치기'
+                : '<i data-lucide="chevrons-up-down" class="btn-icon"></i> 전체 접기';
+            if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+        });
+    }
 }
 
 /**
@@ -452,6 +478,17 @@ function switchView(viewId) {
         renderPersonsView(currentUserId);
     } else if (viewId === 'organizations') {
         renderOrganizationsView(currentUserId);
+    }
+
+    // 뷰 전환 직후엔 항상 새 뷰의 최상단에서 시작 (main-content + window 둘 다).
+    const main = document.getElementById('main-content');
+    if (main) main.scrollTop = 0;
+    if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+
+    // '오늘' 뷰는 시간표가 항상 '지금 시간' 근처를 보여주도록 자동 스크롤.
+    // utl-body가 화면에 그려진 직후에 호출돼야 scrollTop이 먹힘 → 다음 프레임에 실행.
+    if (viewId === 'today') {
+        requestAnimationFrame(() => scrollTimelineToNow());
     }
 
     // 모바일 사이드바 닫기

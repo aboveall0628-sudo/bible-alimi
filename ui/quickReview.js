@@ -199,12 +199,12 @@ function renderModal() {
                 <!-- v3: 인물 칩 — 이름/별명 즉석 추가 + 칩별 만족도(5도트) -->
                 <div class="qr-link-field">
                     <label><i class="label-icon" data-lucide="users"></i> 함께한 사람</label>
-                    <div class="qr-link-add-row">
+                    <div class="qr-link-add-row qr-ac-wrap">
                         <input type="text" id="qr-person-input" class="qr-text-input"
-                               list="qr-person-datalist"
+                               autocomplete="off"
                                placeholder="이름 또는 별명 (예: 박서연, 큰형)" />
-                        <datalist id="qr-person-datalist"></datalist>
                         <button id="qr-person-add" class="text-btn">+ 추가</button>
+                        <div id="qr-person-ac" class="qr-ac-panel hidden" role="listbox" aria-label="인물 후보"></div>
                     </div>
                     <div id="qr-person-chips" class="qr-chip-row"></div>
                     <div class="qr-link-hint">없는 이름이면 카드를 자동으로 만들어 드려요. 칩 안 도트를 눌러 1~5점 만족도 평가도 함께 적을 수 있어요.</div>
@@ -213,12 +213,12 @@ function renderModal() {
                 <!-- v3: 조직 칩 -->
                 <div class="qr-link-field">
                     <label><i class="label-icon" data-lucide="building-2"></i> 관련된 조직</label>
-                    <div class="qr-link-add-row">
+                    <div class="qr-link-add-row qr-ac-wrap">
                         <input type="text" id="qr-org-input" class="qr-text-input"
-                               list="qr-org-datalist"
+                               autocomplete="off"
                                placeholder="조직 이름 (없으면 자동으로 카드 만들어요)" />
-                        <datalist id="qr-org-datalist"></datalist>
                         <button id="qr-org-add" class="text-btn">+ 추가</button>
+                        <div id="qr-org-ac" class="qr-ac-panel hidden" role="listbox" aria-label="조직 후보"></div>
                     </div>
                     <div id="qr-org-chips" class="qr-chip-row"></div>
                 </div>
@@ -291,6 +291,48 @@ function bindEvents() {
     document.addEventListener('keydown', (e) => {
         if (e.target.id === 'qr-person-input' && e.key === 'Enter') { e.preventDefault(); addPersonFromInput(); }
         if (e.target.id === 'qr-org-input'    && e.key === 'Enter') { e.preventDefault(); addOrgFromInput(); }
+        if ((e.target.id === 'qr-person-input' || e.target.id === 'qr-org-input') && e.key === 'Escape') {
+            hideAutocompletePanels();
+        }
+    });
+
+    // 자동완성 — 입력값이 변할 때만 패널 갱신/표시. 빈 값이면 자동 hide.
+    document.addEventListener('input', (e) => {
+        if (e.target.id === 'qr-person-input') refreshPersonAutocomplete();
+        if (e.target.id === 'qr-org-input')    refreshOrgAutocomplete();
+    });
+
+    // 자동완성 항목 선택 — 즉시 칩으로 추가
+    document.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.qr-ac-item');
+        if (!item) return;
+        e.preventDefault(); // input blur 방지 → addPerson/Org의 input.value 클리어가 그대로 동작
+        const pid = item.dataset.personId;
+        const oid = item.dataset.orgId;
+        if (pid) {
+            const p = _personsCache.find(x => x.id === pid);
+            if (p) {
+                _selectedPersonIds.push(p.id);
+                const input = document.getElementById('qr-person-input');
+                if (input) input.value = '';
+                renderLinkChips();
+                refreshLinkDatalists();
+            }
+        } else if (oid) {
+            const o = _orgsCache.find(x => x.id === oid);
+            if (o) {
+                _selectedOrgIds.push(o.id);
+                const input = document.getElementById('qr-org-input');
+                if (input) input.value = '';
+                renderLinkChips();
+                refreshLinkDatalists();
+            }
+        }
+    });
+
+    // 패널 바깥 클릭 시 자동완성 닫기
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.qr-ac-wrap')) hideAutocompletePanels();
     });
     // 칩 ✕ 제거 (이벤트 위임) — 만족도 점수도 같이 비움
     document.addEventListener('click', (e) => {
@@ -357,8 +399,11 @@ function bindEvents() {
 // ═══════════════════════════════════════════════════════════════════════
 
 function renderLinkChips() {
-    renderChipRow('qr-person-chips', _selectedPersonIds, _personsCache, 'personId', '👥', _personRatings, 'person');
-    renderChipRow('qr-org-chips',    _selectedOrgIds,    _orgsCache,    'orgId',    '🏢', _orgRatings,    'org');
+    // dataset 카멜케이스(dataset.personId) ↔ HTML data-* 속성 매핑은
+    // dash-case(data-person-id)를 거쳐야만 한다. 'personId' 같은 카멜케이스를
+    // 그대로 속성명에 쓰면 브라우저가 lowercase로 normalize해 dataset 접근이 실패함.
+    renderChipRow('qr-person-chips', _selectedPersonIds, _personsCache, 'person-id', '👥', _personRatings, 'person');
+    renderChipRow('qr-org-chips',    _selectedOrgIds,    _orgsCache,    'org-id',    '🏢', _orgRatings,    'org');
 }
 
 function renderChipRow(rootId, ids, cache, datasetKey, fallbackIcon, ratings, target) {
@@ -385,21 +430,66 @@ function renderChipRow(rootId, ids, cache, datasetKey, fallbackIcon, ratings, ta
     }).join('');
 }
 
+/**
+ * 자동완성 패널 — 입력값이 비어 있으면 닫고, 있으면 인물·조직 캐시에서
+ * 이름/별명 부분일치 후보를 최대 8개 표시. 표기는 "이름 (별명1, 별명2)".
+ */
 function refreshLinkDatalists() {
-    const personDl = document.getElementById('qr-person-datalist');
-    if (personDl) {
-        personDl.innerHTML = _personsCache
-            .filter(p => !p.isFallback && !_selectedPersonIds.includes(p.id))
-            .map(p => `<option value="${escapeAttr(p.name || '')}"></option>`)
-            .join('');
-    }
-    const orgDl = document.getElementById('qr-org-datalist');
-    if (orgDl) {
-        orgDl.innerHTML = _orgsCache
-            .filter(o => !_selectedOrgIds.includes(o.id))
-            .map(o => `<option value="${escapeAttr(o.name || '')}"></option>`)
-            .join('');
-    }
+    refreshPersonAutocomplete();
+    refreshOrgAutocomplete();
+}
+
+function refreshPersonAutocomplete() {
+    const input = document.getElementById('qr-person-input');
+    const panel = document.getElementById('qr-person-ac');
+    if (!input || !panel) return;
+    const q = (input.value || '').trim().toLowerCase();
+    if (!q) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+
+    const candidates = _personsCache
+        .filter(p => !p.isFallback && !_selectedPersonIds.includes(p.id))
+        .filter(p => {
+            const name = (p.name || '').toLowerCase();
+            if (name.includes(q)) return true;
+            return Array.isArray(p.nicknames) && p.nicknames.some(n => (n || '').toLowerCase().includes(q));
+        })
+        .slice(0, 8);
+
+    if (candidates.length === 0) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+
+    panel.innerHTML = candidates.map(p => {
+        const nicks = Array.isArray(p.nicknames) ? p.nicknames.filter(Boolean) : [];
+        const label = nicks.length
+            ? `${escapeHtml(p.name || '')} <span class="qr-ac-sub">(${escapeHtml(nicks.join(', '))})</span>`
+            : `${escapeHtml(p.name || '')}`;
+        return `<button type="button" class="qr-ac-item" data-person-id="${escapeAttr(p.id)}" role="option">${label}</button>`;
+    }).join('');
+    panel.classList.remove('hidden');
+}
+
+function refreshOrgAutocomplete() {
+    const input = document.getElementById('qr-org-input');
+    const panel = document.getElementById('qr-org-ac');
+    if (!input || !panel) return;
+    const q = (input.value || '').trim().toLowerCase();
+    if (!q) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+
+    const candidates = _orgsCache
+        .filter(o => !_selectedOrgIds.includes(o.id))
+        .filter(o => (o.name || '').toLowerCase().includes(q))
+        .slice(0, 8);
+
+    if (candidates.length === 0) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+
+    panel.innerHTML = candidates.map(o =>
+        `<button type="button" class="qr-ac-item" data-org-id="${escapeAttr(o.id)}" role="option">${escapeHtml(o.name || '')}</button>`
+    ).join('');
+    panel.classList.remove('hidden');
+}
+
+function hideAutocompletePanels() {
+    document.getElementById('qr-person-ac')?.classList.add('hidden');
+    document.getElementById('qr-org-ac')?.classList.add('hidden');
 }
 
 async function addPersonFromInput() {

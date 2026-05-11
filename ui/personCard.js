@@ -433,9 +433,6 @@ function bindModalEvents() {
     bindLayer3Events(root);
     bindLayer4Events(root);
 
-    root.querySelector('#person-meaningful-verse')?.addEventListener('input', (e) => {
-        _editingDraft.meaningfulVerse = e.target.value;
-    });
     root.querySelector('#person-notes')?.addEventListener('input', (e) => {
         _editingDraft.notes = e.target.value;
     });
@@ -931,17 +928,11 @@ function bindBelongsEvents(root) {
     });
 }
 
-// ─── 의미 있는 말씀 + 메모 ───
+// ─── 메모 ───
 function layerVerseHtml(p) {
     return `
         <section class="person-layer">
-            <h4 class="person-layer-title">이 사람을 위한 말씀 / 메모</h4>
-            <div class="person-row">
-                <label>의미 있는 말씀</label>
-                <input id="person-meaningful-verse" type="text"
-                       value="${escapeAttr(p.meaningfulVerse || '')}"
-                       placeholder="예: 잠언 17:17" />
-            </div>
+            <h4 class="person-layer-title">메모</h4>
             <div class="person-row">
                 <label>메모</label>
                 <textarea id="person-notes" rows="3"

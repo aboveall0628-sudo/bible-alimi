@@ -38,30 +38,46 @@ export async function getAllGoals(dek, userId) {
 /**
  * 오늘 화면용 daily 목표 조회 (period='daily'만).
  *
- * 모델:
- *   - 시작일/만료일과 무관하게 그 사용자의 모든 daily 목표 가져옴.
- *     이건 결단 흐름을 그대로 흡수한 것이라 단일 날짜에 종속되지 않음.
- *     (필요 시 startDate==today 필터를 추가하기 좋은 자리)
- *   - 정렬: timeSlot != null(박힌 것) 먼저, 그 다음 order, 그 다음 createdAt.
+ * date(YYYY-MM-DD)가 주어지면 그 날짜에 속한 daily 목표만 반환한다.
+ * 날짜 판정 우선순위: goal.startDate → goal.date → goal.createdAt(YYYY-MM-DD 변환).
+ * 셋 다 없으면(레거시 데이터) 그 날짜에 포함시켜 사라지지 않게 함.
+ * date를 생략하면(undefined) 과거 호환을 위해 모든 daily 목표를 반환.
+ *
+ * 정렬: timeSlot != null(박힌 것) 먼저, 그 다음 order, 그 다음 createdAt.
  */
-export async function getDailyGoals(dek, userId) {
+export async function getDailyGoals(dek, userId, date) {
     const q = query(
         collection(db, 'goals'),
         where('userId', '==', userId),
         where('period', '==', 'daily')
     );
     const goals = await queryRecords(dek, q);
-    return goals.sort((a, b) => {
-        // 박힌 목표를 먼저
+    const filtered = date ? goals.filter(g => goalBelongsToDate(g, date)) : goals;
+    return filtered.sort((a, b) => {
         const aPlaced = a.timeSlot != null ? 1 : 0;
         const bPlaced = b.timeSlot != null ? 1 : 0;
         if (aPlaced !== bPlaced) return bPlaced - aPlaced;
-        // 그 다음 order, 마지막으로 createdAt
         const ao = a.order ?? 0;
         const bo = b.order ?? 0;
         if (ao !== bo) return ao - bo;
         return 0;
     });
+}
+
+function toLocalISO(ms) {
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function goalBelongsToDate(goal, date) {
+    if (goal.startDate) return goal.startDate === date;
+    if (goal.date) return goal.date === date;
+    if (goal.createdAt) return toLocalISO(goal.createdAt) === date;
+    // 레거시: 어느 날짜에도 속하지 않은 목표는 일단 오늘 화면에서 보이게 둠
+    return true;
 }
 
 /**
