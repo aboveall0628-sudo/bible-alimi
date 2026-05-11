@@ -163,8 +163,13 @@ function bindPanelEvents(panel) {
                 principle.category = catSelect.value;
                 principle.pinned = pinBtn.classList.contains('active');
                 principle.active = true;
-                try { await savePrinciple(dek, principle); }
-                catch (e) { console.error('principle save failed:', e); }
+                // 자동 저장이라 성공 토스트는 시끄러움 — 실패 토스트만.
+                try {
+                    await savePrinciple(dek, principle);
+                } catch (e) {
+                    console.error('principle save failed:', e);
+                    showToast('원칙 저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
+                }
             };
             if (immediate) fn();
             else saveTimer = setTimeout(fn, 1000);
