@@ -21,6 +21,8 @@
 
 import { savePerson, getAllPersons, deletePerson, changeStance } from '../data/personRepo.js';
 import { getAllOrganizations } from '../data/orgRepo.js';
+import { getAllDots } from '../data/dotsRepo.js';
+import { computeAllPersonStats, formatMinutes, formatTrend, slotToTimeStr, ratingDotsHtml } from '../data/cardStats.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
 import { openStanceGate } from './stanceGate.js';
@@ -85,6 +87,7 @@ const SLIDER_LEVELS = [0, 25, 50, 75, 100];
 let _userId = null;
 let _persons = [];
 let _orgsCache = [];       // 소속 조직 표시용
+let _statsMap = new Map(); // personId → 도트 누적 통계 ("함께한 흔적")
 let _activeFilter = 'all';
 let _searchQuery = '';
 let _editingId = null;     // 모달에 열린 person.id (null이면 새 카드)
@@ -123,18 +126,22 @@ export async function renderPersonsView(userId) {
 
 async function loadPersons() {
     const dek = getDEK();
-    if (!dek) { _persons = []; _orgsCache = []; return; }
+    if (!dek) { _persons = []; _orgsCache = []; _statsMap = new Map(); return; }
     try {
-        const [persons, orgs] = await Promise.all([
+        // 카드 + 조직 + 도트 통계를 한 번에. 도트가 실패해도 카드는 살아남도록.
+        const [persons, orgs, dots] = await Promise.all([
             getAllPersons(dek, _userId),
             getAllOrganizations(dek, _userId).catch(() => []),
+            getAllDots(dek, _userId).catch(e => { console.warn('dots load for stats failed:', e); return []; }),
         ]);
         _persons = persons;
         _orgsCache = orgs;
+        _statsMap = computeAllPersonStats(dots);
     } catch (e) {
         console.error('persons load failed:', e);
         _persons = [];
         _orgsCache = [];
+        _statsMap = new Map();
         showToast('인물 카드를 불러오는 중에 잠깐 막혔어요. 다시 한 번 들어와 주실래요?');
     }
 }
@@ -245,6 +252,7 @@ function personCardHtml(p) {
     const relation = relationLabel(p.relation);
     const initial = (p.name || '?').slice(0, 1);
     const big5 = p.bigFive || {};
+    const stats = _statsMap.get(p.id);
     return `
         <div class="person-card ${p.isFallback ? 'is-fallback' : ''}" data-person-id="${p.id}">
             <div class="person-card-head">
@@ -263,7 +271,25 @@ function personCardHtml(p) {
             <div class="person-card-mini">
                 ${miniBigFiveBars(big5)}
             </div>
+            ${miniStatsHtml(stats)}
             ${p.isFallback ? '<div class="person-fallback-tag">기본 카드</div>' : ''}
+        </div>
+    `;
+}
+
+/**
+ * 그리드 카드 하단 미니 통계 한 줄.
+ * 누적 도트가 없으면 (meetingCount===0) 표시 X — 초기 상태가 깔끔.
+ */
+function miniStatsHtml(stats) {
+    if (!stats || stats.meetingCount === 0) return '';
+    const dots = stats.avgRating != null ? ratingDotsHtml(stats.avgRating) : '<span class="rating-dots-empty">아직 평가 없음</span>';
+    return `
+        <div class="card-mini-stats">
+            ${dots}
+            <span class="card-mini-stat">${stats.meetingCount}번</span>
+            <span class="card-mini-sep">·</span>
+            <span class="card-mini-stat">${formatMinutes(stats.totalMinutes)}</span>
         </div>
     `;
 }
@@ -364,6 +390,7 @@ function renderModal() {
                     </aside>
                     <div class="person-detail-right">
                         ${layer1Html(p, isFallback)}
+                        ${footprintHtml(p)}
                         ${layer2Html(p)}
                         ${layer3Html(p)}
                         ${layer4Html(p)}
@@ -515,6 +542,78 @@ function bindLayer1Events(root) {
     });
     root.querySelector('#p-relation')?.addEventListener('change', e => { _editingDraft.relation = e.target.value; });
     root.querySelector('#p-inner')?.addEventListener('change', e => { _editingDraft.innerCircle = e.target.checked; });
+}
+
+// ─── 함께한 흔적 (도트 통계) — "내가 본 사람" 옆에 두 면 나란히 ───
+// 정책: 자동 조정 금지. 통계는 표시만, 슬라이더 조정은 사용자가 직접.
+// memory/project_person_card_policy.md 참조.
+function footprintHtml(p) {
+    const stats = _editingId ? _statsMap.get(_editingId) : null;
+    if (!stats || stats.meetingCount === 0) {
+        return `
+            <section class="person-layer">
+                <h4 class="person-layer-title">함께한 흔적</h4>
+                <p class="person-layer-hint">
+                    아직 함께한 도트가 없어요. 시간표에서 이 사람과의 시간을 기록하면 여기에 누적돼요.
+                </p>
+            </section>
+        `;
+    }
+    const avg = stats.avgRating;
+    const trendArrow = formatTrend(stats.trend);
+    const trendNote = (stats.recent4wAvg != null && stats.prev4wAvg != null)
+        ? `최근 4주 ${stats.recent4wAvg.toFixed(1)} / 이전 4주 ${stats.prev4wAvg.toFixed(1)} ${trendArrow}`
+        : (stats.recent4wAvg != null
+            ? `최근 4주 평균 ${stats.recent4wAvg.toFixed(1)}`
+            : '아직 추세 비교에 충분한 만남이 누적되지 않았어요');
+
+    const recentList = stats.recentDots.map(d => {
+        const dots = d.rating > 0 ? ratingDotsHtml(d.rating) : '<span class="rating-dots-empty">미평가</span>';
+        const task = d.actualTask ? escapeHtml(d.actualTask) : '<span class="footprint-empty">(이름 없는 시간)</span>';
+        return `
+            <li class="footprint-recent-item">
+                <span class="footprint-recent-when">${escapeHtml(d.date || '')} ${slotToTimeStr(d.timeSlot)}</span>
+                <span class="footprint-recent-task">${task}</span>
+                <span class="footprint-recent-rating">${dots}</span>
+            </li>
+        `;
+    }).join('');
+
+    return `
+        <section class="person-layer footprint-section">
+            <h4 class="person-layer-title">함께한 흔적</h4>
+            <p class="person-layer-hint">
+                도트가 만들어낸 누적이에요. 내가 본 점수와 함께한 흔적이 다르다면, 그 차이가 묵상의 재료예요.
+            </p>
+            <div class="footprint-grid">
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">만남</div>
+                    <div class="footprint-cell-value">${stats.meetingCount}<small>번</small></div>
+                </div>
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">평균 만족도</div>
+                    <div class="footprint-cell-value">
+                        ${avg != null ? ratingDotsHtml(avg) : '<span class="footprint-empty">미평가</span>'}
+                        ${avg != null ? `<small>${avg.toFixed(1)}</small>` : ''}
+                    </div>
+                </div>
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">함께한 시간</div>
+                    <div class="footprint-cell-value">${formatMinutes(stats.totalMinutes)}</div>
+                </div>
+                <div class="footprint-cell footprint-trend">
+                    <div class="footprint-cell-label">추세</div>
+                    <div class="footprint-cell-value footprint-trend-note">${escapeHtml(trendNote)}</div>
+                </div>
+            </div>
+            ${stats.recentDots.length > 0 ? `
+                <div class="footprint-recent">
+                    <div class="footprint-recent-title">최근 만남</div>
+                    <ul class="footprint-recent-list">${recentList}</ul>
+                </div>
+            ` : ''}
+        </section>
+    `;
 }
 
 // ─── Layer 2 Big Five ───

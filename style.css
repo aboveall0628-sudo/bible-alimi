@@ -1544,6 +1544,127 @@ button .btn-icon { vertical-align: text-bottom; }
     padding: 2px 8px; border-radius: 999px; font-size: 10px;
 }
 
+/* ═══ 함께한 흔적 — 인물/조직 공용 ═══
+   카드 그리드의 미니 통계 한 줄 + 모달의 큰 통계 섹션.
+   메모리: project_person_card_policy.md — 자동 조정 X, 두 면 나란히. */
+
+/* (1) 그리드 카드 하단 미니 통계 — "●●●○○ 12번 · 8h45m" */
+.card-mini-stats {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    font-size: 11px; color: var(--text-secondary);
+}
+.card-mini-stat { font-weight: 500; color: var(--text-primary); }
+.card-mini-sep { opacity: 0.5; }
+
+/* (2) 공용 5도트 인디케이터 — 카드/모달 어디서나 .rating-dots 로 노출 */
+.rating-dots {
+    display: inline-flex; gap: 2px; align-items: center;
+}
+.rating-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.rating-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.rating-dots-empty {
+    font-size: 10px; color: var(--text-secondary); font-style: italic;
+}
+
+/* (3) 모달의 함께한 흔적 섹션 */
+.footprint-section .person-layer-hint,
+.footprint-section .org-layer-hint {
+    font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;
+}
+.footprint-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+}
+@media (min-width: 768px) {
+    .footprint-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.footprint-cell {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.footprint-cell-label {
+    font-size: 10px; color: var(--text-secondary);
+    font-weight: 600; letter-spacing: 0.02em;
+}
+.footprint-cell-value {
+    font-size: 18px; font-weight: 600; color: var(--text-primary);
+    display: flex; align-items: center; gap: 6px;
+}
+.footprint-cell-value small {
+    font-size: 11px; color: var(--text-secondary); font-weight: 400;
+}
+.footprint-cell.footprint-trend {
+    grid-column: span 2;
+}
+@media (min-width: 768px) {
+    .footprint-cell.footprint-trend { grid-column: span 1; }
+}
+.footprint-trend-note {
+    font-size: 12px; font-weight: 500; color: var(--text-primary);
+    line-height: 1.4;
+}
+.footprint-empty {
+    font-size: 12px; color: var(--text-secondary); font-style: italic;
+}
+
+/* 최근 만남 3개 리스트 */
+.footprint-recent {
+    margin-top: var(--sp-3);
+}
+.footprint-recent-title {
+    font-size: 11px; color: var(--text-secondary);
+    font-weight: 600; margin-bottom: 6px; letter-spacing: 0.02em;
+}
+.footprint-recent-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.footprint-recent-item {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 8px; align-items: center;
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+}
+.footprint-recent-when {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+}
+.footprint-recent-task {
+    color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.footprint-recent-rating { flex-shrink: 0; }
+
+/* 모바일 — 최근 만남 한 칸에 세로로 */
+@media (max-width: 640px) {
+    .footprint-recent-item {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+    .footprint-recent-rating { justify-self: start; }
+}
+
 /* ── 모달 ── */
 .person-modal-overlay { z-index: 900; }
 .person-modal {

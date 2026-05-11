@@ -73,6 +73,26 @@ export async function deleteDot(id) {
 }
 
 /**
+ * 사용자의 모든 도트 조회 (인물/조직 카드 통계 집계용).
+ *
+ * linkedPersonIds / linkedOrgIds 가 encrypted 필드라 Firestore 쿼리로 직접
+ * 필터링할 수 없다 → 클라이언트가 전체를 받아 복호화 후 메모리 집계.
+ * 도트 수가 매우 많아지면 페이지네이션 보강이 필요할 수 있다.
+ */
+export async function getAllDots(dek, userId) {
+    const q = query(
+        collection(db, 'dots'),
+        where('userId', '==', userId)
+    );
+    const dots = await queryRecords(dek, q);
+    return dots.sort((a, b) => {
+        const dc = (a.date || '').localeCompare(b.date || '');
+        if (dc) return dc;
+        return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
+    });
+}
+
+/**
  * 도트 통계 계산 (리포트용, 복호화 불필요 — 메타 필드만)
  */
 export function computeDotStats(dots) {

@@ -28,6 +28,8 @@ import {
     changeOrgStance,
 } from '../data/orgRepo.js';
 import { getAllPersons } from '../data/personRepo.js';
+import { getAllDots } from '../data/dotsRepo.js';
+import { computeAllOrgStats, formatMinutes, formatTrend, slotToTimeStr, ratingDotsHtml } from '../data/cardStats.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
 import { openStanceGate } from './stanceGate.js';
@@ -67,6 +69,7 @@ const RISK_OPTIONS = [
 let _userId = null;
 let _orgs = [];
 let _personsCache = [];      // 멤버 자동완성용
+let _statsMap = new Map();   // orgId → 도트 누적 통계 ("함께한 흔적")
 let _activeFilter = 'all';
 let _searchQuery = '';
 let _editingId = null;
@@ -105,18 +108,21 @@ export async function renderOrganizationsView(userId) {
 
 async function loadAll() {
     const dek = getDEK();
-    if (!dek) { _orgs = []; _personsCache = []; return; }
+    if (!dek) { _orgs = []; _personsCache = []; _statsMap = new Map(); return; }
     try {
-        const [orgs, persons] = await Promise.all([
+        const [orgs, persons, dots] = await Promise.all([
             getAllOrganizations(dek, _userId),
             getAllPersons(dek, _userId),
+            getAllDots(dek, _userId).catch(e => { console.warn('dots load for stats failed:', e); return []; }),
         ]);
         _orgs = orgs;
         _personsCache = persons.filter(p => !p.isFallback);
+        _statsMap = computeAllOrgStats(dots);
     } catch (e) {
         console.error('orgs load failed:', e);
         _orgs = [];
         _personsCache = [];
+        _statsMap = new Map();
         showToast('조직 카드를 불러오는 중에 잠깐 막혔어요. 다시 한 번 들어와 주실래요?');
     }
 }
@@ -219,6 +225,7 @@ function orgCardHtml(o) {
     const stance = STANCE_META[o.stance || 'neutral'];
     const typeMeta = typeOf(o.type);
     const memberCount = (o.memberPersonIds || []).length;
+    const stats = _statsMap.get(o.id);
     return `
         <div class="org-card" data-org-id="${o.id}">
             <div class="org-card-head">
@@ -237,6 +244,21 @@ function orgCardHtml(o) {
             <div class="org-card-mini">
                 ${miniIndicatorBars(o)}
             </div>
+            ${miniStatsHtml(stats)}
+        </div>
+    `;
+}
+
+/** 그리드 카드 하단 미니 통계 한 줄. 누적 0이면 표시 X. */
+function miniStatsHtml(stats) {
+    if (!stats || stats.meetingCount === 0) return '';
+    const dots = stats.avgRating != null ? ratingDotsHtml(stats.avgRating) : '<span class="rating-dots-empty">아직 평가 없음</span>';
+    return `
+        <div class="card-mini-stats">
+            ${dots}
+            <span class="card-mini-stat">${stats.meetingCount}번</span>
+            <span class="card-mini-sep">·</span>
+            <span class="card-mini-stat">${formatMinutes(stats.totalMinutes)}</span>
         </div>
     `;
 }
@@ -290,6 +312,77 @@ function typeOf(t) {
     const found = TYPE_OPTIONS.find(([v]) => v === t);
     if (found) return { value: found[0], label: found[1], icon: found[2] };
     return { value: 'other', label: '기타', icon: '📦' };
+}
+
+// ─── 함께한 흔적 (도트 통계) — 인물 카드와 같은 정책 ───
+// 자동 조정 금지. 통계는 표시만, 슬라이더 조정은 사용자가 직접.
+function footprintHtml(o) {
+    const stats = _editingId ? _statsMap.get(_editingId) : null;
+    if (!stats || stats.meetingCount === 0) {
+        return `
+            <section class="org-layer">
+                <h4 class="org-layer-title">함께한 흔적</h4>
+                <p class="org-layer-hint">
+                    아직 함께한 도트가 없어요. 시간표에서 이 조직과의 시간을 기록하면 여기에 누적돼요.
+                </p>
+            </section>
+        `;
+    }
+    const avg = stats.avgRating;
+    const trendArrow = formatTrend(stats.trend);
+    const trendNote = (stats.recent4wAvg != null && stats.prev4wAvg != null)
+        ? `최근 4주 ${stats.recent4wAvg.toFixed(1)} / 이전 4주 ${stats.prev4wAvg.toFixed(1)} ${trendArrow}`
+        : (stats.recent4wAvg != null
+            ? `최근 4주 평균 ${stats.recent4wAvg.toFixed(1)}`
+            : '아직 추세 비교에 충분한 만남이 누적되지 않았어요');
+
+    const recentList = stats.recentDots.map(d => {
+        const dots = d.rating > 0 ? ratingDotsHtml(d.rating) : '<span class="rating-dots-empty">미평가</span>';
+        const task = d.actualTask ? escapeHtml(d.actualTask) : '<span class="footprint-empty">(이름 없는 시간)</span>';
+        return `
+            <li class="footprint-recent-item">
+                <span class="footprint-recent-when">${escapeHtml(d.date || '')} ${slotToTimeStr(d.timeSlot)}</span>
+                <span class="footprint-recent-task">${task}</span>
+                <span class="footprint-recent-rating">${dots}</span>
+            </li>
+        `;
+    }).join('');
+
+    return `
+        <section class="org-layer footprint-section">
+            <h4 class="org-layer-title">함께한 흔적</h4>
+            <p class="org-layer-hint">
+                도트가 만들어낸 누적이에요. 내가 본 지표와 함께한 흔적이 다르다면, 그 차이가 묵상의 재료예요.
+            </p>
+            <div class="footprint-grid">
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">만남</div>
+                    <div class="footprint-cell-value">${stats.meetingCount}<small>번</small></div>
+                </div>
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">평균 만족도</div>
+                    <div class="footprint-cell-value">
+                        ${avg != null ? ratingDotsHtml(avg) : '<span class="footprint-empty">미평가</span>'}
+                        ${avg != null ? `<small>${avg.toFixed(1)}</small>` : ''}
+                    </div>
+                </div>
+                <div class="footprint-cell">
+                    <div class="footprint-cell-label">함께한 시간</div>
+                    <div class="footprint-cell-value">${formatMinutes(stats.totalMinutes)}</div>
+                </div>
+                <div class="footprint-cell footprint-trend">
+                    <div class="footprint-cell-label">추세</div>
+                    <div class="footprint-cell-value footprint-trend-note">${escapeHtml(trendNote)}</div>
+                </div>
+            </div>
+            ${stats.recentDots.length > 0 ? `
+                <div class="footprint-recent">
+                    <div class="footprint-recent-title">최근 만남</div>
+                    <ul class="footprint-recent-list">${recentList}</ul>
+                </div>
+            ` : ''}
+        </section>
+    `;
 }
 
 function avatarColor(id) {
@@ -368,6 +461,7 @@ function renderModal() {
                     </aside>
                     <div class="org-detail-right">
                         ${layer1Html(o)}
+                        ${footprintHtml(o)}
                         ${layer2Html(o)}
                         ${layer3Html(o)}
                         ${layer4Html(o)}
