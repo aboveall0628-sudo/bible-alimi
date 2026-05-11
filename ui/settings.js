@@ -53,7 +53,7 @@ function injectExtraSections() {
     pwCard.id = 'settings-extra-injected';
     pwCard.className = 'card-section';
     pwCard.innerHTML = `
-        <h3 class="section-title">🔑 비밀번호 바꾸기</h3>
+        <h3 class="section-title"><i class="section-icon" data-lucide="key-round"></i> 비밀번호 바꾸기</h3>
         <p class="section-desc">기존 데이터는 그대로 둔 채로 안전하게 비밀번호만 바꿔요. 다시 로그인할 필요 없어요.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:360px;">
             <input id="pw-old" type="password" placeholder="지금 쓰는 비밀번호" autocomplete="current-password"

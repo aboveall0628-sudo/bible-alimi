@@ -107,7 +107,7 @@ export async function renderPersonsView(userId) {
 
     container.innerHTML = `
         <header class="page-header">
-            <h1>👥 인물</h1>
+            <h1><i class="page-icon" data-lucide="users"></i> 인물</h1>
             <p class="subtitle">하나님 앞에서 사람을 정직하게 보되, 라벨로 정죄하지 않습니다.</p>
         </header>
         <div id="persons-toolbar"></div>
@@ -118,6 +118,7 @@ export async function renderPersonsView(userId) {
     await loadPersons();
     renderToolbar();
     renderGrid();
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
 async function loadPersons() {
@@ -140,7 +141,7 @@ async function loadPersons() {
 
 function lockedTemplate() {
     return `
-        <header class="page-header"><h1>👥 인물</h1></header>
+        <header class="page-header"><h1><i class="page-icon" data-lucide="users"></i> 인물</h1></header>
         <div class="empty-state">
             <div class="empty-state-icon">🔒</div>
             <h3>잠시 잠겨있어요</h3>

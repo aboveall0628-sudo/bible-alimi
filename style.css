@@ -283,8 +283,26 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
     display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
     flex-wrap: wrap;
 }
-.page-header h1 { font-size: var(--fs-hero); font-weight: 700; letter-spacing: -0.01em; }
-.subtitle { color: var(--text-secondary); margin-top: var(--sp-2); }
+.page-header h1 {
+    font-size: var(--fs-hero); font-weight: 700; letter-spacing: -0.01em;
+    display: inline-flex; align-items: center; gap: var(--sp-3);
+}
+.page-header h1 .page-icon {
+    width: 26px; height: 26px; stroke-width: 1.75;
+    color: var(--brand-primary); flex-shrink: 0;
+}
+/* 섹션 카드 안의 헤더 아이콘 — 18×18, brand-primary, stroke 1.75 */
+.section-title .section-icon {
+    width: 18px; height: 18px; stroke-width: 1.75;
+    color: var(--brand-primary); flex-shrink: 0;
+}
+/* 버튼 안 인라인 아이콘 — 14×14, currentColor 따라감 */
+.btn-icon {
+    width: 14px; height: 14px; stroke-width: 1.75;
+    display: inline-block; vertical-align: -2px; margin-right: 2px;
+}
+button .btn-icon { vertical-align: text-bottom; }
+.subtitle { color: var(--ink-secondary); margin-top: var(--sp-2); }
 
 /* ── Pinned principle banner (always-on) ── */
 .pinned-banner {
@@ -296,17 +314,23 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
     font-size: var(--fs-small); color: var(--text-primary);
     margin-bottom: var(--sp-4);
 }
-.pinned-banner .pin-icon { font-size: 14px; }
+.pinned-banner .pin-icon {
+    width: 16px; height: 16px; stroke-width: 1.75;
+    color: var(--brand-primary); flex-shrink: 0;
+}
 
 /* ── Card section ── */
 .card-section {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--surface-card);
+    border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     padding: var(--sp-5);
     margin-bottom: var(--sp-4);
     box-shadow: var(--shadow-sm);
+    transition: transform var(--ease), box-shadow var(--ease);
 }
+/* 카드 호버 — 디자인 시스템 표준: 1px만 들어 올림. 컬러·스케일 변화 없음. */
+.card-section:hover { transform: translateY(-1px); }
 .section-title {
     font-size: var(--fs-modal); font-weight: 600;
     margin-bottom: var(--sp-3); color: var(--text-primary);
@@ -510,8 +534,10 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
 .utl-cell.hour-mark { border-top: 1px solid var(--border); }
 .utl-cell.half-mark { border-top: 1px dashed var(--border); }
 .utl-cell:hover { background: var(--hover); }
+/* 현재 시간 표시 — 디자인 시스템: 그라데이션 금지. 단색 보더로 표시. */
 .utl-cell.now-line {
-    background: linear-gradient(180deg, rgba(229, 101, 74, 0.12), transparent 60%);
+    background: rgba(229, 101, 74, 0.08);
+    border-top: 1px solid var(--dot-red);
 }
 .utl-cell.drop-target { background: var(--accent-soft); }
 .utl-actual-col .utl-cell:hover::after {
@@ -558,10 +584,12 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
 }
 .utl-slot .slot-time { font-size: 10px; color: var(--text-secondary); display: block; }
 .utl-slot .slot-title { font-weight: 500; color: var(--text-primary); display: block; }
+/* 슬롯 하단 리사이즈 핸들 — 그라데이션 대신 단순 단색 라인 + hover에서만 노출. */
 .utl-slot .slot-resize {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 8px;
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
     cursor: ns-resize;
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 25%, transparent));
+    background: var(--brand-soft);
+    border-top: 1px solid var(--brand-primary);
     opacity: 0; transition: opacity var(--ease);
 }
 .utl-slot:hover .slot-resize { opacity: 1; }
@@ -830,8 +858,12 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
     margin-bottom: var(--sp-2);
 }
 .el-section-icon {
-    font-size: 28px;
-    flex-shrink: 0;
+    width: 24px; height: 24px; stroke-width: 1.75;
+    color: var(--brand-primary); flex-shrink: 0;
+}
+.el-indicator-icon {
+    width: 14px; height: 14px; stroke-width: 1.75;
+    display: inline-block; vertical-align: -2px; margin-right: 4px;
 }
 .el-section-title {
     font-size: var(--fs-modal);

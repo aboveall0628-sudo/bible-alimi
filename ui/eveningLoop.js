@@ -21,19 +21,20 @@ import { showToast } from './quickReview.js';
 import { callLLM } from './aiClient.js';
 import { setCurrentDate } from './app.js';
 
+// icon 필드는 Lucide name (디자인 시스템: 본문·헤더 아이콘은 Lucide stroke으로 통일)
 const DAILY_STEPS = [
-    { id: 'fill',     title: '시간 정직하게 보기',  icon: '⏰', desc: '오늘 빈 시간에 무엇을 했는지 떠올려 봐요.' },
-    { id: 'evaluate', title: '도트 평가',         icon: '📊', desc: '각 시간을 한마디로 짧게 마음에 새겨요.' },
-    { id: 'report',   title: '오늘의 리포트',      icon: '📈', desc: '오늘 하루를 정리해 볼게요.' },
-    { id: 'reflect',  title: '회고 읽기',         icon: '🔍', desc: '내가 발견한 결을 천천히 살펴봐요.' },
+    { id: 'fill',     title: '시간 정직하게 보기',  icon: 'clock',         desc: '오늘 빈 시간에 무엇을 했는지 떠올려 봐요.' },
+    { id: 'evaluate', title: '도트 평가',          icon: 'bar-chart-3',   desc: '각 시간을 한마디로 짧게 마음에 새겨요.' },
+    { id: 'report',   title: '오늘의 리포트',       icon: 'trending-up',   desc: '오늘 하루를 정리해 볼게요.' },
+    { id: 'reflect',  title: '회고 읽기',          icon: 'search',        desc: '내가 발견한 결을 천천히 살펴봐요.' },
 ];
 
 const LAYER_CONFIGS = {
-    week:    { id: 'review-week',    title: '이번 주 회고',  icon: '📅', collection: 'weekReports' },
-    month:   { id: 'review-month',   title: '이번 달 회고',  icon: '🗓', collection: 'monthReports' },
-    quarter: { id: 'review-quarter', title: '이번 분기 회고', icon: '📊', collection: 'quarterReports' },
-    year:    { id: 'review-year',    title: '올해 회고',     icon: '🎯', collection: 'yearReports' },
-    decade:  { id: 'review-decade',  title: '5년·10년 점검', icon: '🌌', collection: 'yearReports' },
+    week:    { id: 'review-week',    title: '이번 주 회고',  icon: 'calendar',       collection: 'weekReports' },
+    month:   { id: 'review-month',   title: '이번 달 회고',  icon: 'calendar-days',  collection: 'monthReports' },
+    quarter: { id: 'review-quarter', title: '이번 분기 회고', icon: 'bar-chart-3',    collection: 'quarterReports' },
+    year:    { id: 'review-year',    title: '올해 회고',     icon: 'target',         collection: 'yearReports' },
+    decade:  { id: 'review-decade',  title: '5년·10년 점검', icon: 'sparkles',       collection: 'yearReports' },
 };
 
 let _userId = null;
@@ -53,6 +54,7 @@ export function openEveningLoop(userId, dateStr) {
     container.classList.remove('hidden');
 
     renderEveningPage();
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
     _steps.forEach(s => loadSectionContent(s).catch(e => console.warn(`[eveningLoop] ${s.id} 로드 실패:`, e)));
 }
 
@@ -94,7 +96,7 @@ function renderEveningPage() {
     indicator.innerHTML = _steps.map((s, i) => `
         <a href="#el-${s.id}" class="el-indicator-dot ${s.bonus ? 'bonus' : ''}" data-step="${s.id}">
             <span class="el-indicator-num">${i + 1}</span>
-            <span class="el-indicator-title">${s.icon} ${s.title}</span>
+            <span class="el-indicator-title"><i data-lucide="${s.icon}" class="el-indicator-icon"></i> ${s.title}</span>
         </a>
     `).join('');
     indicator.classList.add('el-sticky-indicator');
@@ -102,7 +104,7 @@ function renderEveningPage() {
     body.innerHTML = _steps.map((s) => `
         <section class="el-section" id="el-${s.id}" data-step="${s.id}">
             <div class="el-section-header">
-                <span class="el-section-icon">${s.icon}</span>
+                <i class="el-section-icon" data-lucide="${s.icon}"></i>
                 <h2 class="el-section-title">${s.title}</h2>
                 ${s.bonus ? '<span class="el-section-bonus">특별 회고</span>' : ''}
             </div>
@@ -114,7 +116,7 @@ function renderEveningPage() {
     `).join('') + `
         <section class="el-section el-section-finish">
             <div class="el-section-header">
-                <span class="el-section-icon">🌙</span>
+                <i class="el-section-icon" data-lucide="moon"></i>
                 <h2 class="el-section-title">수고하셨어요</h2>
             </div>
             <p class="el-section-desc">

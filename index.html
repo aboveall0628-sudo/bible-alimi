@@ -92,7 +92,7 @@
             <div id="view-today" class="view">
                 <!-- 핀 원칙 띠 (항상 노출) -->
                 <div id="pinned-principle-banner" class="pinned-banner hidden">
-                    <span class="pin-icon">📌</span>
+                    <i class="pin-icon" data-lucide="pin"></i>
                     <span id="pinned-principle-text"></span>
                 </div>
 
@@ -105,7 +105,7 @@
                 <!-- 말씀 -->
                 <section id="section-scripture" class="card-section">
                     <div class="section-header-flex">
-                        <h2 class="section-title">📖 오늘의 말씀</h2>
+                        <h2 class="section-title"><i class="section-icon" data-lucide="book-open"></i> 오늘의 말씀</h2>
                         <button class="collapsible-toggle" data-target="meditation-content">접기</button>
                     </div>
                     <div id="meditation-content" class="meditation-box"></div>
@@ -114,15 +114,15 @@
                 <!-- 묵상 노트 -->
                 <section id="section-meditation" class="card-section">
                     <div class="section-header-flex">
-                        <h2 class="section-title">✏️ 묵상 노트</h2>
-                        <span id="meditation-save-status" style="font-size:11px;color:var(--text-secondary)"></span>
+                        <h2 class="section-title"><i class="section-icon" data-lucide="pen-line"></i> 묵상 노트</h2>
+                        <span id="meditation-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
                     </div>
                     <div id="meditation-note" class="note-editor" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
                 </section>
 
                 <!-- 오늘의 결단 (동적) -->
                 <section id="section-decisions" class="card-section">
-                    <h2 class="section-title">🙏 오늘의 결단</h2>
+                    <h2 class="section-title"><i class="section-icon" data-lucide="hand"></i> 오늘의 결단</h2>
                     <p class="section-desc">오늘 어디에 순종할까요? ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
                     <div id="decisions-list" class="decisions-list"></div>
                     <button id="decision-add-btn" class="decision-add-btn">+ 새 결단 적기</button>
@@ -131,11 +131,11 @@
                 <!-- 통합 타임라인 -->
                 <section id="section-timeline" class="card-section">
                     <div class="section-header-flex">
-                        <h2 class="section-title">⏰ 오늘의 시간표</h2>
+                        <h2 class="section-title"><i class="section-icon" data-lucide="clock"></i> 오늘의 시간표</h2>
                         <div class="timeline-toolbar">
                             <button id="auth-btn" class="text-btn">Google 연결</button>
-                            <button id="sync-btn" class="text-btn hidden">📅 일정 새로고침</button>
-                            <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기">📤 캘린더에 옮기기</button>
+                            <button id="sync-btn" class="text-btn hidden"><i data-lucide="refresh-cw" class="btn-icon"></i> 일정 새로고침</button>
+                            <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기"><i data-lucide="upload" class="btn-icon"></i> 캘린더에 옮기기</button>
                         </div>
                     </div>
                     <div id="unified-timeline" class="unified-timeline">
@@ -151,9 +151,9 @@
 
                 <!-- 오늘의 리포트 (자동 생성) -->
                 <section id="section-today-report" class="card-section">
-                    <h2 class="section-title">📈 오늘의 리포트</h2>
+                    <h2 class="section-title"><i class="section-icon" data-lucide="trending-up"></i> 오늘의 리포트</h2>
                     <div id="today-report-body" class="today-report-body">
-                        <p style="color:var(--text-secondary); font-size:13px">시간표에서 도트 평가를 채워가면, 오늘의 결이 여기에 자동으로 정리돼요.</p>
+                        <p style="color:var(--ink-secondary); font-size:13px">시간표에서 도트 평가를 채워가면, 오늘의 결이 여기에 자동으로 정리돼요.</p>
                     </div>
                 </section>
 
@@ -166,7 +166,7 @@
             <!-- ── 저녁 회고 뷰 ── -->
             <div id="view-evening" class="view hidden">
                 <header class="page-header">
-                    <h1>🌙 저녁 회고</h1>
+                    <h1><i class="page-icon" data-lucide="moon"></i> 저녁 회고</h1>
                     <p class="subtitle">오늘 하루를 정직하게 마주하고, 내일을 새 마음으로 시작해 봐요.</p>
                 </header>
                 <div id="evening-loop-container">
@@ -177,31 +177,31 @@
 
             <!-- ── 목표 뷰 ── -->
             <div id="view-goals" class="view hidden">
-                <header class="page-header"><h1>🎯 나의 목표</h1><p class="subtitle">오늘 → 이번 주 → 이번 달 → 분기 → 올해 → 5년 → 10년</p></header>
+                <header class="page-header"><h1><i class="page-icon" data-lucide="target"></i> 나의 목표</h1><p class="subtitle">오늘 → 이번 주 → 이번 달 → 분기 → 올해 → 5년 → 10년</p></header>
                 <div id="goals-container"></div>
             </div>
 
             <!-- ── 대시보드 뷰 ── -->
             <div id="view-dashboard" class="view hidden">
-                <header class="page-header"><h1>📊 대시보드</h1></header>
+                <header class="page-header"><h1><i class="page-icon" data-lucide="layout-dashboard"></i> 대시보드</h1></header>
                 <div id="dashboard-cards" class="dash-grid"></div>
             </div>
 
             <!-- ── 지난 묵상 뷰 ── -->
             <div id="view-past" class="view hidden">
-                <header class="page-header"><h1>📜 지난 묵상</h1></header>
+                <header class="page-header"><h1><i class="page-icon" data-lucide="scroll-text"></i> 지난 묵상</h1></header>
                 <div id="past-meditations-list" class="past-list"></div>
             </div>
 
             <!-- ── 원칙 뷰 ── -->
             <div id="view-principles" class="view hidden">
-                <header class="page-header"><h1>📖 나의 원칙</h1><p class="subtitle">나답게 살아가기 위한, 흔들리지 않는 약속</p></header>
+                <header class="page-header"><h1><i class="page-icon" data-lucide="book-open"></i> 나의 원칙</h1><p class="subtitle">나답게 살아가기 위한, 흔들리지 않는 약속</p></header>
                 <div id="principles-container"></div>
             </div>
 
             <!-- ── 리포트 뷰 ── -->
             <div id="view-reports" class="view hidden">
-                <header class="page-header"><h1>📈 리포트</h1></header>
+                <header class="page-header"><h1><i class="page-icon" data-lucide="trending-up"></i> 리포트</h1></header>
                 <div class="report-tabs">
                     <button class="tab-btn active" data-tab="day">📖 하루</button>
                     <button class="tab-btn" data-tab="week">📅 한 주</button>
@@ -221,32 +221,32 @@
             <!-- ── 설정 뷰 ── -->
             <div id="view-settings" class="view hidden">
                 <header class="page-header">
-                    <h1>⚙ 설정·보안</h1>
+                    <h1><i class="page-icon" data-lucide="settings"></i> 설정·보안</h1>
                     <p class="subtitle">계정 설정과 데이터를 안전하게 관리해요.</p>
                 </header>
                 <div id="settings-container">
-                    <div class="card-section" style="border-left: 3px solid var(--accent)">
+                    <div class="card-section" style="border-left: 3px solid var(--brand-primary)">
                         <div class="section-header-flex">
-                            <h3 class="section-title">📦 데이터 복구</h3>
+                            <h3 class="section-title"><i class="section-icon" data-lucide="package"></i> 데이터 복구</h3>
                         </div>
                         <p class="section-desc">
                             예전에 적은 묵상·도트·원칙·목표를 다시 가져올 수 있어요.<br>
                             [진단 시작]을 누르면 어떤 데이터가 어디에 있는지 알려드려요.
                         </p>
-                        <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--text-secondary);">
+                        <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--ink-secondary);">
                             <p>준비됐어요. [진단 시작]을 눌러볼까요?</p>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button id="btn-diagnose" class="primary-btn">진단 시작</button>
                             <button id="btn-migrate" class="primary-btn" style="background: var(--dot-orange);" disabled>데이터 옮기기</button>
-                            <button id="btn-backup" class="text-btn" disabled>📥 백업 파일로 받기</button>
+                            <button id="btn-backup" class="text-btn" disabled><i data-lucide="download" class="btn-icon"></i> 백업 파일로 받기</button>
                         </div>
                     </div>
 
                     <div class="card-section">
-                        <h3 class="section-title">🔐 내 데이터 백업</h3>
+                        <h3 class="section-title"><i class="section-icon" data-lucide="shield-check"></i> 내 데이터 백업</h3>
                         <p class="section-desc">내 모든 데이터를 안전하게 암호화한 파일로 받아둘 수 있어요. 브라우저를 벗어나기 전에 잠겨요.</p>
-                        <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);">📥 전체 데이터 받기</button>
+                        <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);"><i data-lucide="download" class="btn-icon"></i> 전체 데이터 받기</button>
                     </div>
                 </div>
             </div>

@@ -89,7 +89,7 @@ export async function renderOrganizationsView(userId) {
 
     container.innerHTML = `
         <header class="page-header">
-            <h1>🏢 조직</h1>
+            <h1><i class="page-icon" data-lucide="building-2"></i> 조직</h1>
             <p class="subtitle">조직도 사람의 모임이에요. 한 라벨로 가두지 않습니다.</p>
         </header>
         <div id="orgs-toolbar"></div>
@@ -100,6 +100,7 @@ export async function renderOrganizationsView(userId) {
     await loadAll();
     renderToolbar();
     renderGrid();
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
 async function loadAll() {
@@ -122,7 +123,7 @@ async function loadAll() {
 
 function lockedTemplate() {
     return `
-        <header class="page-header"><h1>🏢 조직</h1></header>
+        <header class="page-header"><h1><i class="page-icon" data-lucide="building-2"></i> 조직</h1></header>
         <div class="empty-state">
             <div class="empty-state-icon">🔒</div>
             <h3>잠시 잠겨있어요</h3>
