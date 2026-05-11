@@ -26,12 +26,20 @@ import { computeAllPersonStats, formatMinutes, formatTrend, slotToTimeStr, ratin
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
 import { openStanceGate } from './stanceGate.js';
+import { personDisplayHtml } from './personNameFormat.js';
 
 // 조직 type 메타 (소속 조직 칩 표시용)
 const ORG_TYPE_ICONS = {
     company: '🏢', church: '⛪', team: '👥',
     community: '🌐', family: '👨‍👩‍👧', other: '📦',
 };
+
+/**
+ * 인물 표시 이름 — 새 정책(2026-05-12)으로 위임.
+ * personNameFormat.personDisplayText: innerCircle이면 본명, 그 외에 별명이 있으면 "큰형 (별명)" 형식.
+ * 외부 import 호환을 위해 함수 시그니처는 유지.
+ */
+export { personDisplayText as displayPersonName } from './personNameFormat.js';
 
 // ─── 상수 ───
 const STANCE_META = {
@@ -258,7 +266,7 @@ function personCardHtml(p) {
             <div class="person-card-head">
                 <div class="person-avatar" style="background:${avatarColor(p.id)}">${escapeHtml(initial)}</div>
                 <div class="person-card-meta">
-                    <div class="person-card-name">${escapeHtml(p.name || '이름 없음')}</div>
+                    <div class="person-card-name">${personDisplayHtml(p, escapeHtml)}</div>
                     <div class="person-card-sub">
                         ${p.innerCircle ? '<span class="person-inner">내 사람</span>' : ''}
                         ${relation ? `<span class="person-relation">${relation}</span>` : ''}
@@ -774,6 +782,9 @@ function bindLayer2Events(root) {
                     if (stepsEl.classList.contains('disabled')) return;
                     const v = Number(btn.dataset.bfValue);
                     _editingDraft.bigFive[k] = v;
+                    // 새 정책: 사용자가 직접 정한 축은 lock → 도트 자동 갱신 차단
+                    _editingDraft.bigFiveLocked = _editingDraft.bigFiveLocked || {};
+                    _editingDraft.bigFiveLocked[k] = true;
                     stepsEl.querySelectorAll('.bf-step').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     if (unknownEl) unknownEl.checked = false;
@@ -873,6 +884,8 @@ function attachCompRowEvents(listEl) {
         slider?.addEventListener('input', () => {
             const v = Number(slider.value);
             _editingDraft.competencies[key] = v;
+            _editingDraft.competenciesLocked = _editingDraft.competenciesLocked || {};
+            _editingDraft.competenciesLocked[key] = true;
             valueEl.textContent = String(v);
             row.classList.remove('is-null');
         });
@@ -925,6 +938,8 @@ function bindLayer4Events(root) {
             btn.addEventListener('click', () => {
                 const v = Number(btn.dataset.relValue);
                 _editingDraft.relationship[key] = v;
+                _editingDraft.relationshipLocked = _editingDraft.relationshipLocked || {};
+                _editingDraft.relationshipLocked[key] = true;
                 row.querySelectorAll('.rel-star').forEach(s => {
                     const n = Number(s.dataset.relValue);
                     s.classList.toggle('active', n <= v);

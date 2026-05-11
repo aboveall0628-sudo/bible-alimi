@@ -13,10 +13,13 @@
  *    → callLLM('briefing', ...) 호출 전 가명화 (P_001/O_001/L_001)
  */
 
-import { saveDot } from '../data/dotsRepo.js';
+import { saveDot, getAllDots } from '../data/dotsRepo.js';
 import { getAllPersons, savePerson } from '../data/personRepo.js';
 import { getAllOrganizations, saveOrganization } from '../data/orgRepo.js';
 import { getDEK } from './lockScreen.js';
+import { personDisplayHtml } from './personNameFormat.js';
+import { computeAllPersonStats, computeAllOrgStats } from '../data/cardStats.js';
+import { applyDerivedToPerson, applyDerivedToOrg } from '../data/derivedScores.js';
 
 let _currentSlot = null;
 let _currentCells = [];
@@ -34,6 +37,9 @@ let _selectedOrgIds = [];
 // 도트별 인물/조직 만족도 — { [id]: 1-5 } (0이면 미평가)
 let _personRatings = {};
 let _orgRatings = {};
+// 이번 평가 세션 중 stub으로 새로 만든 인물·조직 id 추적 (26번 — 멤버 연결 묻기)
+let _newlyCreatedPersonIds = new Set();
+let _newlyCreatedOrgIds = new Set();
 let _cachedLoadedFor = null;  // userId — 다른 사용자로 바뀌면 다시 로드
 
 const STATUS_OPTIONS = [
@@ -412,17 +418,20 @@ function renderChipRow(rootId, ids, cache, datasetKey, fallbackIcon, ratings, ta
     if (!ids.length) { root.innerHTML = ''; return; }
     root.innerHTML = ids.map(id => {
         const card = cache.find(c => c.id === id);
-        const name = card?.name || '(이름 미상)';
         const rating = ratings[id] || 0;
         const ratingDots = [1, 2, 3, 4, 5].map(n => `
             <button class="qr-chip-rating-dot${n <= rating ? ' filled' : ''}"
                     type="button" data-rating="${n}"
                     aria-label="${n}점"></button>
         `).join('');
+        // 인물: 별명 표기 정책 적용. 조직: 그대로 이름 사용.
+        const displayHtml = target === 'person'
+            ? personDisplayHtml(card, escapeHtml)
+            : escapeHtml(card?.name || '(이름 미상)');
         return `
             <span class="qr-link-chip" data-${datasetKey}="${escapeAttr(id)}">
                 <span class="qr-link-chip-icon">${fallbackIcon}</span>
-                <span class="qr-link-chip-name">${escapeHtml(name)}</span>
+                <span class="qr-link-chip-name">${displayHtml}</span>
                 <span class="qr-chip-rating" data-target="${target}" data-id="${escapeAttr(id)}" title="만족도 1~5 (같은 점수 다시 누르면 해제)">${ratingDots}</span>
                 <button class="qr-chip-remove" type="button" aria-label="제거">✕</button>
             </span>
@@ -458,6 +467,8 @@ function refreshPersonAutocomplete() {
     if (candidates.length === 0) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
 
     panel.innerHTML = candidates.map(p => {
+        // 자동완성은 검색용이라 본명·별명을 함께 보여줘야 매칭이 직관적. 본문 표시 규칙은
+        // 칩에서만 적용 (innerCircle 아닌 사람은 별명 위주).
         const nicks = Array.isArray(p.nicknames) ? p.nicknames.filter(Boolean) : [];
         const label = nicks.length
             ? `${escapeHtml(p.name || '')} <span class="qr-ac-sub">(${escapeHtml(nicks.join(', '))})</span>`
@@ -526,6 +537,7 @@ async function addPersonFromInput() {
             await savePerson(dek, _currentUserId, stub);
             _personsCache.push(stub);
             matched = stub;
+            _newlyCreatedPersonIds.add(stub.id);
             showToast(`✓ "${name}" 카드를 만들었어요. [인물]에서 자세히 채워주세요.`);
         } catch (e) {
             console.error('inline person create failed:', e);
@@ -567,6 +579,7 @@ async function addOrgFromInput() {
             await saveOrganization(dek, _currentUserId, stub);
             _orgsCache.push(stub);
             matched = stub;
+            _newlyCreatedOrgIds.add(stub.id);
             showToast(`✓ "${name}" 조직 카드를 만들었어요. [조직]에서 자세히 채워주세요.`);
         } catch (e) {
             console.error('inline org create failed:', e);
@@ -682,6 +695,101 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
+/**
+ * 도트 저장 직전, 이번 세션에서 새로 만든 인물+조직이 모두 있으면
+ * 멤버 연결을 한 번 묻는 마이크로 모달. (26번)
+ */
+async function maybeAskLinkNewMembers() {
+    if (_newlyCreatedPersonIds.size === 0 || _newlyCreatedOrgIds.size === 0) return;
+    const newPersons = [..._newlyCreatedPersonIds]
+        .map(id => _personsCache.find(p => p.id === id))
+        .filter(Boolean);
+    const newOrgs = [..._newlyCreatedOrgIds]
+        .map(id => _orgsCache.find(o => o.id === id))
+        .filter(Boolean);
+    if (!newPersons.length || !newOrgs.length) return;
+
+    const personList = newPersons.map(p => p.name).join(', ');
+    const orgList = newOrgs.map(o => o.name).join(', ');
+    const yes = await askYesNo(
+        '새 사람을 새 조직 멤버로 연결할까요?',
+        `「${personList}」을(를) 「${orgList}」 멤버로 추가해 두면 다음에 만남이 일어날 때 자연히 떠올라요.`
+    );
+    if (!yes) return;
+
+    const dek = getDEK();
+    if (!dek) return;
+    for (const org of newOrgs) {
+        const ids = Array.isArray(org.memberPersonIds) ? org.memberPersonIds : [];
+        newPersons.forEach(p => { if (!ids.includes(p.id)) ids.push(p.id); });
+        org.memberPersonIds = ids;
+        try { await saveOrganization(dek, _currentUserId, org); }
+        catch (e) { console.warn('link new members failed:', e); }
+    }
+}
+
+/**
+ * 디자인 시스템 톤의 예/아니오 모달. native confirm 대체.
+ * @returns Promise<boolean>
+ */
+function askYesNo(title, body) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'qr-mini-confirm-overlay';
+        overlay.innerHTML = `
+            <div class="qr-mini-confirm-box" role="dialog" aria-modal="true">
+                <h4 class="qr-mini-confirm-title">${escapeHtml(title)}</h4>
+                <p class="qr-mini-confirm-body">${escapeHtml(body)}</p>
+                <div class="qr-mini-confirm-actions">
+                    <button type="button" class="text-btn" data-no>아니오</button>
+                    <button type="button" class="primary-btn" data-yes>예, 연결할게요</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.querySelector('[data-yes]')?.addEventListener('click', () => close(true));
+        overlay.querySelector('[data-no]')?.addEventListener('click', () => close(false));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    });
+}
+
+/**
+ * 도트 저장 직후 — 그 도트와 엮인 인물·조직의 unlocked 점수축을 derived 값으로 갱신.
+ * 누적 만족도 평균을 다시 계산하기 위해 사용자의 전체 도트를 한 번 로드한다.
+ * (도트는 일반적으로 그렇게 크지 않아 한 번의 풀 fetch는 허용 가능한 비용.)
+ */
+async function refreshDerivedScoresFor(dek, personIds, orgIds) {
+    const pIds = (personIds || []).filter(Boolean);
+    const oIds = (orgIds || []).filter(Boolean);
+    if (pIds.length === 0 && oIds.length === 0) return;
+
+    const dots = await getAllDots(dek, _currentUserId);
+    const personStats = computeAllPersonStats(dots);
+    const orgStats = computeAllOrgStats(dots);
+
+    // 인물 갱신
+    for (const pid of pIds) {
+        const p = _personsCache.find(x => x.id === pid);
+        if (!p) continue;
+        const changed = applyDerivedToPerson(p, personStats.get(pid) || null);
+        if (changed) {
+            try { await savePerson(dek, _currentUserId, p); }
+            catch (e) { console.warn('person derived save failed:', pid, e); }
+        }
+    }
+    // 조직 갱신
+    for (const oid of oIds) {
+        const o = _orgsCache.find(x => x.id === oid);
+        if (!o) continue;
+        const changed = applyDerivedToOrg(o, orgStats.get(oid) || null);
+        if (changed) {
+            try { await saveOrganization(dek, _currentUserId, o); }
+            catch (e) { console.warn('org derived save failed:', oid, e); }
+        }
+    }
+}
+
 async function handleSave() {
     const dek = getDEK();
     if (!dek) return;
@@ -701,6 +809,10 @@ async function handleSave() {
     const btn = document.getElementById('qr-save-btn');
     btn.textContent = '저장하는 중...';
     btn.disabled = true;
+
+    // 새 인물·새 조직이 한 번에 추가됐다면 멤버 연결 묻기 (26번).
+    // 저장 흐름을 막지 않도록 도트 저장 전에 한 번만 실행.
+    try { await maybeAskLinkNewMembers(); } catch (e) { console.warn(e); }
 
     try {
         const planned = document.getElementById('qr-planned-task').textContent;
@@ -730,6 +842,12 @@ async function handleSave() {
 
         await saveDot(dek, dotData);
 
+        // 새 정책(2026-05-12): 도트 저장 직후 그 도트와 엮인 인물·조직의 unlocked 점수축을
+        // 도트 누적 만족도 기준으로 자동 갱신. 실패해도 도트 저장 자체는 성공이므로 try/catch.
+        try {
+            await refreshDerivedScoresFor(dek, dotData.linkedPersonIds, dotData.linkedOrgIds);
+        } catch (e) { console.warn('derived score refresh failed:', e); }
+
         // 토스트
         showToast('🔐 안전하게 보관됐어요');
         closeModal();
@@ -743,6 +861,9 @@ async function handleSave() {
 }
 
 function closeModal() {
+    // 다음 평가 세션에서 묻기 새로 시작
+    _newlyCreatedPersonIds.clear();
+    _newlyCreatedOrgIds.clear();
     const modal = document.getElementById('qr-modal');
     if (modal) modal.classList.add('hidden');
     const btn = document.getElementById('qr-save-btn');

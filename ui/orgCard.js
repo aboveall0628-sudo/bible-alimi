@@ -33,6 +33,7 @@ import { computeAllOrgStats, formatMinutes, formatTrend, slotToTimeStr, ratingDo
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
 import { openStanceGate } from './stanceGate.js';
+import { personDisplayHtml } from './personNameFormat.js';
 
 // ─── 상수 ───
 const STANCE_META = {
@@ -648,6 +649,9 @@ function bindLayer2Events(root) {
             btn.addEventListener('click', () => {
                 const v = Number(btn.dataset.relValue);
                 _editingDraft[key] = v;
+                // 사용자가 직접 조정한 축 lock → 도트 자동 갱신 차단
+                _editingDraft.locked = _editingDraft.locked || {};
+                _editingDraft.locked[key] = true;
                 row.querySelectorAll('.rel-star').forEach(s => {
                     const n = Number(s.dataset.relValue);
                     s.classList.toggle('active', n <= v);
@@ -690,6 +694,8 @@ function bindLayer3Events(root) {
         btn.addEventListener('click', () => {
             const v = btn.dataset.riskValue || null;
             _editingDraft.riskLevel = v;
+            _editingDraft.locked = _editingDraft.locked || {};
+            _editingDraft.locked.riskLevel = true;
             root.querySelectorAll('.risk-chip').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         });
@@ -739,10 +745,11 @@ function memberChipsHtml(ids) {
         const p = _personsCache.find(x => x.id === pid);
         const name = p?.name || '(알 수 없는 인물)';
         const initial = (name || '?').slice(0, 1);
+        const displayHtml = p ? personDisplayHtml(p, escapeHtml) : escapeHtml(name);
         return `
             <span class="member-chip" data-person-id="${pid}">
                 <span class="member-avatar" style="background:${avatarColor(pid)}">${escapeHtml(initial)}</span>
-                <span class="member-name">${escapeHtml(name)}</span>
+                <span class="member-name">${displayHtml}</span>
                 <button class="member-remove" title="제거" aria-label="제거">✕</button>
             </span>
         `;
@@ -759,10 +766,11 @@ function memberMiniListHtml(ids) {
         const p = _personsCache.find(x => x.id === pid);
         const name = p?.name || '(?)';
         const initial = (name || '?').slice(0, 1);
+        const displayHtml = p ? personDisplayHtml(p, escapeHtml) : escapeHtml(name);
         return `
             <div class="org-member-mini-item" title="${escapeAttr(name)}">
                 <span class="member-avatar" style="background:${avatarColor(pid)}">${escapeHtml(initial)}</span>
-                <span class="org-member-mini-name">${escapeHtml(name)}</span>
+                <span class="org-member-mini-name">${displayHtml}</span>
             </div>`;
     }).join('');
     const more = extra > 0 ? `<div class="org-member-mini-more">+${extra}명 더</div>` : '';

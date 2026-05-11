@@ -94,17 +94,22 @@ function renderLockScreen() {
     overlay.className = 'lock-screen-overlay';
     overlay.innerHTML = `
         <div class="lock-screen-box">
-            <div class="lock-icon">🔐</div>
+            <div class="lock-icon" aria-hidden="true">
+                <i data-lucide="lock-keyhole"></i>
+            </div>
             <h2>Sanctum OS</h2>
             <p class="lock-subtitle">잠시 잠겨있어요. 비밀번호로 열어주세요.</p>
             <input type="password" id="lock-password-input" class="lock-input"
                    placeholder="내 비밀번호" autocomplete="off" />
             <div id="lock-error" class="lock-error hidden"></div>
-            <button id="lock-unlock-btn" class="lock-btn">열기</button>
-            <button id="lock-recovery-btn" class="lock-link-btn">비밀번호를 잊었어요</button>
+            <button id="lock-unlock-btn" class="lock-btn primary-btn">
+                <i data-lucide="unlock" class="btn-icon" aria-hidden="true"></i> 열기
+            </button>
+            <button id="lock-recovery-btn" class="lock-link-btn text-btn">비밀번호를 잊었어요</button>
         </div>
     `;
     document.body.appendChild(overlay);
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 
     document.getElementById('lock-unlock-btn').addEventListener('click', handleUnlockAttempt);
     document.getElementById('lock-password-input').addEventListener('keydown', (e) => {
