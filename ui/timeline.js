@@ -33,6 +33,8 @@ import {
 } from '../data/goalsRepo.js';
 import { openQuickReview, showToast } from './quickReview.js';
 import { listUpcomingEvents, pushDecisionsToGoogleCalendar } from './app.js';
+// Phase E-6 C-1: GCal 이벤트를 daily 목표로 자동 변환 (시간표·목표·리포트 정합)
+import { syncGcalEventsToDailyGoals } from '../data/gcalSync.js';
 
 const SLOTS_PER_DAY = 96;
 const ROW_HEIGHT = 16; // px per 15min slot
@@ -77,6 +79,21 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     else console.error('dots load failed:', dotsR.reason);
     if (gcalR.status === 'fulfilled') _gcalEvents = gcalR.value;
     else console.error('gcal load failed:', gcalR.reason);
+
+    // Phase E-6 C-2: GCal 이벤트를 daily 목표로 자동 동기화.
+    // 새/변경된 이벤트가 있으면 goals 컬렉션에 반영하고, 그 결과를 _decisions 에 다시 반영.
+    // 실패해도 시간표 자체는 그려져야 하므로 try/catch 로 감쌈.
+    if (_gcalEvents.length > 0) {
+        try {
+            const sync = await syncGcalEventsToDailyGoals(dek, _userId, _gcalEvents, _date);
+            if (sync.created > 0 || sync.updated > 0) {
+                _decisions = await getDailyGoals(dek, _userId);
+            }
+        } catch (e) {
+            console.warn('[gcalSync] failed:', e);
+        }
+    }
+
     render();
     // 마운트/날짜 변경/사용자 명시 액션에서만 현재 시간으로 이동.
     // 인라인 저장 후 refresh 같은 자동 refresh는 사용자 스크롤 위치를 보존.
@@ -160,19 +177,12 @@ function renderDesktop() {
     }
 
     // 박힌 결단 슬롯 그리기 (plan 레인)
+    // Phase E-6 C-2: GCal 이벤트도 동기화 후 _decisions 에 포함되므로 별도 렌더링 불필요.
+    // gcalEventId 있는 목표는 createPlanSlot 안에서 📅 prefix 로 시각 구분.
     _decisions.forEach(d => {
         if (d.timeSlot == null) return;
         const slotEl = createPlanSlot(d, 'decision');
         positionSlot(slotEl, d.timeSlot, d.durationSlots || 4);
-        planCol.appendChild(slotEl);
-    });
-
-    // Google Calendar 이벤트 그리기 (plan 레인)
-    _gcalEvents.forEach(ev => {
-        const range = gcalEventToSlotRange(ev);
-        if (!range) return;
-        const slotEl = createGcalSlot(ev);
-        positionSlot(slotEl, range.start, range.end - range.start);
         planCol.appendChild(slotEl);
     });
 
@@ -193,16 +203,13 @@ function renderMobile() {
     if (!list) return;
 
     // 시간 슬롯 단위로 묶은 카드 리스트 (있는 슬롯만)
+    // Phase E-6 C-2: GCal 이벤트는 동기화 후 _decisions 에 포함됨. 별도 합산 불필요.
     const slotMap = new Map();
     _decisions.forEach(d => {
         if (d.timeSlot == null) return;
-        slotMap.set(d.timeSlot, { ...slotMap.get(d.timeSlot), plan: d.title ?? d.text });
-    });
-    _gcalEvents.forEach(ev => {
-        const range = gcalEventToSlotRange(ev);
-        if (!range) return;
-        const existing = slotMap.get(range.start) || {};
-        slotMap.set(range.start, { ...existing, plan: existing.plan || ev.summary || '(일정)' });
+        const titleText = d.title ?? d.text ?? '';
+        const planLabel = d.gcalEventId ? `📅 ${titleText}` : titleText;
+        slotMap.set(d.timeSlot, { ...slotMap.get(d.timeSlot), plan: planLabel });
     });
     _dots.forEach(dot => {
         if (dot.timeSlot == null) return;
@@ -235,16 +242,21 @@ function renderMobile() {
 // ─── 슬롯 컴포넌트 ───
 function createPlanSlot(decision, source) {
     const el = document.createElement('div');
-    el.className = `utl-slot ${dotColorClassForDecision(decision)}`;
+    // Phase E-6 C-2: GCal 출처 목표는 시각 구분 — gcal-source 클래스 + 📅 prefix.
+    const gcalCls = decision.gcalEventId ? ' gcal-source' : '';
+    el.className = `utl-slot ${dotColorClassForDecision(decision)}${gcalCls}`;
     el.dataset.decisionId = decision.id;
     el.dataset.source = source;
+    if (decision.gcalEventId) el.dataset.gcalId = decision.gcalEventId;
     el.draggable = true;
     const dur = decision.durationSlots || 4;
     const endSlot = (decision.timeSlot || 0) + dur;
+    const titleText = decision.title ?? decision.text ?? '(아직 이름이 없어요)';
+    const titleDisplay = decision.gcalEventId ? `📅 ${titleText}` : titleText;
     el.innerHTML = `
         <button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>
         <span class="slot-time">${slotToTime(decision.timeSlot)}~${slotToTime(endSlot)}</span>
-        <span class="slot-title">${escapeHtml(decision.title ?? decision.text ?? '(아직 이름이 없어요)')}</span>
+        <span class="slot-title">${escapeHtml(titleDisplay)}</span>
         <span class="slot-resize" data-decision-id="${decision.id}" title="아래로 끌어 시간 늘리기"></span>
     `;
     return el;
