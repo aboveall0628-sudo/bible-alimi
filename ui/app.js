@@ -32,6 +32,9 @@ import { renderSettingsView } from './settings.js';
 import { renderPastMeditationsView } from './pastMeditations.js';
 import { renderPersonsView } from './personCard.js';
 import { renderOrganizationsView } from './orgCard.js';
+// Phase E-7: 우측 상단 알람 종 + 자동 알람 생성기
+import { initRemindersUI, refreshRemindersUI } from './reminders.js';
+import { generateAllAutoReminders } from '../data/reminderGenerator.js';
 
 // ─── 전역 상태 ───
 window.appStarted = true;
@@ -314,6 +317,16 @@ async function onVaultUnlocked(dek) {
 
     // 일간 리포트 자동 생성 제거 — 사용자가 "오늘 리포트 만들기" 버튼으로 직접 트리거
     // (todayView.js / reports/dailyReportFlow.js)
+
+    // Phase E-7: 알람 UI 마운트 + 자동 알람 4종 생성 (background, 실패해도 메인은 안 막힘)
+    initRemindersUI(currentUserId).catch(e => console.warn('reminders UI init failed:', e));
+    generateAllAutoReminders(dek, currentUserId, currentDate)
+        .then((result) => {
+            const g = result?.generated || {};
+            const total = (g.weekly || 0) + (g.yesterday || 0) + (g.stale || 0) + (g.principle || 0);
+            if (total > 0) refreshRemindersUI();
+        })
+        .catch(e => console.warn('auto reminders failed:', e));
 
     showToast('🔓 안전하게 열렸어요');
 }
