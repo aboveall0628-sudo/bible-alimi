@@ -14,8 +14,8 @@
  */
 
 import { saveDot } from '../data/dotsRepo.js';
-import { getAllPersons } from '../data/personRepo.js';
-import { getAllOrganizations } from '../data/orgRepo.js';
+import { getAllPersons, savePerson } from '../data/personRepo.js';
+import { getAllOrganizations, saveOrganization } from '../data/orgRepo.js';
 import { getDEK } from './lockScreen.js';
 
 let _currentSlot = null;
@@ -31,6 +31,9 @@ let _personsCache = [];   // [{id, name, ...}]
 let _orgsCache = [];      // [{id, name, ...}]
 let _selectedPersonIds = [];
 let _selectedOrgIds = [];
+// 도트별 인물/조직 만족도 — { [id]: 1-5 } (0이면 미평가)
+let _personRatings = {};
+let _orgRatings = {};
 let _cachedLoadedFor = null;  // userId — 다른 사용자로 바뀌면 다시 로드
 
 const STATUS_OPTIONS = [
@@ -63,6 +66,10 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     // 기존 도트가 있으면 그 안의 연결을 복원, 없으면 빈 배열
     _selectedPersonIds = Array.isArray(existingDot?.linkedPersonIds) ? existingDot.linkedPersonIds.slice() : [];
     _selectedOrgIds    = Array.isArray(existingDot?.linkedOrgIds)    ? existingDot.linkedOrgIds.slice()    : [];
+    _personRatings = (existingDot?.personRatings && typeof existingDot.personRatings === 'object')
+        ? { ...existingDot.personRatings } : {};
+    _orgRatings    = (existingDot?.orgRatings    && typeof existingDot.orgRatings    === 'object')
+        ? { ...existingDot.orgRatings }    : {};
 
     // 초기화
     const modal = document.getElementById('qr-modal');
@@ -171,18 +178,18 @@ function renderModal() {
                     <input type="text" id="qr-reason-input" class="qr-text-input" placeholder="왜 이렇게 됐을까요?" />
                 </div>
 
-                <!-- v3: 인물 칩 -->
+                <!-- v3: 인물 칩 — 이름/별명 즉석 추가 + 칩별 만족도(5도트) -->
                 <div class="qr-link-field">
                     <label><i class="label-icon" data-lucide="users"></i> 함께한 사람</label>
                     <div class="qr-link-add-row">
                         <input type="text" id="qr-person-input" class="qr-text-input"
                                list="qr-person-datalist"
-                               placeholder="이름 입력 후 Enter / [+ 추가]" />
+                               placeholder="이름 또는 별명 (예: 박서연, 큰형)" />
                         <datalist id="qr-person-datalist"></datalist>
                         <button id="qr-person-add" class="text-btn">+ 추가</button>
                     </div>
                     <div id="qr-person-chips" class="qr-chip-row"></div>
-                    <div class="qr-link-hint">아직 등록 안 된 사람이면 [인물] 메뉴에서 카드부터 만들어 주세요.</div>
+                    <div class="qr-link-hint">없는 이름이면 카드를 자동으로 만들어 드려요. 칩 안 도트를 눌러 1~5점 만족도 평가도 함께 적을 수 있어요.</div>
                 </div>
 
                 <!-- v3: 조직 칩 -->
@@ -191,7 +198,7 @@ function renderModal() {
                     <div class="qr-link-add-row">
                         <input type="text" id="qr-org-input" class="qr-text-input"
                                list="qr-org-datalist"
-                               placeholder="조직 이름 입력 후 Enter / [+ 추가]" />
+                               placeholder="조직 이름 (없으면 자동으로 카드 만들어요)" />
                         <datalist id="qr-org-datalist"></datalist>
                         <button id="qr-org-add" class="text-btn">+ 추가</button>
                     </div>
@@ -267,7 +274,7 @@ function bindEvents() {
         if (e.target.id === 'qr-person-input' && e.key === 'Enter') { e.preventDefault(); addPersonFromInput(); }
         if (e.target.id === 'qr-org-input'    && e.key === 'Enter') { e.preventDefault(); addOrgFromInput(); }
     });
-    // 칩 ✕ 제거 (이벤트 위임)
+    // 칩 ✕ 제거 (이벤트 위임) — 만족도 점수도 같이 비움
     document.addEventListener('click', (e) => {
         const x = e.target.closest('.qr-chip-remove');
         if (!x) return;
@@ -275,10 +282,26 @@ function bindEvents() {
         if (!chip) return;
         const pid = chip.dataset.personId;
         const oid = chip.dataset.orgId;
-        if (pid) _selectedPersonIds = _selectedPersonIds.filter(id => id !== pid);
-        if (oid) _selectedOrgIds = _selectedOrgIds.filter(id => id !== oid);
+        if (pid) { _selectedPersonIds = _selectedPersonIds.filter(id => id !== pid); delete _personRatings[pid]; }
+        if (oid) { _selectedOrgIds = _selectedOrgIds.filter(id => id !== oid); delete _orgRatings[oid]; }
         renderLinkChips();
         refreshLinkDatalists();
+    });
+
+    // 칩 안 만족도 도트 클릭 — 1~5점 토글. 같은 점수 다시 누르면 0(미평가)로.
+    document.addEventListener('click', (e) => {
+        const dot = e.target.closest('.qr-chip-rating-dot');
+        if (!dot) return;
+        e.stopPropagation();
+        const container = dot.closest('.qr-chip-rating');
+        if (!container) return;
+        const target = container.dataset.target;          // 'person' | 'org'
+        const id = container.dataset.id;
+        const newRating = parseInt(dot.dataset.rating);
+        const bag = target === 'person' ? _personRatings : _orgRatings;
+        bag[id] = (bag[id] === newRating) ? 0 : newRating;
+        if (!bag[id]) delete bag[id];                     // 0이면 미평가 — 키 자체 제거
+        renderLinkChips();
     });
 
     // 키보드 단축키
@@ -316,21 +339,28 @@ function bindEvents() {
 // ═══════════════════════════════════════════════════════════════════════
 
 function renderLinkChips() {
-    renderChipRow('qr-person-chips', _selectedPersonIds, _personsCache, 'personId', '👥');
-    renderChipRow('qr-org-chips',    _selectedOrgIds,    _orgsCache,    'orgId',    '🏢');
+    renderChipRow('qr-person-chips', _selectedPersonIds, _personsCache, 'personId', '👥', _personRatings, 'person');
+    renderChipRow('qr-org-chips',    _selectedOrgIds,    _orgsCache,    'orgId',    '🏢', _orgRatings,    'org');
 }
 
-function renderChipRow(rootId, ids, cache, datasetKey, fallbackIcon) {
+function renderChipRow(rootId, ids, cache, datasetKey, fallbackIcon, ratings, target) {
     const root = document.getElementById(rootId);
     if (!root) return;
     if (!ids.length) { root.innerHTML = ''; return; }
     root.innerHTML = ids.map(id => {
         const card = cache.find(c => c.id === id);
-        const name = card?.name || '(미등록)';
+        const name = card?.name || '(이름 미상)';
+        const rating = ratings[id] || 0;
+        const ratingDots = [1, 2, 3, 4, 5].map(n => `
+            <button class="qr-chip-rating-dot${n <= rating ? ' filled' : ''}"
+                    type="button" data-rating="${n}"
+                    aria-label="${n}점"></button>
+        `).join('');
         return `
             <span class="qr-link-chip" data-${datasetKey}="${escapeAttr(id)}">
                 <span class="qr-link-chip-icon">${fallbackIcon}</span>
                 <span class="qr-link-chip-name">${escapeHtml(name)}</span>
+                <span class="qr-chip-rating" data-target="${target}" data-id="${escapeAttr(id)}" title="만족도 1~5 (같은 점수 다시 누르면 해제)">${ratingDots}</span>
                 <button class="qr-chip-remove" type="button" aria-label="제거">✕</button>
             </span>
         `;
@@ -354,15 +384,48 @@ function refreshLinkDatalists() {
     }
 }
 
-function addPersonFromInput() {
+async function addPersonFromInput() {
     const input = document.getElementById('qr-person-input');
     const name = (input?.value || '').trim();
     if (!name) return;
-    const matched = _personsCache.find(p => (p.name || '') === name && !p.isFallback);
+
+    // 1) 기존 카드와 이름/별명 정확히 일치 → 그 카드 재사용
+    let matched = _personsCache.find(p =>
+        !p.isFallback && (
+            (p.name || '') === name ||
+            (Array.isArray(p.nicknames) && p.nicknames.includes(name))
+        )
+    );
+
+    // 2) 없으면 즉석 stub 카드 생성 — 이름 필드에 입력값(이름 또는 별명) 그대로
     if (!matched) {
-        showToast('인물 카드에 없는 이름이에요. [👥 인물]에서 먼저 추가해 주실래요?');
-        return;
+        const dek = getDEK();
+        if (!dek) { showToast('잠시 잠겨 있어요'); return; }
+        const stub = {
+            name: name,
+            relation: 'unknown',
+            innerCircle: false,
+            stance: 'neutral',
+            isFallback: false,
+            nicknames: [],
+            bigFive: { O: null, C: null, E: null, A: null, N: null },
+            competencies: {},
+            relationship: { closeness: null, trust: null, friendliness: null, importance: null },
+            stanceHistory: [],
+            createdAt: new Date().toISOString(),
+        };
+        try {
+            await savePerson(dek, _currentUserId, stub);
+            _personsCache.push(stub);
+            matched = stub;
+            showToast(`✓ "${name}" 카드를 만들었어요. [인물]에서 자세히 채워주세요.`);
+        } catch (e) {
+            console.error('inline person create failed:', e);
+            showToast('카드 만들기가 잠깐 막혔어요.');
+            return;
+        }
     }
+
     if (_selectedPersonIds.includes(matched.id)) {
         showToast('이미 추가된 사람이에요');
         return;
@@ -373,15 +436,37 @@ function addPersonFromInput() {
     refreshLinkDatalists();
 }
 
-function addOrgFromInput() {
+async function addOrgFromInput() {
     const input = document.getElementById('qr-org-input');
     const name = (input?.value || '').trim();
     if (!name) return;
-    const matched = _orgsCache.find(o => (o.name || '') === name);
+
+    let matched = _orgsCache.find(o => (o.name || '') === name);
+
     if (!matched) {
-        showToast('조직 카드에 없는 이름이에요. [🏢 조직]에서 먼저 추가해 주실래요?');
-        return;
+        const dek = getDEK();
+        if (!dek) { showToast('잠시 잠겨 있어요'); return; }
+        const stub = {
+            name: name,
+            type: 'other',
+            stance: 'neutral',
+            friendliness: 3, trust: 3, importance: 3, riskLevel: 1,
+            memberPersonIds: [],
+            stanceHistory: [],
+            createdAt: new Date().toISOString(),
+        };
+        try {
+            await saveOrganization(dek, _currentUserId, stub);
+            _orgsCache.push(stub);
+            matched = stub;
+            showToast(`✓ "${name}" 조직 카드를 만들었어요. [조직]에서 자세히 채워주세요.`);
+        } catch (e) {
+            console.error('inline org create failed:', e);
+            showToast('카드 만들기가 잠깐 막혔어요.');
+            return;
+        }
     }
+
     if (_selectedOrgIds.includes(matched.id)) {
         showToast('이미 추가된 조직이에요');
         return;
@@ -528,6 +613,8 @@ async function handleSave() {
             linkedGoalId: _currentExistingDot?.linkedGoalId || null,
             linkedPersonIds: _selectedPersonIds.slice(),
             linkedOrgIds: _selectedOrgIds.slice(),
+            personRatings: { ..._personRatings },
+            orgRatings: { ..._orgRatings },
             linkedTransactionIds: _currentExistingDot?.linkedTransactionIds || [],
         };
         // 기존 도트가 있으면 id 유지하여 덮어쓰기

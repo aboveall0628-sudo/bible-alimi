@@ -14,9 +14,11 @@ export const POLICY = {
             'amountBucket', 'sentimentBucket', 'createdAt'
         ],
         encrypted: [
-            'plannedTask', 'actualTask', 'reason', 'notes', 
-            'linkedScriptureId', 'linkedPrincipleIds', 'linkedGoalId', 
-            'linkedTransactionIds', 'linkedPersonIds', 'linkedOrgIds'
+            'plannedTask', 'actualTask', 'reason', 'notes',
+            'linkedScriptureId', 'linkedPrincipleIds', 'linkedGoalId',
+            'linkedTransactionIds', 'linkedPersonIds', 'linkedOrgIds',
+            // 도트별 인물/조직 만족도 ({ personId: 1-5 }, { orgId: 1-5 })
+            'personRatings', 'orgRatings'
         ]
     },
     meditations: {

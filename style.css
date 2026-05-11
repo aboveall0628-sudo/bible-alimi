@@ -2118,8 +2118,12 @@ svg.person-radar { display: block; }
     background: var(--accent-soft); color: var(--accent);
     font-size: 12px; font-weight: 500;
     border: 1px solid var(--accent);
+    max-width: 100%;
 }
 .qr-link-chip-icon { font-size: 13px; }
+.qr-link-chip-name {
+    max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .qr-chip-remove {
     width: 18px; height: 18px; border-radius: 50%;
     background: transparent; border: none; color: inherit;
@@ -2129,6 +2133,31 @@ svg.person-radar { display: block; }
 .qr-chip-remove:hover { background: rgba(0,0,0,0.08); }
 .qr-link-hint {
     font-size: 11px; color: var(--text-secondary);
+}
+
+/* 칩 안 만족도 5도트 — 시각적으로 도트 시스템과 통일.
+   같은 점수를 다시 누르면 0(미평가)로 해제. */
+.qr-chip-rating {
+    display: inline-flex; gap: 3px; padding: 0 4px;
+    border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    margin: 0 2px;
+}
+.qr-chip-rating-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    cursor: pointer; padding: 0;
+    transition: transform var(--ease), background var(--ease), border-color var(--ease);
+}
+.qr-chip-rating-dot:hover {
+    transform: scale(1.25);
+    border-color: var(--accent);
+}
+.qr-chip-rating-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 /* AI 브리핑 패널 */
