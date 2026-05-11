@@ -24,6 +24,8 @@ import { generateDailyReport } from '../reports/dailyReportFlow.js';
 import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 // 토요일이면 주/월/분기/연/5·10년 회고가 단계별로 추가 (eveningLoop의 토요일 감지 재사용)
 import { determineLayers } from './eveningLoop.js';
+// Phase E-8/C: 매일성경(SU) 본문·해설 카드
+import { mountSuDailyCard } from './suDaily.js';
 
 let _userId = null;
 let _date = null;
@@ -38,6 +40,18 @@ export function initTodayView({ userId, date }) {
     bindMeditationAutosave();
     bindDecisionsPanel();
     bindNextDayButton();
+    // Phase E-8/C: 매일성경 카드를 통독 말씀 카드 뒤에 한 번만 끼움
+    const scriptureSection = document.getElementById('section-scripture');
+    const viewToday = document.getElementById('view-today');
+    if (scriptureSection?.parentNode && viewToday && !document.getElementById('section-su-daily')) {
+        const anchor = scriptureSection.nextSibling;
+        const wrap = document.createElement('div');
+        scriptureSection.parentNode.insertBefore(wrap, anchor);
+        mountSuDailyCard(wrap);
+        // 카드 자체가 .card-section section이라 div 래퍼는 풀어줘도 됨
+        if (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
+        wrap.remove();
+    }
 }
 
 /**

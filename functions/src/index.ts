@@ -14,3 +14,4 @@
  */
 
 export { llmProxy } from "./llmProxy";
+export { suProxy } from "./suProxy";
