@@ -47,27 +47,32 @@ export async function getDot(dek, docId) {
 
 /**
  * 날짜 범위의 도트 조회 (리포트 집계용)
- * orderBy 제거 + client-side sort — composite index 없이도 동작
- * (89bd651 / goalsRepo 와 같은 패턴. 인덱스 미배포 환경에서 throw 방지)
+ *
+ * Firestore 규칙: where(userId==) + where(date 범위) 조합도 composite index
+ * (userId, date) 필요. 인덱스 미배포 환경에서 throw 발생.
+ *
+ * 89bd651 의 countMeditations 와 동일 패턴 — userId 만으로 fetch 후 클라이언트
+ * 에서 date 필터링 + 정렬. 단일 사용자라 도트 총량이 폭증할 가능성 작음.
+ *
  * @param {CryptoKey} dek
  * @param {string} userId
- * @param {string} startDate
- * @param {string} endDate
- * @returns {Object[]}
+ * @param {string} startDate - inclusive
+ * @param {string} endDate   - inclusive
+ * @returns {Object[]} (date asc, timeSlot asc)
  */
 export async function getDotsByDateRange(dek, userId, startDate, endDate) {
     const q = query(
         collection(db, 'dots'),
-        where('userId', '==', userId),
-        where('date', '>=', startDate),
-        where('date', '<=', endDate)
+        where('userId', '==', userId)
     );
-    const dots = await queryRecords(dek, q);
-    return dots.sort((a, b) => {
-        const dc = (a.date || '').localeCompare(b.date || '');
-        if (dc) return dc;
-        return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
-    });
+    const all = await queryRecords(dek, q);
+    return all
+        .filter(d => d.date && d.date >= startDate && d.date <= endDate)
+        .sort((a, b) => {
+            const dc = (a.date || '').localeCompare(b.date || '');
+            if (dc) return dc;
+            return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
+        });
 }
 
 /**

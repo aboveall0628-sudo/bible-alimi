@@ -48,29 +48,15 @@ export async function renderDashboardView(userId) {
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = fmt(yesterday);
 
-    // [TEMP DEBUG] 도트 0건 원인 추적 — 원인 확인 후 제거 예정
-    console.log('[dashboard:debug] userId=', userId, 'startDate=', startDate, 'endDate=', endDate, 'todayClient=', new Date().toString());
-
     const [pinned, yesterdayReport, dots, bibleProgress, meditationCount, persons, orgs] = await Promise.all([
         getPinnedPrinciple(dek, userId).catch(() => null),
         getDayReport(dek, userId, yesterdayStr).catch(() => null),
-        getDotsByDateRange(dek, userId, startDate, endDate).catch(e => { console.warn('[dashboard:debug] dots range failed:', e); return []; }),
+        getDotsByDateRange(dek, userId, startDate, endDate).catch(() => []),
         getBibleProgress(userId).catch(() => []),
         countMeditations(userId, startDate, endDate).catch(() => 0),
         getAllPersons(dek, userId).catch(() => []),
         getAllOrganizations(dek, userId).catch(() => []),
     ]);
-
-    // [TEMP DEBUG] 받은 dots 진단 — userId/date 필드 형태 + 개수
-    console.log('[dashboard:debug] dots.length=', dots.length, 'firstDot=', dots[0] || null);
-    // 비교용: 전체 도트 중에서 userId만으로 한 건 샘플링해서 date 필드 형식 확인
-    try {
-        const { getAllDots } = await import('../data/dotsRepo.js');
-        const all = await getAllDots(dek, userId);
-        console.log('[dashboard:debug] getAllDots.length=', all.length, 'sampleDates=', all.slice(-5).map(d => ({ id: d.id, date: d.date, timeSlot: d.timeSlot })));
-    } catch (e) {
-        console.warn('[dashboard:debug] getAllDots probe failed:', e);
-    }
 
     // 페이지 재진입 시 AI 캐시 초기화 — 다음 클릭에서 새 데이터로 다시 호출
     _aiBriefCache = null;
