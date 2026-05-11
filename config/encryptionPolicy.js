@@ -35,7 +35,13 @@ export const POLICY = {
         encrypted: ['title', 'body', 'triggerKeywords', 'derivedFromDotIds']
     },
     goals: {
-        plaintext: ['id', 'userId', 'period', 'parentGoalId', 'startDate', 'endDate', 'progress', 'status', 'createdAt'],
+        plaintext: [
+            'id', 'userId', 'period', 'parentGoalId',
+            'startDate', 'endDate', 'progress', 'status', 'createdAt',
+            // daily 목표를 시간표(오늘 화면)에 박을 수 있도록 시간 슬롯 필드 추가.
+            // 기존 decisions 모델을 그대로 흡수 — daily 외 period 에선 항상 null.
+            'timeSlot', 'durationSlots', 'placedAt', 'gcalEventId', 'order'
+        ],
         encrypted: ['title', 'description', 'notes', 'scriptureRef']
     },
     // ───────── v3 Reports 모듈 (5계층 진단 전용) ─────────

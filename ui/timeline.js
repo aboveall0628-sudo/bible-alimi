@@ -26,9 +26,11 @@
 
 import { getDEK } from './lockScreen.js';
 import { saveDot, getDotsByDate, deleteDot } from '../data/dotsRepo.js';
+// Phase B: 결단 → daily 목표 전환. plan 레인 슬롯의 source 는 이제 goalsRepo.
+// 기존 함수명은 placeGoal/unplaceGoal/saveGoal/getDailyGoals 로 매핑.
 import {
-    getDecisionsByDate, placeDecision, unplaceDecision, saveDecision,
-} from '../data/decisionsRepo.js';
+    getDailyGoals, placeGoal, unplaceGoal, saveGoal,
+} from '../data/goalsRepo.js';
 import { openQuickReview, showToast } from './quickReview.js';
 import { listUpcomingEvents, pushDecisionsToGoogleCalendar } from './app.js';
 
@@ -65,7 +67,7 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     // 하나가 실패해도 나머지는 살아남도록 allSettled. decisions 인덱스가 빠져 있어
     // throw가 나도 도트/캘린더는 그대로 보임.
     const [decisionsR, dotsR, gcalR] = await Promise.allSettled([
-        getDecisionsByDate(dek, _userId, _date),
+        getDailyGoals(dek, _userId),
         getDotsByDate(dek, _userId, _date),
         listUpcomingEvents(),
     ]);
@@ -194,7 +196,7 @@ function renderMobile() {
     const slotMap = new Map();
     _decisions.forEach(d => {
         if (d.timeSlot == null) return;
-        slotMap.set(d.timeSlot, { ...slotMap.get(d.timeSlot), plan: d.text });
+        slotMap.set(d.timeSlot, { ...slotMap.get(d.timeSlot), plan: d.title ?? d.text });
     });
     _gcalEvents.forEach(ev => {
         const range = gcalEventToSlotRange(ev);
@@ -212,7 +214,7 @@ function renderMobile() {
         list.innerHTML = `
             <div class="utl-empty-card" style="border:none">
                 <h4>아직 비어있어요</h4>
-                <p>결단을 한 줄 적거나, 빈 시간을 톡 눌러 채워 보세요.</p>
+                <p>오늘의 목표를 한 줄 적거나, 빈 시간을 톡 눌러 채워 보세요.</p>
             </div>
         `;
         return;
@@ -242,7 +244,7 @@ function createPlanSlot(decision, source) {
     el.innerHTML = `
         <button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>
         <span class="slot-time">${slotToTime(decision.timeSlot)}~${slotToTime(endSlot)}</span>
-        <span class="slot-title">${escapeHtml(decision.text || '(아직 이름이 없어요)')}</span>
+        <span class="slot-title">${escapeHtml(decision.title ?? decision.text ?? '(아직 이름이 없어요)')}</span>
         <span class="slot-resize" data-decision-id="${decision.id}" title="아래로 끌어 시간 늘리기"></span>
     `;
     return el;
@@ -394,21 +396,21 @@ function bindCellEvents(col, lane) {
                 if (decisionId) {
                     let d = _decisions.find(x => x.id === decisionId);
                     if (!d) {
-                        const all = await getDecisionsByDate(dek, _userId, _date);
+                        const all = await getDailyGoals(dek, _userId);
                         d = all.find(x => x.id === decisionId);
                     }
                     if (d) {
-                        await placeDecision(dek, d, slot, d.durationSlots || 4);
+                        await placeGoal(dek, d, slot, d.durationSlots || 4);
                     } else {
-                        showToast('이 결단을 찾지 못했어요. 한 번만 더 옮겨 주실래요?');
+                        showToast('이 목표를 찾지 못했어요. 한 번만 더 옮겨 주실래요?');
                     }
                 } else if (slotMoveId) {
                     let d = _decisions.find(x => x.id === slotMoveId);
                     if (!d) {
-                        const all = await getDecisionsByDate(dek, _userId, _date);
+                        const all = await getDailyGoals(dek, _userId);
                         d = all.find(x => x.id === slotMoveId);
                     }
-                    if (d) await placeDecision(dek, d, slot, d.durationSlots || 4);
+                    if (d) await placeGoal(dek, d, slot, d.durationSlots || 4);
                 }
                 await refreshTimeline({ userId: _userId, date: _date });
                 if (_onChange) await _onChange({ type: 'refresh' });
@@ -486,8 +488,8 @@ function bindCellEvents(col, lane) {
                     if (decisionId) {
                         const d = _decisions.find(x => x.id === decisionId);
                         if (!d) return;
-                        await unplaceDecision(dek, d);
-                        showToast('시간표에서 빼냈어요. 결단 카드로 다시 돌아갔어요.');
+                        await unplaceGoal(dek, d);
+                        showToast('시간표에서 빼냈어요. 목표 카드로 다시 돌아갔어요.');
                     } else if (dotId) {
                         if (!confirm('이 시간 기록을 지울까요?')) return;
                         await deleteDot(dotId);
@@ -727,7 +729,8 @@ function startResize(kind, id, startY, slotEl) {
             const dek = getDEK();
             if (!dek) return;
             if (kind === 'decision') {
-                await saveDecision(dek, item);
+                // 'decision' kind 는 daily 목표를 가리킴 (변수명만 호환 유지)
+                await saveGoal(dek, item);
             } else {
                 await saveDot(dek, item);
             }
@@ -750,7 +753,7 @@ function bindGlobalEvents() {
     if (push) push.addEventListener('click', async () => {
         const placed = _decisions.filter(d => d.timeSlot != null);
         if (placed.length === 0) {
-            showToast('시간표에 옮겨둔 결단이 아직 없어요. 결단 카드의 ⋮⋮를 잡고 시간표로 옮겨 보실래요?');
+            showToast('시간표에 옮겨둔 목표가 아직 없어요. 목표 카드의 ⋮⋮를 잡고 시간표로 옮겨 보실래요?');
             return;
         }
         push.disabled = true;
@@ -784,7 +787,7 @@ export async function unplaceDecisionFromTimeline(decisionId) {
     if (!d) return;
     const dek = getDEK();
     if (!dek) return;
-    await unplaceDecision(dek, d);
+    await unplaceGoal(dek, d);
     await refreshTimeline({ userId: _userId, date: _date });
 }
 

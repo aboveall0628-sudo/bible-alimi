@@ -734,8 +734,9 @@ export async function pushDecisionsToGoogleCalendar(placedDecisions) {
             const startDate = new Date(y, m - 1, day, Math.floor(startMin / 60), startMin % 60, 0);
             const endDate = new Date(y, m - 1, day, Math.floor(endMin / 60), endMin % 60, 0);
             const body = {
-                summary: d.text || '(이름 없는 결단)',
-                description: `Sanctum OS 오늘의 결단\nid:${d.id}`,
+                // Phase B: d 는 daily 목표 객체. title 우선, 결단 시절 호환은 fallback.
+                summary: (d.title ?? d.text) || '(이름 없는 목표)',
+                description: `Sanctum OS 오늘의 목표\nid:${d.id}`,
                 start: { dateTime: startDate.toISOString() },
                 end: { dateTime: endDate.toISOString() },
                 reminders: {
@@ -757,11 +758,11 @@ export async function pushDecisionsToGoogleCalendar(placedDecisions) {
                     calendarId: 'primary', resource: body,
                 });
                 d.gcalEventId = resp.result.id;
-                // 결단에 gcal id 박아두기 (다음에 갱신할 때 사용)
+                // Phase B: gcal id 를 daily 목표에 박아두기 (다음 갱신 시 update 경로 사용)
                 const dek = (await import('./lockScreen.js')).getDEK();
                 if (dek) {
-                    const { saveDecision } = await import('../data/decisionsRepo.js');
-                    await saveDecision(dek, d);
+                    const { saveGoal } = await import('../data/goalsRepo.js');
+                    await saveGoal(dek, d);
                 }
                 created++;
             }

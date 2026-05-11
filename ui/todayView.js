@@ -311,9 +311,10 @@ function bindDecisionsPanel() {
 
 async function loadDecisions(dek) {
     try {
-        _decisions = await getDecisionsByDate(dek, _userId, _date);
+        // Phase B: 결단 컬렉션 대신 goals(period=daily)에서 가져옴.
+        _decisions = await getDailyGoals(dek, _userId);
     } catch (e) {
-        console.error('decisions load failed:', e);
+        console.error('daily goals load failed:', e);
         _decisions = [];
     }
     renderDecisions();
@@ -326,7 +327,7 @@ function renderDecisions() {
     if (_decisions.length === 0) {
         list.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);padding:8px;">
-                아직 결단이 없어요. 아래 [+ 새 결단 적기]를 눌러 시작해 볼까요?
+                아직 오늘의 목표가 없어요. 아래 [+ 새 목표 적기]를 눌러 시작해 볼까요?
             </p>
         `;
         return;
@@ -341,11 +342,13 @@ function renderDecisionCard(d) {
     const slotLabel = placed
         ? `⏰ ${slotToTime(d.timeSlot)}~${slotToTime(d.timeSlot + (d.durationSlots || 4))}`
         : '미배치';
+    // daily 목표의 텍스트는 title 필드. 호환: 결단 시절의 text 도 fallback.
+    const textValue = d.title ?? d.text ?? '';
     return `
         <div class="decision-card ${placed ? 'placed' : ''}" data-id="${d.id}">
             <span class="decision-handle" draggable="true" title="잡고 시간표로 끌어 옮겨 보세요">⋮⋮</span>
-            <input type="text" class="decision-text" value="${escapeHtml(d.text || '')}"
-                   placeholder="오늘 어디에 순종할까요?" data-id="${d.id}" />
+            <input type="text" class="decision-text" value="${escapeHtml(textValue)}"
+                   placeholder="오늘 옮길 한 걸음" data-id="${d.id}" />
             <span class="decision-slot">${slotLabel}</span>
             <button class="decision-action delete-btn" data-id="${d.id}" title="삭제">×</button>
         </div>
@@ -368,35 +371,35 @@ function bindCardEvents() {
     const list = document.getElementById('decisions-list');
     if (!list) return;
 
-    // 텍스트 인라인 편집 (blur 시 저장 + Enter 시 다음 결단으로)
+    // 텍스트 인라인 편집 (blur 시 저장 + Enter 시 다음 목표로) — daily goal.title 기준
     list.querySelectorAll('.decision-text').forEach(input => {
         input.addEventListener('blur', async () => {
             const id = input.dataset.id;
-            const decision = _decisions.find(d => d.id === id);
-            if (!decision) return;
+            const goal = _decisions.find(d => d.id === id);
+            if (!goal) return;
             const newText = input.value.trim();
-            if (newText === decision.text) return;
-            decision.text = newText;
+            if (newText === (goal.title || '')) return;
+            goal.title = newText;
             const dek = getDEK();
-            if (dek) await saveDecision(dek, decision);
+            if (dek) await saveGoal(dek, goal);
         });
         input.addEventListener('keydown', async (e) => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
             const id = input.dataset.id;
-            const decision = _decisions.find(d => d.id === id);
+            const goal = _decisions.find(d => d.id === id);
             const value = input.value.trim();
             // 변경이 있으면 먼저 저장
-            if (decision && value !== decision.text) {
-                decision.text = value;
+            if (goal && value !== (goal.title || '')) {
+                goal.title = value;
                 const dek = getDEK();
-                if (dek) await saveDecision(dek, decision);
+                if (dek) await saveGoal(dek, goal);
             }
             if (value) {
-                // 빈 카드가 아니면 다음 결단을 새로 만들고 그 카드 input에 포커스
+                // 빈 카드가 아니면 다음 목표를 새로 만들고 포커스
                 await addNewDecision();
             } else {
-                // 빈 카드에서 엔터는 무한 추가 방지 — 그냥 빠져나오기
+                // 빈 카드에서 엔터는 무한 추가 방지
                 input.blur();
             }
         });
@@ -406,8 +409,8 @@ function bindCardEvents() {
     list.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
-            if (!confirm('이 결단을 지워도 괜찮을까요?')) return;
-            await deleteDecision(id);
+            if (!confirm('이 목표를 지워도 괜찮을까요?')) return;
+            await deleteGoal(id);
             _decisions = _decisions.filter(d => d.id !== id);
             renderDecisions();
         });
@@ -436,16 +439,26 @@ async function addNewDecision() {
     const dek = getDEK();
     if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
-    const newDecision = {
+    // Phase B: daily 목표 (period='daily') 한 장 신규 생성. 결단 시절 필드를 새 모델로 매핑.
+    const newGoal = {
+        id: `goal_${_userId.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         userId: _userId,
-        date: _date,
-        text: '',
+        period: 'daily',
+        title: '',
+        description: '',
+        parentGoalId: null,
+        startDate: _date,
+        endDate: '',
+        status: 'active',
+        progress: 0,
+        // 시간표 박기용 필드 — encryptionPolicy.goals.plaintext 에 정합
         timeSlot: null,
         durationSlots: 4,
+        placedAt: null,
         order: _decisions.length,
     };
-    await saveDecision(dek, newDecision);
-    _decisions.push(newDecision);
+    await saveGoal(dek, newGoal);
+    _decisions.push(newGoal);
     renderDecisions();
 
     // 새로 추가된 입력란에 포커스
@@ -456,6 +469,6 @@ async function addNewDecision() {
     }, 50);
 }
 
-/** 외부에서 결단 목록 직접 접근 — Chunk 3의 timeline.js가 박힌 결단 렌더에 사용 */
+/** 외부에서 daily 목표 목록 직접 접근 — 현재 timeline 은 자체적으로 goalsRepo 를 쓰므로 dead. */
 export function getDecisions() { return _decisions; }
 export function getDecisionById(id) { return _decisions.find(d => d.id === id); }
