@@ -93,7 +93,7 @@ export const POLICY = {
             'id', 'type', 'stance', 'friendliness', 'trust', 'importance', 'riskLevel',
             'createdAt', 'updatedAt'
         ],
-        encrypted: ['name', 'memberPersonIds', 'meaningfulVerse', 'notes']
+        encrypted: ['name', 'memberPersonIds', 'meaningfulVerse', 'notes', 'stanceHistory']
     },
     interactions: {
         plaintext: ['id', 'dotId', 'date', 'sentiment', 'createdAt'],

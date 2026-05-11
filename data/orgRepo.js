@@ -83,3 +83,24 @@ export async function removeMemberFromOrg(dek, userId, orgId, personId) {
 export async function deleteOrganization(userId, orgId) {
     await deleteDoc(doc(db, 'users', userId, SUB, orgId));
 }
+
+/**
+ * stance 변경 + 사유 기록 (v3-①-F 영적 안전장치)
+ *
+ * personRepo.changeStance와 동일한 시맨틱:
+ *   - ally → caution/adversary 같은 부정 변경 시 30초 게이트 통과 후 호출
+ *   - stanceHistory에 from/to/reason/prayerDone 누적
+ */
+export async function changeOrgStance(dek, userId, org, newStance, reason, prayerDone) {
+    const history = Array.isArray(org.stanceHistory) ? org.stanceHistory.slice() : [];
+    history.push({
+        from: org.stance || 'neutral',
+        to: newStance,
+        changedAt: new Date().toISOString(),
+        reason: reason || '',
+        prayerDone: !!prayerDone,
+    });
+    org.stance = newStance;
+    org.stanceHistory = history;
+    return saveOrganization(dek, userId, org);
+}

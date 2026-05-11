@@ -19,10 +19,11 @@
  * 자동 암호화: personRepo.savePerson → encryptionPolicy.persons 정책에 따라 처리.
  */
 
-import { savePerson, getAllPersons, deletePerson } from '../data/personRepo.js';
+import { savePerson, getAllPersons, deletePerson, changeStance } from '../data/personRepo.js';
 import { getAllOrganizations } from '../data/orgRepo.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
+import { openStanceGate } from './stanceGate.js';
 
 // 조직 type 메타 (소속 조직 칩 표시용)
 const ORG_TYPE_ICONS = {
@@ -354,10 +355,10 @@ function renderModal() {
                             <div class="person-stance-pill big" style="background:${stance.color}1A;color:${stance.color}">
                                 <span>${stance.icon}</span><span>${stance.label}</span>
                             </div>
-                            <button class="person-stance-change-btn" disabled
-                                title="v3-①-F의 30초 기도 게이트 적용 후 활성화됩니다">
-                                stance 변경 (다음 STEP)
-                            </button>
+                            ${_editingId ? stanceChangeChipsHtml(p.stance || 'neutral') : `
+                            <div class="person-stance-locked-hint">
+                                저장한 뒤에 stance를 바꿀 수 있어요.
+                            </div>`}
                         </div>
                     </aside>
                     <div class="person-detail-right">
@@ -410,6 +411,66 @@ function bindModalEvents() {
     });
 
     bindBelongsEvents(root);
+    bindStanceChangeEvents(root);
+}
+
+// ─── stance 변경 (v3-①-F) ───
+function stanceChangeChipsHtml(current) {
+    const others = ['ally', 'neutral', 'caution', 'adversary'].filter(s => s !== current);
+    return `
+        <div class="person-stance-change-row">
+            <div class="person-stance-change-label">다른 stance로 옮기기</div>
+            <div class="person-stance-change-chips">
+                ${others.map(s => {
+                    const m = STANCE_META[s];
+                    return `
+                        <button class="person-stance-change-chip" data-to-stance="${s}"
+                                style="border-color:${m.color}; color:${m.color}">
+                            ${m.icon} ${m.label}
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+            <div class="person-stance-change-hint">
+                긍정 방향은 바로 적용, 부정 방향은 30초 기도 게이트를 거쳐요.
+            </div>
+        </div>
+    `;
+}
+
+function bindStanceChangeEvents(root) {
+    root.querySelectorAll('.person-stance-change-chip').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const toStance = btn.dataset.toStance;
+            if (!_editingId) return;
+            const dek = getDEK();
+            if (!dek) { showToast('잠겨 있어요. 비밀번호로 먼저 열어 주실래요?'); return; }
+            const current = _persons.find(p => p.id === _editingId);
+            if (!current) return;
+            const fromStance = current.stance || 'neutral';
+
+            const result = await openStanceGate({
+                subjectType: 'person',
+                subjectName: current.name || '(이름 없음)',
+                fromStance,
+                toStance,
+            });
+            if (!result) return; // 취소
+            try {
+                await changeStance(dek, _userId, current, toStance, result.reason, result.prayerDone);
+                showToast('🙏 stance를 옮겼어요. 그 사람을 위해 기도해 주세요.');
+                await loadPersons();
+                // 모달 갱신 (draft도 새 stance로 반영)
+                _editingDraft = deepClone(_persons.find(p => p.id === _editingId));
+                renderModal();
+                renderToolbar();
+                renderGrid();
+            } catch (e) {
+                console.error('changeStance failed:', e);
+                showToast('stance 변경이 잠깐 막혔어요. 다시 시도해 주실래요?');
+            }
+        });
+    });
 }
 
 // ─── Layer 1 정체성 ───

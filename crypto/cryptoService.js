@@ -102,35 +102,50 @@ export async function readDocument(dek, firestoreDoc) {
 
 /**
  * 텍스트 내 민감 정보를 가명으로 치환
+ *
+ * v3-①-F: orgs와 places 추가 가명화 — AI 호출 전 모든 식별자를 토큰으로.
+ *   P_001 = 인물, O_001 = 조직, L_001 = 장소
+ *   금액은 [고액]/[중액]/[소액] bucket으로
+ *
+ * 길이가 긴 토큰부터 치환해야 부분 일치 오작동 방지(예: 'P_001A' 같은 경우 차단).
+ *
  * @param {string} text - 원본 텍스트
- * @param {Object} context - { persons: string[], amounts: number[], places: string[] }
+ * @param {Object} context - { persons:string[], orgs:string[], places:string[], amounts:number[] }
  * @returns {{ safeText: string, mapping: Object }}
  */
 export function pseudonymize(text, context = {}) {
     const mapping = {
         persons: {},   // 원래이름 → P_001
+        orgs:    {},   // 원래조직 → O_001
+        places:  {},   // 원래장소 → L_001
         amounts: {},   // 원래금액 → 상/중/하
-        places: {},    // 원래장소 → 일반 카테고리
-        reverse: {},   // P_001 → 원래이름
+        reverse: {},   // 토큰 → 원래값
     };
 
     let safeText = text;
-    let personCounter = 1;
 
-    // 사람 이름 치환
-    if (context.persons) {
-        context.persons.forEach(name => {
-            if (!name || name.length < 2) return;
-            const alias = `P_${String(personCounter).padStart(3, '0')}`;
-            mapping.persons[name] = alias;
-            mapping.reverse[alias] = name;
-            // 전역 치환 (이름이 텍스트에 포함된 경우)
-            safeText = safeText.split(name).join(alias);
-            personCounter++;
+    // 긴 문자열부터 치환해야 부분 일치를 막을 수 있음
+    const replaceLongestFirst = (items, prefix, bucketMap) => {
+        const list = (items || [])
+            .filter(s => s && String(s).length >= 1)
+            .map(s => String(s))
+            .sort((a, b) => b.length - a.length);
+        let counter = 1;
+        list.forEach(value => {
+            if (bucketMap[value]) return; // 중복 회피
+            const alias = `${prefix}_${String(counter).padStart(3, '0')}`;
+            bucketMap[value] = alias;
+            mapping.reverse[alias] = value;
+            safeText = safeText.split(value).join(alias);
+            counter++;
         });
-    }
+    };
 
-    // 금액 → 상대값
+    replaceLongestFirst(context.persons, 'P', mapping.persons);
+    replaceLongestFirst(context.orgs,    'O', mapping.orgs);
+    replaceLongestFirst(context.places,  'L', mapping.places);
+
+    // 금액 → 상대값 bucket
     if (context.amounts) {
         context.amounts.forEach(amount => {
             const bucket = amount > 1000000 ? '고액' : amount > 100000 ? '중액' : '소액';

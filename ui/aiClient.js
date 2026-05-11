@@ -48,7 +48,8 @@ async function getCallable() {
  * @returns {Promise<{text: string, fallback: boolean}>}
  */
 export async function callLLM(task, plain, opts = {}) {
-    const { masked, mapping } = pseudonymize(JSON.stringify(plain), plain.context || {});
+    // pseudonymize는 { safeText, mapping } 반환 — 가명화된 텍스트를 masked로 받음
+    const { safeText: masked, mapping } = pseudonymize(JSON.stringify(plain), plain.context || {});
 
     // 캐시 확인
     const cacheKey = await hashKey(task, masked);
@@ -121,35 +122,115 @@ async function hashKey(task, masked) {
 
 /**
  * 타임박싱 모달용 브리핑 — 4섹션
+ *
+ * 4섹션 구조:
+ *   📖 관련 원칙 / 📊 지난 패턴 / ⚠️ 주의할 점 / 🙏 묵상 점검
+ *
+ * @param {string} taskKeywords - 이 시간에 할 일 키워드
+ * @param {Array}  principles   - 관련된 사용자 원칙 ({title, body})
+ * @param {Object} pastStats    - 폴백/지난 패턴 표시용 통계
+ * @param {Object} context      - 가명화에 필요한 식별자
+ *                                { persons:string[], orgs:string[], places:string[], amounts:number[] }
  */
-export async function getBriefingForTask(taskKeywords, principles = [], pastStats = {}) {
+export async function getBriefingForTask(taskKeywords, principles = [], pastStats = {}, context = {}) {
     const result = await callLLM('briefing', {
         taskKeywords,
         principles,
         pastStats,
-        context: { persons: [], amounts: [] },
+        context: {
+            persons: context.persons || [],
+            orgs:    context.orgs    || [],
+            places:  context.places  || [],
+            amounts: context.amounts || [],
+        },
     }, { stats: pastStats });
 
     if (result.fallback) {
         return {
-            sections: [
-                { icon: '📖', title: '관련 원칙', body: principles.length > 0
-                    ? principles.map(p => `· ${p.title}`).join('\n')
-                    : '아직 핀 원칙이 없어요. 나의 원칙에서 한 줄 적어 보세요.' },
-                { icon: '📊', title: '지난 패턴', body:
-                    `완료 ${pastStats.doneCount || 0} · 만족도 ${pastStats.avgSatisfaction || '-'}` },
-                { icon: '⚠️', title: '주의할 점', body: '비교는 거울이지 채찍이 아니에요. 한 걸음만 더.' },
-                { icon: '🙏', title: '묵상 점검', body: '이 시간이 오늘 말씀과 어떻게 이어지나요?' },
-            ],
+            sections: buildFallbackSections(principles, pastStats, context),
             fallback: true,
         };
     }
 
-    // Gemini 응답을 4섹션 파싱 (간단 분리)
-    return { sections: parseBriefingResponse(result.text), fallback: false };
+    // 실제 LLM 응답 — 4섹션 헤더 파싱 시도, 실패 시 한 섹션으로 fallback
+    const parsed = parseBriefingResponse(result.text);
+    return { sections: parsed, fallback: false };
 }
 
+function buildFallbackSections(principles, pastStats, context) {
+    const peopleHint = (context?.persons?.length)
+        ? `오늘 함께하는 ${context.persons.length}명을 떠올리며.`
+        : '';
+    const orgHint = (context?.orgs?.length)
+        ? ` 조직 흐름도 한 번 점검해 보세요.`
+        : '';
+    return [
+        {
+            icon: '📖',
+            title: '관련 원칙',
+            body: principles.length > 0
+                ? principles.map(p => `· ${p.title}`).join('\n')
+                : '아직 핀 원칙이 없어요. [📖 나의 원칙]에서 한 줄 적어 보세요.',
+        },
+        {
+            icon: '📊',
+            title: '지난 패턴',
+            body: `완료 ${pastStats.doneCount || 0} · 만족도 ${pastStats.avgSatisfaction || '-'}`,
+        },
+        {
+            icon: '⚠️',
+            title: '주의할 점',
+            body: `비교는 거울이지 채찍이 아니에요. 한 걸음만 더.${peopleHint ? ' ' + peopleHint : ''}${orgHint}`.trim(),
+        },
+        {
+            icon: '🙏',
+            title: '묵상 점검',
+            body: '이 시간이 오늘 말씀과 어떻게 이어지나요?',
+        },
+    ];
+}
+
+/**
+ * Gemini 응답을 4섹션으로 파싱.
+ *
+ * 응답 규약(서버 프롬프트가 이렇게 강제):
+ *   ## 관련 원칙
+ *   ...
+ *   ## 지난 패턴
+ *   ...
+ *   ## 주의할 점
+ *   ...
+ *   ## 묵상 점검
+ *   ...
+ *
+ * 위 규약을 못 지킨 응답은 한 섹션으로 표시.
+ */
 function parseBriefingResponse(text) {
-    // Gemini가 4섹션으로 응답하지 않을 수 있어 단순화: 전체를 한 섹션으로
+    const sectionMeta = [
+        { key: '관련 원칙',  icon: '📖' },
+        { key: '지난 패턴',  icon: '📊' },
+        { key: '주의할 점',  icon: '⚠️' },
+        { key: '묵상 점검',  icon: '🙏' },
+    ];
+
+    const lines = String(text).split(/\r?\n/);
+    const buckets = sectionMeta.map(m => ({ ...m, body: '' }));
+    let current = -1;
+
+    for (const line of lines) {
+        const m = line.match(/^#{1,3}\s*(.+?)\s*$/);
+        if (m) {
+            const idx = sectionMeta.findIndex(s => m[1].includes(s.key));
+            if (idx >= 0) { current = idx; continue; }
+        }
+        if (current >= 0) {
+            buckets[current].body += (buckets[current].body ? '\n' : '') + line.trim();
+        }
+    }
+
+    const matched = buckets.filter(b => b.body.trim().length > 0);
+    if (matched.length >= 2) {
+        return matched.map(b => ({ icon: b.icon, title: b.key, body: b.body.trim() }));
+    }
     return [{ icon: '🌟', title: 'AI 브리핑', body: text }];
 }

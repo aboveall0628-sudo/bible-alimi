@@ -301,6 +301,8 @@ function setupNavigation() {
         'nav-past': 'past',
         'nav-principles': 'principles',
         'nav-reports': 'reports',
+        'nav-persons': 'persons',
+        'nav-organizations': 'organizations',
         'nav-settings': 'settings',
     };
 
