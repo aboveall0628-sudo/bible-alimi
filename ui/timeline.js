@@ -622,8 +622,10 @@ function openInlineActualInput(col, slot, duration = 1) {
     let _saved = false;
     const saveWith = async (status, sat) => {
         if (_saved) return;
+        // 텍스트 없이도 이모지만 누르면 저장 OK — 빠르게 도트 한 칸 찍는 흐름 허용.
+        // 텍스트 빈 도트는 화면에서 '(이름 없는 시간)' 으로 표시되고 나중에 도트 다시 클릭하면
+        // 모달에서 채울 수 있음.
         const text = input.value.trim();
-        if (!text) { input.focus(); return; }
         _saved = true;
         const dek = getDEK();
         if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); _saved = false; return; }
@@ -644,7 +646,6 @@ function openInlineActualInput(col, slot, duration = 1) {
             await saveDot(dek, dot);
             panel.remove();
             // Optimistic — 같은 id의 기존 도트 교체 후 즉시 렌더.
-            // 백그라운드 refresh는 따로 돌려 정확성 보정 (실패해도 화면은 살아있음).
             _dots = _dots.filter(d => d.id !== dot.id);
             _dots.push(dot);
             render();

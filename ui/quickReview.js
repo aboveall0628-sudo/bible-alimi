@@ -71,26 +71,44 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     _orgRatings    = (existingDot?.orgRatings    && typeof existingDot.orgRatings    === 'object')
         ? { ...existingDot.orgRatings }    : {};
 
-    // 초기화
+    // 초기화 — existingDot 이 있으면 그 안의 모든 필드를 복원해 사용자가 처음부터 다시
+    // 적을 필요 없게. (인라인에서 빠르게 적은 actualTask·만족도·상태도 그대로 보임)
     const modal = document.getElementById('qr-modal');
     modal.classList.remove('hidden');
 
+    const ed = existingDot || null;
+    const sat    = ed?.executionSatisfaction ?? 3;
+    const outSat = ed?.outcomeSatisfaction   ?? 3;
+
     document.getElementById('qr-planned-task').textContent = plannedTask || '(따로 계획은 없었어요)';
-    document.getElementById('qr-actual-input').value = plannedTask || '';
-    document.getElementById('qr-reason-input').value = '';
-    document.getElementById('qr-satisfaction').value = '3';
-    document.getElementById('qr-sat-value').textContent = '3';
-    document.getElementById('qr-outcome-sat').value = '3';
+    // 실제로 한 일 — 인라인에서 적은 게 있으면 그대로, 없으면 plannedTask 자동 채움.
+    document.getElementById('qr-actual-input').value = ed?.actualTask || plannedTask || '';
+    document.getElementById('qr-reason-input').value = ed?.reason || '';
+    document.getElementById('qr-satisfaction').value = String(sat);
+    document.getElementById('qr-sat-value').textContent = String(sat);
+    document.getElementById('qr-outcome-sat').value = String(outSat);
 
-    // 상태 버튼 초기화
-    document.querySelectorAll('.qr-status-btn').forEach(btn => btn.classList.remove('selected'));
+    // 상태 버튼 — existingDot.executed 와 같은 버튼만 selected
+    const restoredStatus = ed?.executed;
+    document.querySelectorAll('.qr-status-btn').forEach(btn => {
+        btn.classList.toggle('selected', restoredStatus != null && btn.dataset.status === restoredStatus);
+    });
 
-    // 라벨 칩 초기화
-    document.querySelectorAll('.qr-label-chip').forEach(chip => chip.classList.remove('selected'));
+    // 라벨 칩 — existingDot.labelIds 에 들어 있는 라벨만 selected
+    const restoredLabels = Array.isArray(ed?.labelIds) ? ed.labelIds : [];
+    document.querySelectorAll('.qr-label-chip').forEach(chip => {
+        chip.classList.toggle('selected', restoredLabels.includes(chip.dataset.label));
+    });
 
-    // 상세 접기
-    document.getElementById('qr-detail-section').classList.add('hidden');
-    document.getElementById('qr-detail-toggle').textContent = '조금 더 자세히 ▼';
+    // 상세 접기 — 단, 기존 도트에 reason/라벨/만족도≠3 같은 자세한 정보가 있으면 자동으로 펼침
+    const hasDetail = !!(ed?.reason || restoredLabels.length > 0
+        || (ed?.actualTask && ed.actualTask !== plannedTask)
+        || (ed && (sat !== 3 || outSat !== 3))
+        || (_selectedPersonIds.length > 0) || (_selectedOrgIds.length > 0));
+    const detailSection = document.getElementById('qr-detail-section');
+    const detailToggle  = document.getElementById('qr-detail-toggle');
+    detailSection.classList.toggle('hidden', !hasDetail);
+    detailToggle.textContent = hasDetail ? '접기 ▲' : '조금 더 자세히 ▼';
 
     // v3: 인물·조직 칩 즉시 한 번 그리고, 백그라운드로 카드 로드 후 datalist 갱신
     renderLinkChips();
