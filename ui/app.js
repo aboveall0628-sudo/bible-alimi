@@ -301,6 +301,12 @@ async function onVaultUnlocked(dek) {
     // 첫 마운트엔 현재 시간이 상단에 오게 자동 스크롤
     await refreshTimeline({ userId: currentUserId, date: currentDate, scrollToNow: true });
 
+    // 대시보드(첫 화면)에 표시될 목표·지표 카드 렌더 — 부팅 직후 빈 화면 방지
+    try {
+        renderGoalsView(currentUserId);
+        renderDashboardView(currentUserId);
+    } catch (e) { console.warn('dashboard initial render failed:', e); }
+
     // 성경 본문 렌더
     renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(e =>
         console.warn('scripture render failed:', e)
@@ -328,11 +334,11 @@ async function refreshTodayData() {
 
 // ─── 네비게이션 ───
 function setupNavigation() {
+    // nav-goals 메뉴는 제거됨 — '나의 목표'는 대시보드 안으로 통합.
     const navMap = {
-        'nav-goals': 'goals',
+        'nav-dashboard': 'dashboard',
         'nav-today': 'today',
         'nav-evening': 'evening',
-        'nav-dashboard': 'dashboard',
         'nav-past': 'past',
         'nav-principles': 'principles',
         'nav-reports': 'reports',
@@ -427,9 +433,9 @@ function switchView(viewId) {
         import('./eveningLoop.js').then(m => m.openEveningLoop(currentUserId, currentDate));
     } else if (viewId === 'principles') {
         renderPrinciplesView(currentUserId);
-    } else if (viewId === 'goals') {
-        renderGoalsView(currentUserId);
     } else if (viewId === 'dashboard') {
+        // 대시보드 = 나의 목표 + 지표 카드. 둘 다 한 번에 렌더.
+        renderGoalsView(currentUserId);
         renderDashboardView(currentUserId);
     } else if (viewId === 'reports') {
         renderReportsView(currentUserId);

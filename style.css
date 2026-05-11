@@ -1093,6 +1093,18 @@ button .btn-icon { vertical-align: text-bottom; }
 .tab-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* ═══ Dashboard ═══ */
+/* 대시보드 안의 큰 섹션 단위 (나의 목표 / 이번 주 흐름 등). 메뉴 통합 후 도입. */
+.dash-section {
+    margin-bottom: var(--sp-6);
+}
+.dash-section > .section-header-flex {
+    margin-bottom: var(--sp-3);
+    align-items: baseline;
+}
+.section-desc-inline {
+    font-size: 12px; color: var(--text-secondary); font-weight: 400;
+    margin-left: var(--sp-3);
+}
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-4); }
 .dash-card {
     background: var(--bg-card); border: 1px solid var(--border);
