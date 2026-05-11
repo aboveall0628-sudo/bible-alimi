@@ -469,6 +469,5 @@ async function addNewDecision() {
     }, 50);
 }
 
-/** 외부에서 daily 목표 목록 직접 접근 — 현재 timeline 은 자체적으로 goalsRepo 를 쓰므로 dead. */
-export function getDecisions() { return _decisions; }
-export function getDecisionById(id) { return _decisions.find(d => d.id === id); }
+// (B-4 정리) 외부 dead exports getDecisions/getDecisionById 제거.
+// timeline.js 는 자체적으로 goalsRepo 를 import 해 사용.

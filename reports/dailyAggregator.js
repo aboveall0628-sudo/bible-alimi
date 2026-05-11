@@ -13,7 +13,8 @@
  */
 
 import { getDotsByDate } from '../data/dotsRepo.js';
-import { getDecisionsByDate } from '../data/decisionsRepo.js';
+// Phase B-4: 결단 → daily 목표 흡수 후 정렬도(alignment)는 daily 목표 기준으로 계산.
+import { getDailyGoals } from '../data/goalsRepo.js';
 
 const MIN_PER_SLOT = 15;  // 15분 단위 슬롯
 
@@ -26,15 +27,19 @@ const MIN_PER_SLOT = 15;  // 15분 단위 슬롯
  * @returns {Promise<Object>} stats 객체 (8섹션 중 1~6 + 묵상 메타 boolean)
  */
 export async function aggregateDailyStats(dek, userId, date) {
-    const [dots, decisions] = await Promise.all([
+    const [dots, allDailyGoals] = await Promise.all([
         getDotsByDate(dek, userId, date),
-        getDecisionsByDate(dek, userId, date).catch(() => []),
+        getDailyGoals(dek, userId).catch(() => []),
     ]);
+
+    // Phase B-4: 결단의 alignment 계산을 daily 목표 기준으로. 시간표에 박힌 목표만 의미 있음.
+    // 결단 시절 d.text 도 fallback 으로 받아 옛 문서가 섞여 있을 때 대비.
+    const placedGoals = allDailyGoals.filter(g => g.timeSlot != null);
 
     return {
         date,
         dotStats:                 computeDotStats(dots),
-        alignment:                computeAlignment(decisions, dots),
+        alignment:                computeAlignment(placedGoals, dots),
         timeAllocation:           computeTimeAllocation(dots),
         satisfactionDistribution: computeDistribution(dots, 'executionSatisfaction'),
         resultDistribution:       computeDistribution(dots, 'outcomeSatisfaction'),

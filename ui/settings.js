@@ -13,6 +13,9 @@ import { changePassword, unlockVault } from '../crypto/keyManager.js';
 import { db, doc, setDoc, getDoc, serverTimestamp } from '../data/firebase.js';
 import { logAuditAction } from '../security/auditLog.js';
 import { validatePassword, firstError, bindPolicyHint, POLICY_VERSION } from '../crypto/passwordPolicy.js';
+// Phase B-3: 예전 결단 정리용
+import { getAllDecisions, deleteDecision } from '../data/decisionsRepo.js';
+import { deleteCalendarEventById } from './app.js';
 
 let _userId = null;
 let _userEmail = null;
@@ -74,6 +77,26 @@ function injectExtraSections() {
         </div>
     `;
     container.appendChild(pwCard);
+
+    // Phase B-3: 예전 결단 정리 카드 — 새 흐름(daily 목표) 전 데이터 정돈
+    const cleanupCard = document.createElement('div');
+    cleanupCard.id = 'settings-decisions-cleanup';
+    cleanupCard.className = 'card-section';
+    cleanupCard.style.borderLeft = '3px solid var(--dot-orange)';
+    cleanupCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="broom"></i> 예전 결단 정리하기</h3>
+        <p class="section-desc">
+            "오늘의 결단"이 이제 "오늘의 목표"로 통합됐어요. 예전에 적어둔 결단과,
+            Google 캘린더에 옮겨두었던 결단 일정을 한 번에 정리할 수 있어요.<br>
+            <strong style="color:var(--dot-red)">원본 결단 문서와 캘린더 이벤트가 영구 삭제됩니다.</strong>
+        </p>
+        <div id="decisions-cleanup-status" style="margin: 8px 0; font-size: 13px; color: var(--text-secondary);"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-decisions-scan" class="text-btn">먼저 얼마나 있는지 확인</button>
+            <button id="btn-decisions-cleanup" class="primary-btn" style="background:var(--dot-orange)" disabled>예전 결단 정리하기</button>
+        </div>
+    `;
+    container.appendChild(cleanupCard);
 }
 
 function bindEvents() {
@@ -290,5 +313,97 @@ function bindEvents() {
             btnPw.disabled = false;
             btnPw.textContent = '비밀번호 바꾸기';
         }
+    };
+
+    // ─── Phase B-3: 예전 결단 정리 ───
+    const cleanupStatus = document.getElementById('decisions-cleanup-status');
+    const btnScan = document.getElementById('btn-decisions-scan');
+    const btnCleanup = document.getElementById('btn-decisions-cleanup');
+    let _cleanupDecisionsCache = null;  // scan 결과 캐시 (cleanup 시 재사용)
+
+    if (btnScan) btnScan.onclick = async () => {
+        const dek = getDEK();
+        if (!dek) { cleanupStatus.innerHTML = '<span style="color:var(--dot-red)">잠겨 있어요. 비밀번호로 먼저 열어주세요.</span>'; return; }
+        btnScan.disabled = true;
+        btnScan.textContent = '확인 중...';
+        try {
+            const decisions = await getAllDecisions(dek, _userId);
+            _cleanupDecisionsCache = decisions;
+            const total = decisions.length;
+            const onCalendar = decisions.filter(d => d.gcalEventId).length;
+            if (total === 0) {
+                cleanupStatus.innerHTML = '<p style="color:var(--dot-green)">예전 결단이 없어요. 이미 깔끔합니다.</p>';
+                btnCleanup.disabled = true;
+            } else {
+                cleanupStatus.innerHTML = `
+                    <p style="font-weight:600">발견: 결단 ${total}개, 그중 Google 캘린더에 올라간 일정 ${onCalendar}개</p>
+                    <p style="color:var(--text-secondary)">아래 [예전 결단 정리하기]를 누르면 둘 다 영구 삭제돼요. 한 번 더 묻습니다.</p>
+                `;
+                btnCleanup.disabled = false;
+            }
+        } catch (e) {
+            console.error('decisions scan failed:', e);
+            cleanupStatus.innerHTML = '<span style="color:var(--dot-red)">결단 확인 중에 잠깐 막혔어요. 다시 시도해 주실래요?</span>';
+        } finally {
+            btnScan.disabled = false;
+            btnScan.textContent = '먼저 얼마나 있는지 확인';
+        }
+    };
+
+    if (btnCleanup) btnCleanup.onclick = async () => {
+        if (!_cleanupDecisionsCache || _cleanupDecisionsCache.length === 0) {
+            cleanupStatus.innerHTML = '<span style="color:var(--dot-orange)">먼저 [확인] 버튼을 눌러 주세요.</span>';
+            return;
+        }
+        if (!confirm(
+            `결단 ${_cleanupDecisionsCache.length}개와 그 캘린더 일정을 영구 삭제합니다.\n` +
+            `복구할 수 없어요. 계속할까요?`
+        )) return;
+
+        btnCleanup.disabled = true;
+        btnScan.disabled = true;
+        btnCleanup.textContent = '정리 중...';
+
+        const total = _cleanupDecisionsCache.length;
+        let calOk = 0, calFail = 0, docOk = 0, docFail = 0;
+
+        // 1) 캘린더 이벤트 먼저 삭제 — 실패해도 결단 문서 삭제는 계속 진행
+        const withEvent = _cleanupDecisionsCache.filter(d => d.gcalEventId);
+        for (let i = 0; i < withEvent.length; i++) {
+            const d = withEvent[i];
+            cleanupStatus.innerHTML = `<p>📅 캘린더 일정 삭제 중... (${i + 1}/${withEvent.length})</p>`;
+            const r = await deleteCalendarEventById(d.gcalEventId);
+            if (r.ok) calOk++;
+            else calFail++;
+        }
+
+        // 2) Firestore 결단 문서 삭제
+        for (let i = 0; i < _cleanupDecisionsCache.length; i++) {
+            const d = _cleanupDecisionsCache[i];
+            cleanupStatus.innerHTML = `<p>🗑 결단 문서 삭제 중... (${i + 1}/${total})</p>`;
+            try {
+                await deleteDecision(d.id);
+                docOk++;
+            } catch (e) {
+                console.warn('decision delete failed:', d.id, e);
+                docFail++;
+            }
+        }
+
+        // 3) 결과 표시
+        const parts = [
+            `캘린더: 지움 ${calOk}` + (calFail ? ` / 실패 ${calFail}` : ''),
+            `결단 문서: 지움 ${docOk}` + (docFail ? ` / 실패 ${docFail}` : ''),
+        ];
+        cleanupStatus.innerHTML = `
+            <p style="color:var(--dot-green);font-weight:600">✅ 정리가 끝났어요</p>
+            <p style="font-size:13px">${parts.join(' · ')}</p>
+            ${(calFail || docFail) ? '<p style="font-size:12px; color:var(--dot-orange)">실패한 항목은 잠시 후 다시 시도해 주실래요?</p>' : ''}
+        `;
+        _cleanupDecisionsCache = null;
+        btnCleanup.disabled = true;
+        btnCleanup.textContent = '예전 결단 정리하기';
+        btnScan.disabled = false;
+        await logAuditAction(_userId, 'decisions_cleanup', { total, calOk, calFail, docOk, docFail });
     };
 }

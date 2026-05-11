@@ -715,6 +715,33 @@ export async function listUpcomingEvents() {
 /**
  * 박힌 결단들을 Google Calendar에 (없으면) 만들거나 (있으면) 갱신.
  * 모바일 알림은 기본 reminder(팝업 10분 전)로 자동 옴.
+/**
+ * Google Calendar 이벤트 1개 삭제. Phase B-3 결단 정리 흐름이 사용.
+ * 404(이미 삭제됨) 는 성공으로 간주한다.
+ * @param {string} eventId
+ * @returns {Promise<{ok:boolean, status?:number, reason?:string}>}
+ */
+export async function deleteCalendarEventById(eventId) {
+    if (!gapiInited || !gapi.client.getToken()) {
+        return { ok: false, reason: 'no-token' };
+    }
+    if (!eventId) return { ok: false, reason: 'no-id' };
+    try {
+        await gapi.client.calendar.events.delete({
+            calendarId: 'primary',
+            eventId,
+        });
+        return { ok: true };
+    } catch (e) {
+        const status = e?.result?.error?.code || e?.status;
+        // 404 = 이미 사라진 이벤트 — 사용자 입장에선 목적 달성. 성공으로 처리.
+        if (status === 404 || status === 410) return { ok: true, status };
+        console.warn('gcal delete failed:', eventId, status, e);
+        return { ok: false, status };
+    }
+}
+
+/**
  * @param {Array} placedDecisions  timeSlot != null 인 결단들
  * @returns {Promise<{created:number, updated:number, failed:number}>}
  */

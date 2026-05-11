@@ -10,12 +10,12 @@
  * - 행 높이: 16px (1시간 = 64px)
  *
  * 데이터 소스
- * - 결단 (decisionsRepo): timeSlot != null 인 것은 plan 레인의 슬롯으로 표시
+ * - daily 목표 (goalsRepo, period='daily'): timeSlot != null 인 것은 plan 레인 슬롯
  * - Google Calendar events: plan 레인에 회색-아닌 accent 띠로 표시 (origin = 'gcal')
  * - 도트 (dotsRepo): actual 레인에 표시. dot.executionSatisfaction에 따라 색
  *
  * Drop 인터랙션
- * - 결단 카드 → plan 레인의 슬롯으로 drop → decisionsRepo.placeDecision
+ * - daily 목표 카드 → plan 레인의 슬롯으로 drop → goalsRepo.placeGoal
  * - plan 슬롯 본문 drag → 시간 이동
  * - plan 슬롯 하단 6px drag → 길이 조절
  *
@@ -781,15 +781,8 @@ function bindGlobalEvents() {
     });
 }
 
-/** 외부에서 슬롯에서 결단을 빼고 싶을 때 */
-export async function unplaceDecisionFromTimeline(decisionId) {
-    const d = _decisions.find(x => x.id === decisionId);
-    if (!d) return;
-    const dek = getDEK();
-    if (!dek) return;
-    await unplaceGoal(dek, d);
-    await refreshTimeline({ userId: _userId, date: _date });
-}
+// (B-4 정리) 외부 dead export unplaceDecisionFromTimeline 제거.
+// 시간표 plan 슬롯의 X 버튼이 unplaceGoal 을 직접 호출.
 
 // ─── 유틸 ───
 function slotToTime(slot) {

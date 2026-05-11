@@ -61,3 +61,16 @@ export async function unplaceDecision(dek, decision) {
 export async function deleteDecision(id) {
     await deleteDoc(doc(db, 'decisions', id));
 }
+
+/**
+ * Phase B-3 정리용 — 사용자의 모든 결단 조회 (날짜 무관).
+ * 새 흐름은 goalsRepo 를 쓰므로 일반 경로에서는 이 함수를 호출하지 않음.
+ * 설정·보안의 "예전 결단 정리하기" 버튼에서만 사용.
+ */
+export async function getAllDecisions(dek, userId) {
+    const q = query(
+        collection(db, 'decisions'),
+        where('userId', '==', userId)
+    );
+    return await queryRecords(dek, q);
+}
