@@ -208,6 +208,11 @@
                     <div id="today-start-content"></div>
                 </section>
 
+                <!-- D-4: 토요일 회고 CTA + 빈 상태 가이드 — JS가 조건부 채움. 평일엔 비어있음. -->
+                <section class="dash-section dash-section-call" id="dash-section-call" hidden>
+                    <div id="dashboard-call"></div>
+                </section>
+
                 <!-- 나의 목표 — 7계층, 단 D-1 이후 daily+weekly 디폴트 노출 -->
                 <section class="dash-section" id="dash-section-goals">
                     <header class="section-header-flex">
@@ -222,6 +227,14 @@
                         <h2 class="section-title"><i class="section-icon" data-lucide="leaf"></i> 이번 주의 결</h2>
                     </header>
                     <div id="dashboard-prose"></div>
+                </section>
+
+                <!-- D-3: 이번 주 관계의 결 — 최근 만난 사람·조직 산문 + avatar 줄 -->
+                <section class="dash-section" id="dash-section-people">
+                    <header class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="users"></i> 이번 주 관계의 결</h2>
+                    </header>
+                    <div id="dashboard-people"></div>
                 </section>
 
                 <!-- D-1: 숫자로 보기 — 디폴트 접힘. 토글 클릭 시 카드 노출 -->

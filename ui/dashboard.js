@@ -22,6 +22,9 @@
 
 import { db, collection, query, where, getDocs, limit } from '../data/firebase.js';
 import { getDotsByDateRange, computeDotStats } from '../data/dotsRepo.js';
+import { getAllPersons } from '../data/personRepo.js';
+import { getAllOrganizations } from '../data/orgRepo.js';
+import { computeAllPersonStats, computeAllOrgStats, formatMinutes, ratingDotsHtml } from '../data/cardStats.js';
 import { readDocument } from '../crypto/cryptoService.js';
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { getDEK } from './lockScreen.js';
@@ -44,16 +47,20 @@ export async function renderDashboardView(userId) {
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = fmt(yesterday);
 
-    const [pinned, yesterdayReport, dots, bibleProgress, meditationCount] = await Promise.all([
+    const [pinned, yesterdayReport, dots, bibleProgress, meditationCount, persons, orgs] = await Promise.all([
         getPinnedPrinciple(dek, userId).catch(() => null),
         getDayReport(dek, userId, yesterdayStr).catch(() => null),
         getDotsByDateRange(dek, userId, startDate, endDate).catch(() => []),
         getBibleProgress(userId).catch(() => []),
         countMeditations(userId, startDate, endDate).catch(() => 0),
+        getAllPersons(dek, userId).catch(() => []),
+        getAllOrganizations(dek, userId).catch(() => []),
     ]);
 
     renderTodayStart(pinned, yesterdayReport);
+    renderCallSection(dots);                            // D-4: 토요일 CTA / 빈 상태 가이드
     renderProseLine(dots);
+    renderPeopleSection(dots, persons, orgs);           // D-3: 이번 주 관계의 결
     renderNumberCards(dots, bibleProgress, meditationCount, startDate, endDate);
     bindNumbersToggle();
 
@@ -175,6 +182,183 @@ function renderProseLine(dots) {
         <p class="dash-prose-quiet">여기까지가 데이터예요. 다음은 묵상 안에서.</p>
     `;
 }
+
+// ─── D-3) 이번 주 관계의 결 — 최근 만난 사람·조직 ───────────
+function renderPeopleSection(dots, persons, orgs) {
+    const root = document.getElementById('dashboard-people');
+    if (!root) return;
+
+    const personStats = computeAllPersonStats(dots);
+    const orgStats    = computeAllOrgStats(dots);
+
+    // 이번 주 함께한 사람·조직 추출 (meetingCount>0)
+    const peopleRows = persons
+        .filter(p => !p.isFallback)
+        .map(p => ({ card: p, stats: personStats.get(p.id) || null }))
+        .filter(x => x.stats && x.stats.meetingCount > 0)
+        .sort((a, b) => b.stats.meetingCount - a.stats.meetingCount);
+
+    const orgRows = orgs
+        .map(o => ({ card: o, stats: orgStats.get(o.id) || null }))
+        .filter(x => x.stats && x.stats.meetingCount > 0)
+        .sort((a, b) => b.stats.meetingCount - a.stats.meetingCount);
+
+    // 둘 다 비어 있으면 안내문
+    if (peopleRows.length === 0 && orgRows.length === 0) {
+        root.innerHTML = `
+            <p class="dash-prose-quiet">
+                이번 주 도트에 함께한 사람·조직이 아직 없어요.
+                평가에서 칩으로 추가해 두면 여기에 누적돼요.
+            </p>
+        `;
+        return;
+    }
+
+    // 산문 한 줄 — 사람 수, 만남 횟수, 평균 만족도
+    const peopleCount = peopleRows.length;
+    const totalMeetings = peopleRows.reduce((sum, x) => sum + x.stats.meetingCount, 0);
+    const ratingSamples = peopleRows.filter(x => x.stats.avgRating != null);
+    const avgPeopleRating = ratingSamples.length > 0
+        ? (ratingSamples.reduce((sum, x) => sum + x.stats.avgRating, 0) / ratingSamples.length).toFixed(1)
+        : null;
+
+    const proseParts = [];
+    if (peopleCount > 0) {
+        proseParts.push(`이번 주 <strong>${peopleCount}명</strong>과 <strong>${totalMeetings}번</strong>`);
+        if (avgPeopleRating != null) proseParts.push(`평균 <strong>${avgPeopleRating}점</strong>`);
+    }
+    if (orgRows.length > 0) {
+        proseParts.push(`조직 <strong>${orgRows.length}곳</strong>`);
+    }
+    const proseLine = proseParts.length > 0
+        ? `<p class="dash-prose">${proseParts.join(', ')}.</p>`
+        : '';
+
+    // 사람 5명 아바타 줄 (만남 횟수 순)
+    const topPeople = peopleRows.slice(0, 5);
+    const avatarsHtml = topPeople.length > 0
+        ? `
+            <div class="dash-people-avatars" role="list">
+                ${topPeople.map(x => `
+                    <button class="dash-person-chip" data-person-id="${escapeAttr(x.card.id)}" role="listitem"
+                            title="${escapeAttr(x.card.name || '')} · 만남 ${x.stats.meetingCount}번${
+                                x.stats.avgRating != null ? ` · ${x.stats.avgRating.toFixed(1)}점` : ''
+                            }">
+                        <span class="dash-person-avatar" style="background:${avatarColor(x.card.id)}">
+                            ${escapeHtml((x.card.name || '?').slice(0, 1))}
+                        </span>
+                        <span class="dash-person-meta">
+                            <span class="dash-person-name">${escapeHtml(x.card.name || '이름 미상')}</span>
+                            <span class="dash-person-stats">
+                                ${x.stats.avgRating != null ? ratingDotsHtml(x.stats.avgRating) : ''}
+                                <span class="dash-person-count">${x.stats.meetingCount}번 · ${formatMinutes(x.stats.totalMinutes)}</span>
+                            </span>
+                        </span>
+                    </button>
+                `).join('')}
+            </div>
+        ` : '';
+
+    // 조직 줄 (있을 때만)
+    const orgsHtml = orgRows.length > 0
+        ? `
+            <div class="dash-orgs-row">
+                ${orgRows.slice(0, 3).map(x => `
+                    <button class="dash-org-chip" data-org-id="${escapeAttr(x.card.id)}"
+                            title="${escapeAttr(x.card.name || '')} · 만남 ${x.stats.meetingCount}번">
+                        <i data-lucide="building-2" class="dash-org-icon"></i>
+                        <span>${escapeHtml(x.card.name || '이름 미상')}</span>
+                        <span class="dash-org-count">${x.stats.meetingCount}번</span>
+                    </button>
+                `).join('')}
+            </div>
+        ` : '';
+
+    root.innerHTML = proseLine + avatarsHtml + orgsHtml;
+
+    // 클릭 시 인물/조직 페이지 진입 (deep link 는 다음 단계 — 일단 페이지만)
+    root.querySelectorAll('.dash-person-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (typeof window.__sanctumSwitchView === 'function') {
+                window.__sanctumSwitchView('persons');
+            }
+        });
+    });
+    root.querySelectorAll('.dash-org-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (typeof window.__sanctumSwitchView === 'function') {
+                window.__sanctumSwitchView('organizations');
+            }
+        });
+    });
+}
+
+// ─── D-4) 토요일 회고 CTA + 빈 상태 가이드 ──────────────────
+function renderCallSection(dots) {
+    const section = document.getElementById('dash-section-call');
+    const root    = document.getElementById('dashboard-call');
+    if (!section || !root) return;
+
+    // 빈 상태: 지난 7일 도트가 0개 — 시작 가이드
+    if (!dots || dots.length === 0) {
+        section.removeAttribute('hidden');
+        root.innerHTML = `
+            <div class="dash-call-card dash-call-empty">
+                <i class="dash-call-icon" data-lucide="footprints"></i>
+                <div class="dash-call-body">
+                    <h3>아직 도트가 없어요</h3>
+                    <p>오늘 화면의 시간표에서 빈 칸을 누르면 첫 도트를 적을 수 있어요.</p>
+                </div>
+                <button class="primary-btn dash-call-btn" data-go="today">오늘로 가기</button>
+            </div>
+        `;
+        bindCallActions(root);
+        return;
+    }
+
+    // 토요일이면 주간 회고 CTA — eveningLoop의 layer 감지와 같은 규칙 (요일==6)
+    const isSaturday = new Date().getDay() === 6;
+    if (isSaturday) {
+        section.removeAttribute('hidden');
+        root.innerHTML = `
+            <div class="dash-call-card dash-call-saturday">
+                <i class="dash-call-icon" data-lucide="moon"></i>
+                <div class="dash-call-body">
+                    <h3>이번 주를 닫는 토요일이에요</h3>
+                    <p>오늘 화면 아래에 주간 회고 단계가 펼쳐져 있어요. 한 호흡으로 정리해 볼까요?</p>
+                </div>
+                <button class="primary-btn dash-call-btn" data-go="today">주간 회고로 가기</button>
+            </div>
+        `;
+        bindCallActions(root);
+        return;
+    }
+
+    // 평일 + 도트 있음 — 섹션 자체 숨김
+    section.setAttribute('hidden', '');
+    root.innerHTML = '';
+}
+
+function bindCallActions(root) {
+    root.querySelectorAll('[data-go]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.go;
+            if (typeof window.__sanctumSwitchView === 'function') {
+                window.__sanctumSwitchView(target);
+            }
+        });
+    });
+}
+
+// 아바타 배경색 — 인물 카드와 동일 알고리즘
+function avatarColor(id) {
+    let h = 0;
+    const s = id || 'x';
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return `hsl(${h}, 50%, 80%)`;
+}
+
+function escapeAttr(s) { return escapeHtml(s); }
 
 // ─── 4) 숫자로 보기 — 디폴트 접힘 ─────────────────────────
 function renderNumberCards(dots, bibleProgress, meditationCount, startDate, endDate) {

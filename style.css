@@ -1199,6 +1199,132 @@ button .btn-icon { vertical-align: text-bottom; }
     background: transparent;
 }
 .goal-tab.goal-tab-far-toggle:hover { opacity: 1; }
+
+/* ── D-3: 이번 주 관계의 결 — 인물·조직 위젯 ── */
+.dash-people-avatars {
+    display: flex; flex-wrap: wrap; gap: var(--sp-2);
+    margin-top: var(--sp-3);
+}
+.dash-person-chip {
+    display: flex; align-items: center; gap: var(--sp-2);
+    padding: 6px 10px 6px 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+.dash-person-chip:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+.dash-person-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    color: rgba(0, 0, 0, 0.7);
+    flex-shrink: 0;
+}
+.dash-person-meta {
+    display: flex; flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.3;
+}
+.dash-person-name {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-primary);
+    max-width: 100px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dash-person-stats {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-secondary);
+}
+.dash-person-count { font-variant-numeric: tabular-nums; }
+
+.dash-orgs-row {
+    display: flex; flex-wrap: wrap; gap: var(--sp-2);
+    margin-top: var(--sp-3);
+}
+.dash-org-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-elev);
+    cursor: pointer;
+    font-size: 12px; font-weight: 500;
+    color: var(--text-primary);
+    transition: border-color var(--ease), background var(--ease);
+    font-family: inherit;
+}
+.dash-org-chip:hover {
+    border-color: var(--accent);
+    background: var(--bg-card);
+}
+.dash-org-icon {
+    width: 14px; height: 14px;
+    color: var(--text-secondary);
+}
+.dash-org-count {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── D-4: 토요일 회고 CTA + 빈 상태 가이드 ── */
+.dash-call-card {
+    display: flex; align-items: center; gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+}
+.dash-call-card.dash-call-saturday {
+    border-left: 3px solid var(--brand-primary, var(--accent));
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 6%, var(--bg-card)) 0%,
+        var(--bg-card) 60%
+    );
+}
+.dash-call-card.dash-call-empty {
+    border-left: 3px solid var(--dot-yellow, #F5C84B);
+}
+.dash-call-icon {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    color: var(--brand-primary, var(--accent));
+}
+.dash-call-empty .dash-call-icon { color: var(--dot-yellow, #F5C84B); }
+.dash-call-body {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.dash-call-body h3 {
+    font-size: 15px; font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+.dash-call-body p {
+    font-size: 13px; color: var(--text-secondary);
+    margin: 0; line-height: 1.5;
+}
+.dash-call-btn { flex-shrink: 0; }
+
+/* 모바일 — 세로로 */
+@media (max-width: 640px) {
+    .dash-call-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .dash-call-btn { align-self: stretch; }
+}
 .dash-card {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: var(--sp-5);
