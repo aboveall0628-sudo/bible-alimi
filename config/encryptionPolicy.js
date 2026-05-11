@@ -119,6 +119,15 @@ export const POLICY = {
         plaintext: ['id', 'userId', 'partId', 'chapterIndex', 'date', 'completed', 'createdAt'],
         encrypted: ['note', 'highlightVerseIds']
     },
+    // 알람·메모 (Phase E-7) — 상단 종 아이콘 패널
+    // type/read/dueDate 평문(필터·정렬·뱃지 카운트), 내용·targetParams 만 암호화
+    reminders: {
+        plaintext: [
+            'id', 'userId', 'type', 'read', 'dueDate', 'targetView',
+            'createdAt', 'readAt'
+        ],
+        encrypted: ['title', 'body', 'targetParams']
+    },
     // 결단: 시간 슬롯/배치 상태는 평문(타임라인 그리드 계산), 본문/링크는 암호화
     decisions: {
         plaintext: ['id', 'userId', 'date', 'timeSlot', 'durationSlots', 'placedAt', 'order', 'createdAt', 'gcalEventId'],
