@@ -245,21 +245,28 @@ function parseBriefingResponse(text) {
 /**
  * 일간 리포트 AI 호출
  *
- * dailyAggregator의 결정론적 stats를 받아 세 섹션을 산문으로 채움:
+ * dailyAggregator의 결정론적 stats + 그날의 묵상 노트 본문을 받아
+ * 세 섹션을 산문으로 채움:
  *   ## 사실 → aiSummary
  *   ## 관찰 → observation (한 개)
  *   ## 묵상에 가져갈 질문 → questionsForMeditation (1~2개)
  *
- * 가명화: stats 안의 인물·금액 등은 context.persons / amounts 등으로 전달.
+ * 묵상 본문 활용 원칙 (시스템 프롬프트 가드레일):
+ *   - 동기-행동 연결을 관찰하기 위해 본문 허용
+ *   - 묵상의 깊이·질 평가 금지, 영적 코칭 금지
+ *
+ * 가명화: stats·meditation 안의 인물·금액 등은 context로 전달.
  * 응답의 P_001 토큰은 callLLM의 depseudonymize가 자동 역가명화.
  *
- * @param {Object} dailyStats - aggregateDailyStats() 출력
- * @param {Object} context    - { persons, orgs, places, amounts } 배열
+ * @param {Object}  dailyStats - aggregateDailyStats() 출력
+ * @param {Object}  context    - { persons, orgs, places, amounts } 배열
+ * @param {Object|null} meditation - { content, decisions, prayer } — 그날의 묵상 노트 (있으면)
  * @returns {Promise<{aiSummary, observation, questionsForMeditation, fallback}>}
  */
-export async function callDailyReport(dailyStats, context = {}) {
+export async function callDailyReport(dailyStats, context = {}, meditation = null) {
     const plain = {
         stats: dailyStats,
+        meditation: meditation || null,    // { content, decisions, prayer } | null
         context: {
             persons: context.persons || [],
             orgs:    context.orgs    || [],

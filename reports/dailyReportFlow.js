@@ -11,9 +11,39 @@
  */
 
 import { getDotsByDate } from '../data/dotsRepo.js';
+import { db, doc, getDoc } from '../data/firebase.js';
+import { readDocument } from '../crypto/cryptoService.js';
 import { aggregateDailyStats } from './dailyAggregator.js';
 import { getDayReport, saveDayReport } from './dayReportRepo.js';
 import { callDailyReport } from '../ui/aiClient.js';
+
+/**
+ * 그날의 묵상 노트(content/decisions/prayer) fetch.
+ * 가드레일 아래 동기-행동 연결 관찰용 (docs/reports-spec.md §1.5).
+ *
+ * meditations 컬렉션 doc ID 규약: `meditation_${userId}_${date}` (todayView.js와 동일).
+ */
+async function getMeditationForDate(dek, userId, date) {
+    const id = `meditation_${userId}_${date}`;
+    try {
+        const snap = await getDoc(doc(db, 'meditations', id));
+        if (!snap.exists()) return null;
+        const data = await readDocument(dek, snap.data());
+        // 빈 본문이면 굳이 LLM에 보내지 않음 (token 절약 + AI 혼란 방지)
+        const hasContent = (data.content && data.content.trim().length > 0)
+                        || (Array.isArray(data.decisions) && data.decisions.length > 0)
+                        || (data.prayer && data.prayer.trim && data.prayer.trim().length > 0);
+        if (!hasContent) return null;
+        return {
+            content:   data.content   || null,
+            decisions: data.decisions || null,
+            prayer:    data.prayer    || null,
+        };
+    } catch (e) {
+        console.warn('[dailyReportFlow] meditation load failed:', e);
+        return null;
+    }
+}
 
 /**
  * 일간 리포트 생성 (또는 기존 반환)
@@ -40,11 +70,14 @@ export async function generateDailyReport(dek, userId, date) {
         return { status: 'no-dots', report: null, fallback: false };
     }
 
-    // 3) 집계 → AI 호출 → 저장
-    const stats = await aggregateDailyStats(dek, userId, date);
+    // 3) 집계 + 묵상 노트 fetch → AI 호출 → 저장
+    const [stats, meditation] = await Promise.all([
+        aggregateDailyStats(dek, userId, date),
+        getMeditationForDate(dek, userId, date),
+    ]);
     const aiResult = await callDailyReport(stats, {
         persons: [], orgs: [], places: [], amounts: [],
-    });
+    }, meditation);
 
     await saveDayReport(dek, userId, date, stats, {
         aiSummary:              aiResult.aiSummary,
