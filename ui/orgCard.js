@@ -51,13 +51,27 @@ const STANCE_FILTERS = [
 ];
 
 const TYPE_OPTIONS = [
-    ['company',   '회사',     '🏢'],
-    ['church',    '교회',     '⛪'],
-    ['team',      '팀',       '👥'],
-    ['community', '커뮤니티', '🌐'],
-    ['family',    '가족',     '👨‍👩‍👧'],
-    ['other',     '기타',     '📦'],
+    ['company',   '회사',          '🏢'],
+    ['church',    '교회',          '⛪'],
+    ['team',      '팀',            '👥'],
+    ['community', '커뮤니티/모임', '🌐'],
+    ['school',    '학교/학원',     '🏫'],
+    ['place',     '동네 시설',     '🏪'],
+    ['family',    '가족',          '👨‍👩‍👧'],
+    ['other',     '기타',          '📦'],
 ];
+
+// 종류 선택 시 어떤 조직이 이쪽인지 한 줄로 안내. select 옆 hint로 노출.
+const TYPE_GUIDE = {
+    company:   '직장·아르바이트처럼 일로 엮인 곳',
+    church:    '예배·신앙 공동체',
+    team:      '프로젝트팀·동아리·스터디처럼 함께 일하는 사람들',
+    community: '교제 중심 모임·동호회·소그룹',
+    school:    '학교·학원·교습 기관',
+    place:     '수영장·헬스장·카페·병원처럼 자주 다니는 동네 장소',
+    family:    '가족·친척 단위',
+    other:     '어디에도 안 맞으면 여기로',
+};
 
 const RISK_OPTIONS = [
     { key: 'safe',    label: '안전', icon: '✅', color: 'var(--dot-green)' },
@@ -348,38 +362,27 @@ function footprintHtml(o) {
         `;
     }).join('');
 
+    // 간결한 한 줄 요약 + 토글로 펼쳐 보는 최근 만남 리스트. 큰 칸을 4개 깔던
+    // 기존 그리드는 정보 밀도에 비해 자리만 크게 차지해서 정리.
+    const avgText = avg != null ? `${avg.toFixed(1)}` : '미평가';
     return `
-        <section class="org-layer footprint-section">
-            <h4 class="org-layer-title">함께한 흔적</h4>
-            <p class="org-layer-hint">
-                도트가 만들어낸 누적이에요. 내가 본 지표와 함께한 흔적이 다르다면, 그 차이가 묵상의 재료예요.
-            </p>
-            <div class="footprint-grid">
-                <div class="footprint-cell">
-                    <div class="footprint-cell-label">만남</div>
-                    <div class="footprint-cell-value">${stats.meetingCount}<small>번</small></div>
-                </div>
-                <div class="footprint-cell">
-                    <div class="footprint-cell-label">평균 만족도</div>
-                    <div class="footprint-cell-value">
-                        ${avg != null ? ratingDotsHtml(avg) : '<span class="footprint-empty">미평가</span>'}
-                        ${avg != null ? `<small>${avg.toFixed(1)}</small>` : ''}
-                    </div>
-                </div>
-                <div class="footprint-cell">
-                    <div class="footprint-cell-label">함께한 시간</div>
-                    <div class="footprint-cell-value">${formatMinutes(stats.totalMinutes)}</div>
-                </div>
-                <div class="footprint-cell footprint-trend">
-                    <div class="footprint-cell-label">추세</div>
-                    <div class="footprint-cell-value footprint-trend-note">${escapeHtml(trendNote)}</div>
+        <section class="org-layer footprint-section footprint-quiet">
+            <div class="footprint-summary">
+                <h4 class="org-layer-title">함께한 흔적</h4>
+                <div class="footprint-summary-stats">
+                    <span class="footprint-stat"><span class="footprint-stat-num">${stats.meetingCount}</span><span class="footprint-stat-unit">번</span></span>
+                    <span class="footprint-stat-divider">·</span>
+                    <span class="footprint-stat">${avg != null ? ratingDotsHtml(avg) : ''}<span class="footprint-stat-unit">${avgText}</span></span>
+                    <span class="footprint-stat-divider">·</span>
+                    <span class="footprint-stat"><span class="footprint-stat-num">${formatMinutes(stats.totalMinutes)}</span></span>
                 </div>
             </div>
+            <p class="footprint-trend-line">${escapeHtml(trendNote)}</p>
             ${stats.recentDots.length > 0 ? `
-                <div class="footprint-recent">
-                    <div class="footprint-recent-title">최근 만남</div>
+                <details class="footprint-recent-details">
+                    <summary>최근 만남 ${stats.recentDots.length}건 보기</summary>
                     <ul class="footprint-recent-list">${recentList}</ul>
-                </div>
+                </details>
             ` : ''}
         </section>
     `;
@@ -415,6 +418,8 @@ function newOrgDraft() {
         memberPersonIds: [],
         meaningfulVerse: '',
         notes: '',
+        foundedDate: '',     // 설립일/시작일 (선택)
+        anniversaries: [],   // [{ date, label }]
     };
 }
 
@@ -465,6 +470,7 @@ function renderModal() {
                         ${layer2Html(o)}
                         ${layer3Html(o)}
                         ${layer4Html(o)}
+                        ${anniversariesHtml(o)}
                         ${layerVerseHtml(o)}
                     </div>
                 </div>
@@ -501,13 +507,11 @@ function bindModalEvents() {
     bindLayer3Events(root);
     bindLayer4Events(root);
 
-    root.querySelector('#org-meaningful-verse')?.addEventListener('input', (e) => {
-        _editingDraft.meaningfulVerse = e.target.value;
-    });
     root.querySelector('#org-notes')?.addEventListener('input', (e) => {
         _editingDraft.notes = e.target.value;
     });
 
+    bindOrgAnnivEvents(root);
     bindStanceChangeEvents(root);
 }
 
@@ -571,9 +575,11 @@ function bindStanceChangeEvents(root) {
 
 // ─── Layer 1 정체성 ───
 function layer1Html(o) {
+    const guide = TYPE_GUIDE[o.type] || TYPE_GUIDE.other;
     return `
         <section class="org-layer">
             <h4 class="org-layer-title">Layer 1 · 정체성</h4>
+            <p class="org-layer-hint">조직이라기보단 "함께 시간을 보내는 단위"예요. 동네 수영장처럼 사람 단위가 아닌 장소도 여기 넣어두면 도트가 흔적을 모아줘요.</p>
             <div class="org-row">
                 <label>이름</label>
                 <input id="o-name" type="text" value="${escapeAttr(o.name || '')}" placeholder="조직 이름" />
@@ -586,6 +592,7 @@ function layer1Html(o) {
                     `).join('')}
                 </select>
             </div>
+            <p class="org-type-guide" id="o-type-guide">${escapeHtml(guide)}</p>
         </section>
     `;
 }
@@ -596,12 +603,13 @@ function bindLayer1Events(root) {
     });
     root.querySelector('#o-type')?.addEventListener('change', e => {
         _editingDraft.type = e.target.value;
-        // 좌측 type 카드 즉시 갱신
         const meta = typeOf(e.target.value);
         const iconEl = root.querySelector('.org-type-display-icon');
         const labelEl = root.querySelector('.org-type-display-label');
         if (iconEl) iconEl.textContent = meta.icon;
         if (labelEl) labelEl.textContent = meta.label;
+        const guideEl = root.querySelector('#o-type-guide');
+        if (guideEl) guideEl.textContent = TYPE_GUIDE[e.target.value] || TYPE_GUIDE.other;
     });
 }
 
@@ -695,14 +703,13 @@ function layer4Html(o) {
         <section class="org-layer" id="org-layer-4">
             <h4 class="org-layer-title">Layer 4 · 멤버</h4>
             <p class="org-layer-hint">이 조직에 속한 사람들을 인물 카드와 연결해 두면, 만남이 일어날 때 자연히 떠올라요.</p>
-            <div class="member-add-row">
-                <input id="member-add-input" type="text"
-                       list="member-suggestions"
-                       placeholder="인물 이름 검색 후 Enter 또는 [+ 추가]" />
-                <datalist id="member-suggestions">
-                    ${memberSuggestionOptions(ids)}
-                </datalist>
-                <button class="text-btn" id="member-add-btn">+ 추가</button>
+            <div class="member-add-row qr-ac-wrap">
+                <input id="member-add-input" type="text" autocomplete="off"
+                       placeholder="인물 이름이나 별명을 입력해요" />
+                <button class="primary-btn member-add-btn" id="member-add-btn" type="button" aria-label="멤버 추가">
+                    <i data-lucide="user-plus" class="btn-icon"></i> 추가
+                </button>
+                <div id="member-ac" class="qr-ac-panel hidden" role="listbox" aria-label="인물 후보"></div>
             </div>
             <div class="member-list" id="member-list">
                 ${memberChipsHtml(ids)}
@@ -711,11 +718,17 @@ function layer4Html(o) {
     `;
 }
 
-function memberSuggestionOptions(currentIds) {
+function memberAutocompleteCandidates(query, currentIds) {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return [];
     return _personsCache
         .filter(p => !currentIds.includes(p.id))
-        .map(p => `<option value="${escapeAttr(p.name || '')}" data-person-id="${p.id}"></option>`)
-        .join('');
+        .filter(p => {
+            const name = (p.name || '').toLowerCase();
+            if (name.includes(q)) return true;
+            return Array.isArray(p.nicknames) && p.nicknames.some(n => (n || '').toLowerCase().includes(q));
+        })
+        .slice(0, 8);
 }
 
 function memberChipsHtml(ids) {
@@ -760,32 +773,69 @@ function bindLayer4Events(root) {
     const input = root.querySelector('#member-add-input');
     const addBtn = root.querySelector('#member-add-btn');
     const list = root.querySelector('#member-list');
+    const acPanel = root.querySelector('#member-ac');
 
-    const tryAdd = () => {
+    const addMemberById = (pid) => {
+        if (!pid) return false;
+        const ids = _editingDraft.memberPersonIds || [];
+        if (ids.includes(pid)) { showToast('이미 추가된 멤버예요'); return false; }
+        ids.push(pid);
+        _editingDraft.memberPersonIds = ids;
+        input.value = '';
+        if (acPanel) { acPanel.classList.add('hidden'); acPanel.innerHTML = ''; }
+        refreshMemberSection(root);
+        return true;
+    };
+
+    const tryAddByText = () => {
         const name = (input?.value || '').trim();
         if (!name) return;
-        const matched = _personsCache.find(p => (p.name || '') === name);
+        const matched = _personsCache.find(p =>
+            (p.name || '') === name ||
+            (Array.isArray(p.nicknames) && p.nicknames.includes(name))
+        );
         if (!matched) {
             showToast('인물 카드에 없는 이름이에요. 인물 뷰에서 먼저 추가해 주실래요?');
             return;
         }
-        const ids = _editingDraft.memberPersonIds || [];
-        if (ids.includes(matched.id)) {
-            showToast('이미 추가된 멤버예요');
-            return;
-        }
-        ids.push(matched.id);
-        _editingDraft.memberPersonIds = ids;
-        input.value = '';
-        refreshMemberSection(root);
+        addMemberById(matched.id);
     };
 
-    addBtn?.addEventListener('click', tryAdd);
-    input?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            tryAdd();
+    const refreshAc = () => {
+        if (!acPanel) return;
+        const q = input.value;
+        const ids = _editingDraft.memberPersonIds || [];
+        const cands = memberAutocompleteCandidates(q, ids);
+        if (cands.length === 0) {
+            acPanel.classList.add('hidden');
+            acPanel.innerHTML = '';
+            return;
         }
+        acPanel.innerHTML = cands.map(p => {
+            const nicks = Array.isArray(p.nicknames) ? p.nicknames.filter(Boolean) : [];
+            const sub = nicks.length
+                ? ` <span class="qr-ac-sub">(${escapeHtml(nicks.join(', '))})</span>`
+                : '';
+            return `<button type="button" class="qr-ac-item" data-person-id="${escapeAttr(p.id)}" role="option">${escapeHtml(p.name || '')}${sub}</button>`;
+        }).join('');
+        acPanel.classList.remove('hidden');
+    };
+
+    addBtn?.addEventListener('click', tryAddByText);
+    input?.addEventListener('input', refreshAc);
+    input?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); tryAddByText(); }
+        if (e.key === 'Escape' && acPanel) { acPanel.classList.add('hidden'); }
+    });
+    acPanel?.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.qr-ac-item');
+        if (!item) return;
+        e.preventDefault(); // input blur 방지
+        addMemberById(item.dataset.personId);
+    });
+    document.addEventListener('click', (e) => {
+        if (!acPanel) return;
+        if (!e.target.closest('.qr-ac-wrap')) acPanel.classList.add('hidden');
     });
 
     list?.querySelectorAll('.member-remove').forEach(btn => {
@@ -816,17 +866,68 @@ function refreshMemberSection(root) {
     }
 }
 
-// ─── 의미 있는 말씀 + 메모 ───
+// ─── 설립일·기념일 ───
+function anniversariesHtml(o) {
+    const annivs = Array.isArray(o.anniversaries) ? o.anniversaries : [];
+    const rows = annivs.map((a, i) => `
+        <div class="anniv-row" data-idx="${i}">
+            <input class="anniv-date" type="date" value="${escapeAttr(a.date || '')}" />
+            <input class="anniv-label" type="text" value="${escapeAttr(a.label || '')}" placeholder="예: 창립일·시즌오픈" />
+            <button class="anniv-remove text-btn" type="button" aria-label="삭제">✕</button>
+        </div>
+    `).join('');
+    return `
+        <section class="org-layer" id="org-anniv-layer">
+            <h4 class="org-layer-title">설립일 · 기념일</h4>
+            <p class="org-layer-hint">조직의 시작일과 챙기고 싶은 날을 두세요. 비워둬도 괜찮아요.</p>
+            <div class="org-row">
+                <label>설립일</label>
+                <input id="o-founded" type="date" value="${escapeAttr(o.foundedDate || '')}" />
+            </div>
+            <div class="anniv-list" id="org-anniv-list">${rows}</div>
+            <button type="button" id="org-anniv-add" class="text-btn">+ 기념일 추가</button>
+        </section>
+    `;
+}
+
+function bindOrgAnnivEvents(root) {
+    root.querySelector('#o-founded')?.addEventListener('change', e => {
+        _editingDraft.foundedDate = e.target.value;
+    });
+    root.querySelector('#org-anniv-add')?.addEventListener('click', () => {
+        const list = Array.isArray(_editingDraft.anniversaries) ? _editingDraft.anniversaries : [];
+        list.push({ date: '', label: '' });
+        _editingDraft.anniversaries = list;
+        const layer = root.querySelector('#org-anniv-layer');
+        if (layer) {
+            layer.outerHTML = anniversariesHtml(_editingDraft);
+            bindOrgAnnivEvents(root);
+        }
+    });
+    root.querySelectorAll('#org-anniv-list .anniv-row').forEach(row => {
+        const idx = parseInt(row.dataset.idx, 10);
+        row.querySelector('.anniv-date')?.addEventListener('change', e => {
+            _editingDraft.anniversaries[idx].date = e.target.value;
+        });
+        row.querySelector('.anniv-label')?.addEventListener('input', e => {
+            _editingDraft.anniversaries[idx].label = e.target.value;
+        });
+        row.querySelector('.anniv-remove')?.addEventListener('click', () => {
+            _editingDraft.anniversaries.splice(idx, 1);
+            const layer = root.querySelector('#org-anniv-layer');
+            if (layer) {
+                layer.outerHTML = anniversariesHtml(_editingDraft);
+                bindOrgAnnivEvents(root);
+            }
+        });
+    });
+}
+
+// ─── 메모 ───
 function layerVerseHtml(o) {
     return `
         <section class="org-layer">
-            <h4 class="org-layer-title">이 조직을 위한 말씀 / 메모</h4>
-            <div class="org-row">
-                <label>의미 있는 말씀</label>
-                <input id="org-meaningful-verse" type="text"
-                       value="${escapeAttr(o.meaningfulVerse || '')}"
-                       placeholder="예: 마태복음 18:20" />
-            </div>
+            <h4 class="org-layer-title">메모</h4>
             <div class="org-row">
                 <label>메모</label>
                 <textarea id="org-notes" rows="3"

@@ -153,7 +153,9 @@ export const POLICY = {
             'stanceHistory',    // [{from, to, changedAt, reason, prayerDone}]
             'meaningfulVerse',  // 이 사람을 위한 말씀
             'knownFacts', 'sensitivities',
-            'notes', 'strengths', 'tendencies'
+            'notes', 'strengths', 'tendencies',
+            // 친한 사람 한정 기념일/생일 — 사적 정보로 암호화
+            'birthday', 'anniversaries'
         ]
     },
     organizations: {
@@ -161,7 +163,10 @@ export const POLICY = {
             'id', 'type', 'stance', 'friendliness', 'trust', 'importance', 'riskLevel',
             'createdAt', 'updatedAt'
         ],
-        encrypted: ['name', 'memberPersonIds', 'meaningfulVerse', 'notes', 'stanceHistory']
+        encrypted: [
+            'name', 'memberPersonIds', 'meaningfulVerse', 'notes', 'stanceHistory',
+            'foundedDate', 'anniversaries'
+        ]
     },
     interactions: {
         plaintext: ['id', 'dotId', 'date', 'sentiment', 'createdAt'],

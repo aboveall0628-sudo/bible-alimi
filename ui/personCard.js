@@ -346,6 +346,9 @@ function newPersonDraft() {
         meaningfulVerse: '',
         notes: '',
         stanceHistory: [],
+        // 친한 사람(innerCircle)에만 노출. 비어 있어도 모델 호환.
+        birthday: '',          // 'YYYY-MM-DD' 또는 '--MM-DD' (연도 모르면 앞 두 자리 비움)
+        anniversaries: [],     // [{ date: 'YYYY-MM-DD' | '--MM-DD', label: '결혼기념일' }]
     };
 }
 
@@ -395,6 +398,7 @@ function renderModal() {
                         ${layer3Html(p)}
                         ${layer4Html(p)}
                         ${belongsHtml(p)}
+                        ${anniversariesHtml(p)}
                         ${layerVerseHtml(p)}
                     </div>
                 </div>
@@ -540,7 +544,56 @@ function bindLayer1Events(root) {
         _editingDraft.nicknames = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
     });
     root.querySelector('#p-relation')?.addEventListener('change', e => { _editingDraft.relation = e.target.value; });
-    root.querySelector('#p-inner')?.addEventListener('change', e => { _editingDraft.innerCircle = e.target.checked; });
+    root.querySelector('#p-inner')?.addEventListener('change', e => {
+        _editingDraft.innerCircle = e.target.checked;
+        // innerCircle 토글 시 생일·기념일 섹션 동적 노출/숨김
+        const layer = root.querySelector('#person-anniv-layer');
+        const newHtml = anniversariesHtml(_editingDraft);
+        if (layer) {
+            if (newHtml) layer.outerHTML = newHtml;
+            else layer.remove();
+        } else if (newHtml) {
+            // 섹션이 없었으면 메모 섹션 앞에 삽입
+            const memoLayer = root.querySelector('#person-notes')?.closest('.person-layer');
+            if (memoLayer) memoLayer.insertAdjacentHTML('beforebegin', newHtml);
+        }
+        bindAnnivEvents(root);
+        if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+    });
+    bindAnnivEvents(root);
+}
+
+function bindAnnivEvents(root) {
+    root.querySelector('#person-birthday')?.addEventListener('change', e => {
+        _editingDraft.birthday = e.target.value;
+    });
+    root.querySelector('#person-anniv-add')?.addEventListener('click', () => {
+        const list = Array.isArray(_editingDraft.anniversaries) ? _editingDraft.anniversaries : [];
+        list.push({ date: '', label: '' });
+        _editingDraft.anniversaries = list;
+        const layer = root.querySelector('#person-anniv-layer');
+        if (layer) {
+            layer.outerHTML = anniversariesHtml(_editingDraft);
+            bindAnnivEvents(root);
+        }
+    });
+    root.querySelectorAll('#person-anniv-list .anniv-row').forEach(row => {
+        const idx = parseInt(row.dataset.idx, 10);
+        row.querySelector('.anniv-date')?.addEventListener('change', e => {
+            _editingDraft.anniversaries[idx].date = e.target.value;
+        });
+        row.querySelector('.anniv-label')?.addEventListener('input', e => {
+            _editingDraft.anniversaries[idx].label = e.target.value;
+        });
+        row.querySelector('.anniv-remove')?.addEventListener('click', () => {
+            _editingDraft.anniversaries.splice(idx, 1);
+            const layer = root.querySelector('#person-anniv-layer');
+            if (layer) {
+                layer.outerHTML = anniversariesHtml(_editingDraft);
+                bindAnnivEvents(root);
+            }
+        });
+    });
 }
 
 // ─── 함께한 흔적 (도트 통계) — "내가 본 사람" 옆에 두 면 나란히 ───
@@ -926,6 +979,31 @@ function bindBelongsEvents(root) {
             }
         });
     });
+}
+
+// ─── 생일 · 기념일 (친한 사람 한정) ───
+function anniversariesHtml(p) {
+    if (!p.innerCircle) return '';
+    const annivs = Array.isArray(p.anniversaries) ? p.anniversaries : [];
+    const rows = annivs.map((a, i) => `
+        <div class="anniv-row" data-idx="${i}">
+            <input class="anniv-date" type="date" value="${escapeAttr(a.date || '')}" />
+            <input class="anniv-label" type="text" value="${escapeAttr(a.label || '')}" placeholder="예: 결혼기념일" />
+            <button class="anniv-remove text-btn" type="button" aria-label="삭제">✕</button>
+        </div>
+    `).join('');
+    return `
+        <section class="person-layer" id="person-anniv-layer">
+            <h4 class="person-layer-title">생일 · 기념일</h4>
+            <p class="org-layer-hint">친한 사람에게만 보여요. 연도를 모르면 그냥 비워도 돼요.</p>
+            <div class="person-row">
+                <label>생일</label>
+                <input id="person-birthday" type="date" value="${escapeAttr(p.birthday || '')}" />
+            </div>
+            <div class="anniv-list" id="person-anniv-list">${rows}</div>
+            <button type="button" id="person-anniv-add" class="text-btn">+ 기념일 추가</button>
+        </section>
+    `;
 }
 
 // ─── 메모 ───

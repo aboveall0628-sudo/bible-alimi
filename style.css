@@ -2925,6 +2925,29 @@ svg.person-radar { display: block; }
 }
 .member-add-btn .btn-icon { width: 14px; height: 14px; }
 
+/* 생일·기념일 행 (인물·조직 공용) */
+.anniv-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.anniv-row {
+    display: grid; grid-template-columns: 140px 1fr auto;
+    gap: 6px; align-items: center;
+}
+.anniv-row input[type="date"], .anniv-row input[type="text"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border, var(--line));
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary, var(--ink-primary));
+    font-size: 13px;
+}
+.anniv-row input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.anniv-remove {
+    padding: 4px 8px;
+    color: var(--text-secondary, var(--ink-secondary));
+}
+@media (max-width: 520px) {
+    .anniv-row { grid-template-columns: 1fr 1fr auto; }
+}
+
 /* 조직 종류 선택 옆 가이드 한 줄 (23번) */
 .org-type-guide {
     font-size: 11px; color: var(--text-secondary, var(--ink-secondary));
