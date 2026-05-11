@@ -16,6 +16,69 @@ import { readDocument } from '../crypto/cryptoService.js';
 import { aggregateDailyStats } from './dailyAggregator.js';
 import { getDayReport, saveDayReport } from './dayReportRepo.js';
 import { callDailyReport } from '../ui/aiClient.js';
+// 인물·조직 이름 매핑 — LLM이 Firestore ID 대신 실제 이름 보고 응답하도록
+import { getAllPersons } from '../data/personRepo.js';
+import { getAllOrganizations } from '../data/orgRepo.js';
+
+/**
+ * stats의 connections에 들어있는 personId/orgId를 실제 이름으로 매핑.
+ * LLM에 전달할 statsForLLM 버전을 별도로 만들어 ID는 빼고 이름만 둠.
+ *
+ * 왜 분리하는가:
+ *   - LLM 시스템 프롬프트에 "이름은 P_001 마스킹 토큰 그대로" 지침이 있는데,
+ *     stats에 Firestore ID(예: 1778492102156_dx040x)가 들어가면 LLM이 그것을
+ *     가명화 토큰으로 착각하고 "P_1778492102156_dx040x" 형태로 응답.
+ *   - 해결: LLM 입력에서 personId/orgId 자체 제거 + 진짜 이름은 context.persons로
+ *     전달 → 가명화·역가명화 정상 동작.
+ *
+ * @returns {Promise<{
+ *   statsForLLM: Object,           // ID 제거 + 이름 포함, LLM 호출용
+ *   personNames: string[],         // 가명화 context.persons용
+ *   orgNames: string[],            // 가명화 context.orgs용
+ * }>}
+ */
+async function enrichStatsForLLM(dek, userId, stats) {
+    const personConns = stats.connections?.persons || [];
+    const orgConns   = stats.connections?.organizations || [];
+
+    if (personConns.length === 0 && orgConns.length === 0) {
+        return { statsForLLM: stats, personNames: [], orgNames: [] };
+    }
+
+    // 한 번에 모든 인물·조직 fetch (이 도트들에 등장한 사람들 매핑용)
+    const [allPersons, allOrgs] = await Promise.all([
+        personConns.length > 0 ? getAllPersons(dek, userId).catch(() => []) : Promise.resolve([]),
+        orgConns.length > 0   ? getAllOrganizations(dek, userId).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    const personNameById = new Map(allPersons.map(p => [p.id, p.name || '(이름 미지정)']));
+    const orgNameById    = new Map(allOrgs.map(o => [o.id, o.name || '(이름 미지정)']));
+
+    // LLM용 — personId/orgId 제거, name만 포함
+    const personsForLLM = personConns.map(({ personId, ...rest }) => ({
+        name: personNameById.get(personId) || '(알 수 없는 인물)',
+        ...rest,
+    }));
+    const orgsForLLM = orgConns.map(({ orgId, ...rest }) => ({
+        name: orgNameById.get(orgId) || '(알 수 없는 조직)',
+        ...rest,
+    }));
+
+    const statsForLLM = {
+        ...stats,
+        connections: {
+            ...stats.connections,
+            persons:       personsForLLM,
+            organizations: orgsForLLM,
+        },
+    };
+
+    // 가명화 context — 진짜 이름들 (P_001 등으로 자동 치환됨)
+    const personNames = personsForLLM.map(p => p.name).filter(n => n && !n.startsWith('('));
+    const orgNames    = orgsForLLM.map(o => o.name).filter(n => n && !n.startsWith('('));
+
+    return { statsForLLM, personNames, orgNames };
+}
 
 /**
  * 그날의 묵상 노트(content/decisions/prayer) fetch.
@@ -73,16 +136,25 @@ export async function generateDailyReport(dek, userId, date, opts = {}) {
         return { status: 'no-dots', report: null, fallback: false };
     }
 
-    // 3) 집계 + 묵상 노트 fetch → AI 호출 → 저장
-    const [stats, meditation] = await Promise.all([
+    // 3) 집계 + 묵상 노트 fetch
+    const [rawStats, meditation] = await Promise.all([
         aggregateDailyStats(dek, userId, date),
         getMeditationForDate(dek, userId, date),
     ]);
-    const aiResult = await callDailyReport(stats, {
-        persons: [], orgs: [], places: [], amounts: [],
+
+    // 4) 인물·조직 ID → 이름 매핑 (LLM이 ID 대신 이름 보고 응답하도록)
+    const { statsForLLM, personNames, orgNames } = await enrichStatsForLLM(dek, userId, rawStats);
+
+    // 5) AI 호출 — 가명화 context에 이름 채워서 P_001 자동 치환
+    const aiResult = await callDailyReport(statsForLLM, {
+        persons: personNames,
+        orgs:    orgNames,
+        places:  [],
+        amounts: [],
     }, meditation, { force: !!opts.force });
 
-    await saveDayReport(dek, userId, date, stats, {
+    // 6) 저장 — 원본 stats(personId 유지)는 그대로 보존 (드릴다운용)
+    await saveDayReport(dek, userId, date, rawStats, {
         aiSummary:              aiResult.aiSummary,
         observation:            aiResult.observation,
         questionsForMeditation: aiResult.questionsForMeditation,
