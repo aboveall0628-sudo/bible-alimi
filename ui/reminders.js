@@ -194,7 +194,12 @@ function renderList(items) {
 function navigateToTarget(targetView) {
     if (!targetView) return;
     // 기존 사이드바 네비게이션 이벤트 재사용
-    const navMap = { today: 'nav-today', reports: 'nav-reports' };
+    const navMap = {
+        today: 'nav-today',
+        reports: 'nav-reports',
+        persons: 'nav-persons',
+        organizations: 'nav-organizations',
+    };
     const btnId = navMap[targetView];
     if (btnId) document.getElementById(btnId)?.click();
     document.getElementById('reminder-panel')?.classList.add('hidden');

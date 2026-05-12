@@ -28,6 +28,7 @@ import { showToast } from './quickReview.js';
 import { openStanceGate } from './stanceGate.js';
 import { personDisplayHtml } from './personNameFormat.js';
 import { computeRelLevel } from '../data/relLevel.js';
+import { findCategory } from '../data/dotCategories.js';
 
 // 조직 type 메타 (소속 조직 칩 표시용)
 const ORG_TYPE_ICONS = {
@@ -97,6 +98,7 @@ let _userId = null;
 let _persons = [];
 let _orgsCache = [];       // 소속 조직 표시용
 let _statsMap = new Map(); // personId → 도트 누적 통계 ("함께한 흔적")
+let _allDots = [];          // AI 분석용 도트 캐시
 let _activeFilter = 'all';
 let _searchQuery = '';
 let _editingId = null;     // 모달에 열린 person.id (null이면 새 카드)
@@ -135,7 +137,7 @@ export async function renderPersonsView(userId) {
 
 async function loadPersons() {
     const dek = getDEK();
-    if (!dek) { _persons = []; _orgsCache = []; _statsMap = new Map(); return; }
+    if (!dek) { _persons = []; _orgsCache = []; _statsMap = new Map(); _allDots = []; return; }
     try {
         // 카드 + 조직 + 도트 통계를 한 번에. 도트가 실패해도 카드는 살아남도록.
         const [persons, orgs, dots] = await Promise.all([
@@ -145,6 +147,7 @@ async function loadPersons() {
         ]);
         _persons = persons;
         _orgsCache = orgs;
+        _allDots = dots || [];
         _statsMap = computeAllPersonStats(dots);
     } catch (e) {
         console.error('persons load failed:', e);
@@ -413,6 +416,7 @@ function renderModal() {
                         ${belongsHtml(p)}
                         ${anniversariesHtml(p)}
                         ${layerVerseHtml(p)}
+                        ${aiAnalysisSectionHtml(p)}
                     </div>
                 </div>
                 <div class="person-modal-footer">
@@ -1161,6 +1165,131 @@ function anniversariesHtml(p) {
         </section>
     `;
 }
+
+// ─── 자동 분석 (정책 v3 5번) ───
+// LLM 호출 없이 로컬 통계로 한 줄 프로필 + 자주 받은 평가 TOP 5.
+// 도트 자체엔 라벨이 직접 저장되지 않으므로(매 도트 임시 라벨이 점수에만 누적됨),
+// 분석은 (a) 함께한 카테고리 분포, (b) 만족도 분포, (c) actualTask 빈도, (d) 사용자 메모를 조합.
+function aiAnalysisSectionHtml(p) {
+    if (!_editingId) return ''; // 신규 카드는 분석할 도트가 없음
+    const dotsForPerson = _allDots.filter(d => Array.isArray(d.linkedPersonIds) && d.linkedPersonIds.includes(_editingId));
+    if (dotsForPerson.length === 0) {
+        return `
+            <section class="person-layer person-ai-analysis">
+                <h4 class="person-layer-title">자동 분석</h4>
+                <p class="person-layer-hint">아직 이 사람과 함께한 도트가 없어요. 평가가 쌓이면 여기에 패턴이 보여요.</p>
+            </section>
+        `;
+    }
+
+    // 카테고리 분포
+    const catCount = new Map();
+    dotsForPerson.forEach(d => {
+        if (!d.category) return;
+        catCount.set(d.category, (catCount.get(d.category) || 0) + 1);
+    });
+    const topCats = [...catCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([catId, n]) => {
+            const meta = findCategory(catId);
+            return `${meta ? meta.icon + ' ' + meta.label : catId} ×${n}`;
+        });
+
+    // 만족도 평균
+    const ratings = dotsForPerson
+        .map(d => (d.personRatings || {})[_editingId] || 0)
+        .filter(r => r > 0);
+    const avgPersonRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+    const execRatings = dotsForPerson.map(d => d.executionSatisfaction || 0).filter(r => r > 0);
+    const avgExec = execRatings.length ? (execRatings.reduce((a, b) => a + b, 0) / execRatings.length) : null;
+
+    // 자주 적힌 actualTask TOP 3
+    const taskCount = new Map();
+    dotsForPerson.forEach(d => {
+        const t = (d.actualTask || '').trim();
+        if (!t) return;
+        taskCount.set(t, (taskCount.get(t) || 0) + 1);
+    });
+    const topTasks = [...taskCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([t, n]) => `${t}${n > 1 ? ` ×${n}` : ''}`);
+
+    // 한 줄 프로필 — 도트 데이터 + 메모를 조합한 자연어 한 줄
+    const onelineProfile = buildOnelineProfile(p, dotsForPerson, topCats, avgPersonRating, topTasks);
+
+    return `
+        <section class="person-layer person-ai-analysis">
+            <h4 class="person-layer-title">자동 분석</h4>
+            <p class="person-layer-hint">${dotsForPerson.length}개의 도트에서 모은 흔적이에요. 분석이지 평가가 아닙니다.</p>
+            <div class="ai-oneline">${escapeHtml(onelineProfile)}</div>
+
+            <div class="ai-analysis-grid">
+                <div class="ai-analysis-cell">
+                    <div class="ai-analysis-cell-label">자주 함께한 카테고리</div>
+                    <div class="ai-analysis-cell-body">
+                        ${topCats.length ? topCats.map(c => `<span class="ai-tag">${escapeHtml(c)}</span>`).join('') : '<span class="ai-empty">— 아직 없어요</span>'}
+                    </div>
+                </div>
+                <div class="ai-analysis-cell">
+                    <div class="ai-analysis-cell-label">자주 적힌 일</div>
+                    <div class="ai-analysis-cell-body">
+                        ${topTasks.length ? topTasks.map(t => `<span class="ai-tag">${escapeHtml(t)}</span>`).join('') : '<span class="ai-empty">— 빈 칸이 많아요</span>'}
+                    </div>
+                </div>
+                <div class="ai-analysis-cell">
+                    <div class="ai-analysis-cell-label">함께한 시간의 만족도</div>
+                    <div class="ai-analysis-cell-body">
+                        ${avgPersonRating != null
+                            ? `<span class="ai-tag">이 사람 ${avgPersonRating.toFixed(1)} / 5</span>`
+                            : '<span class="ai-empty">— 칩 점수가 없어요</span>'}
+                        ${avgExec != null
+                            ? `<span class="ai-tag">전체 슬롯 ${avgExec.toFixed(1)} / 5</span>`
+                            : ''}
+                    </div>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+/**
+ * 한 줄 프로필 — LLM 없이 템플릿 + 메모 첫 줄 조합.
+ * "○○님은 주로 [카테고리]에서 만나요. [메모 첫 줄]"
+ */
+function buildOnelineProfile(p, dots, topCats, avgRating, topTasks) {
+    const name = (p.name || '').trim() || '이 사람';
+    const parts = [];
+
+    if (topCats.length > 0) {
+        const catNames = topCats.map(c => c.replace(/^[^\s]+\s/, '').replace(/\s×\d+$/, ''));
+        if (catNames.length === 1) {
+            parts.push(`${name}님과는 주로 "${catNames[0]}"에서 만나요.`);
+        } else {
+            parts.push(`${name}님과는 주로 ${catNames.slice(0, 2).map(c => `"${c}"`).join('과 ')}에서 만나요.`);
+        }
+    } else {
+        parts.push(`${name}님과 ${dots.length}번의 시간을 함께했어요.`);
+    }
+
+    if (avgRating != null) {
+        if (avgRating >= 4.0) parts.push(`그 시간의 결이 좋게 남았네요.`);
+        else if (avgRating >= 3.0) parts.push(`평탄한 결이에요.`);
+        else parts.push(`다소 무겁게 남은 시간이 더 많네요.`);
+    }
+
+    // 메모 첫 줄 — 사용자가 직접 적은 것이라 그대로 인용
+    const memoLine = (p.notes || '').trim().split(/\r?\n/).map(s => s.trim()).find(Boolean);
+    if (memoLine) {
+        parts.push(`메모: "${memoLine.length > 60 ? memoLine.slice(0, 60) + '…' : memoLine}"`);
+    }
+
+    return parts.join(' ');
+}
+
+// findCategory가 personCard.js 안에 없으니 가져오기 — 모듈 상단 import에 이미 있으면 OK
+// (없으면 dotCategories.js에서 import해야)
 
 // ─── 메모 ───
 function layerVerseHtml(p) {
