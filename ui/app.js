@@ -213,12 +213,23 @@ async function init() {
             return;
         }
 
+        // Phase E-9/UL-FIX: unlock 흐름 단계별 로그 + 타임아웃 안전망.
+        // 어딘가 hang 하면 "여는 중..."에 영원히 stuck — 12초 후 무응답이면 버튼 복구.
+        let unlockSucceeded = false;
+        const watchdog = setTimeout(() => {
+            if (unlockSucceeded) return;
+            console.error('[unlock] 12초 응답 없음 — 안전망 발동');
+            showLockError('네트워크가 더디네요. 한 번만 더 해볼까요?');
+        }, 12000);
+
         try {
+            console.log('[unlock] step 1: loadUserVaultData');
             const userData = await loadUserVaultData();
             if (!userData) {
                 showLockError('계정 정보를 찾을 수 없어요. 한 번 새로고침해 주세요.');
                 return;
             }
+            console.log('[unlock] step 2: unlockVault (PBKDF2)');
             const dek = await unlockVault(
                 password,
                 userData.masterKeySalt,
@@ -226,6 +237,8 @@ async function init() {
                 userData.wrappedDEK_master_iv,
                 userData.kdfParams || null
             );
+            console.log('[unlock] step 3: unlock 성공, 후속 처리');
+            unlockSucceeded = true;
             resetFailedAttempts();
             logAuditAction(currentUserId, 'unlock_success');
 
@@ -243,14 +256,16 @@ async function init() {
             } else {
                 setUnlocked(dek);
             }
-        } catch (e) {
+        } catch (err) {
+            console.error('[unlock] 실패:', err);
             registerFailedAttempt(currentUserId);
-            if (e.message === 'WRONG_PASSWORD') {
+            if (err.message === 'WRONG_PASSWORD') {
                 showLockError('비밀번호가 다른 것 같아요.');
             } else {
                 showLockError('잠깐 문제가 있었어요. 다시 한 번 해볼까요?');
-                console.error(e);
             }
+        } finally {
+            clearTimeout(watchdog);
         }
     });
 

@@ -1,11 +1,17 @@
 /**
  * personNameFormat.js — 인물 표시 이름 포맷 공용 헬퍼
  *
- * 정책 (2026-05-12 합의):
- *   - 친한 사람(innerCircle === true) → 본명 그대로
- *   - 그 외(innerCircle 아님 + 별명 있음) → 별명을 본문 이름으로 쓰되,
- *     "(별명)" 마크를 작게 붙여 본명이 아닌 별명임을 시각적으로 알림
- *   - 별명 자체가 없으면 본명 fallback
+ * 정책 (2026-05-13 변경):
+ *   - 본명(name)이 있으면 본명을 본문 이름으로. 별명은 작은 부속으로 옆에 표시.
+ *     예: "박서연 (큰형)" — 사용자가 본명을 수정하면 화면에 그대로 반영.
+ *   - 본명이 없으면 별명으로 fallback.
+ *   - innerCircle 분기는 제거 — 마스킹/라벨링 정책은 AI 입력 단계(enrichStatsForLLM)
+ *     에서 처리. 사용자 화면은 사용자가 적은 그대로.
+ *
+ * 변경 이력:
+ *   - 2026-05-12: innerCircle만 본명 노출, 그 외는 별명 마스킹. → 본명 수정이
+ *     화면에 반영 안 되어 사용자 혼란.
+ *   - 2026-05-13: 본명 우선 정책으로 회귀.
  *
  * 사용 위치: 인물 칩, 멤버 리스트, 자동완성 패널, 그리드 카드 등 본문 표시 지점.
  * (입력값 비교·검색에는 본명/별명 모두 사용.)
@@ -19,23 +25,20 @@ function pickNickname(p) {
 
 /**
  * 평문 표기 — 토스트·title 속성·tooltip 등 단순 텍스트가 필요한 곳.
- * 예: "큰형 (별명)" / "박서연"
+ * 예: "박서연 (큰형)" / "박서연" / "큰형"
  */
 export function personDisplayText(p) {
     if (!p) return '';
     const name = (p.name || '').trim();
     const nick = pickNickname(p);
-    if (p.innerCircle) return name || nick;
-    if (!nick) return name;
-    return `${nick} (별명)`;
+    if (name && nick) return `${name} (${nick})`;
+    return name || nick;
 }
 
 /**
- * HTML 표기 — "(별명)" 부분을 작은 span으로 감쌈. CSS에서 .nick-mark로 톤 다운.
- * 사용처에서 반드시 사용자 입력(name·nicknames)을 미리 escape해서 안전한 값을
- * 넘기거나, 또는 escapeFn을 같이 호출해야 한다.
+ * HTML 표기 — 별명 부속은 작은 span으로 감쌈. CSS에서 .nick-mark로 톤 다운.
  *
- * @param {object} p — { name, nicknames, innerCircle }
+ * @param {object} p — { name, nicknames }
  * @param {(s:string)=>string} escapeFn — HTML escape 함수 (필수)
  */
 export function personDisplayHtml(p, escapeFn) {
@@ -43,7 +46,6 @@ export function personDisplayHtml(p, escapeFn) {
     const name = (p.name || '').trim();
     const nick = pickNickname(p);
     const esc = escapeFn || ((s) => s);
-    if (p.innerCircle) return esc(name || nick);
-    if (!nick) return esc(name);
-    return `${esc(nick)} <span class="nick-mark">(별명)</span>`;
+    if (name && nick) return `${esc(name)} <span class="nick-mark">(${esc(nick)})</span>`;
+    return esc(name || nick);
 }
