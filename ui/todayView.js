@@ -23,6 +23,9 @@ import { findCategory } from '../data/dotCategories.js';
 // Reports 모듈 v3 — 새 spec dayReport 표시
 import { getDayReport } from '../reports/dayReportRepo.js';
 import { generateDailyReport } from '../reports/dailyReportFlow.js';
+// Phase F: 오늘 리포트 안에 거래 통계 블록
+import { getTransactionsByDate } from '../data/economyRepo.js';
+import { bucketLabel, categoryLabel } from '../config/economyBuckets.js';
 // Phase E-5-B: 주간 리포트 토요일 흐름
 import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 // Phase E-9/R-2: 월말 토요일 월간 리포트 흐름
@@ -71,9 +74,10 @@ async function loadTodayReport(dek) {
     try {
         const report = await getDayReport(dek, _userId, _date);
 
-        // 아직 AI 응답이 없으면 → 버튼 표시
+        // 아직 AI 응답이 없으면 → 버튼 + 거래 통계 블록만
         if (!report || !report.aiSummary) {
             renderTodayReportButton(body, dek);
+            loadTodayEconomyBlock();
             return;
         }
 
@@ -130,6 +134,9 @@ async function loadTodayReport(dek) {
         // 리포트가 이미 있을 때도 토요일이면 주/월/분기/연 회고 단계별 버튼 노출
         renderSaturdayLayers(body);
 
+        // Phase F: 거래 통계 블록도 함께
+        loadTodayEconomyBlock();
+
         // 재작성 버튼 — 기존 리포트 + 캐시 모두 무시하고 Gemini 새로 호출
         document.getElementById('today-regenerate-report-btn')?.addEventListener('click', async () => {
             const btn = document.getElementById('today-regenerate-report-btn');
@@ -155,6 +162,76 @@ async function loadTodayReport(dek) {
         body.innerHTML = `<p style="color:var(--text-secondary); font-size:13px">리포트를 불러오는 중에 잠깐 막혔어요.</p>`;
     }
 }
+
+// Phase F: 오늘 리포트 안의 "오늘의 거래" 통계 블록.
+// AI 리포트와 무관하게 항상 표시 — 거래가 있을 때만 노출.
+async function loadTodayEconomyBlock() {
+    const body = document.getElementById('today-report-body');
+    if (!body) return;
+    let block = document.getElementById('today-tx-stat-block');
+    if (!block) {
+        block = document.createElement('div');
+        block.id = 'today-tx-stat-block';
+        block.style.marginTop = '14px';
+        body.appendChild(block);
+    }
+    const dek = getDEK();
+    if (!dek || !_userId || !_date) { block.innerHTML = ''; return; }
+    try {
+        const txs = await getTransactionsByDate(dek, _userId, _date);
+        if (!txs || txs.length === 0) { block.innerHTML = ''; return; }
+
+        let inCount = 0, outCount = 0;
+        let inExact = 0, outExact = 0;
+        const bucketCount = {};
+        const catCount = {};
+        for (const t of txs) {
+            if (t.direction === 'income') {
+                inCount++;
+                if (t.exactAmount != null) inExact += Number(t.exactAmount) || 0;
+            } else {
+                outCount++;
+                if (t.exactAmount != null) outExact += Number(t.exactAmount) || 0;
+            }
+            bucketCount[t.amountBucket] = (bucketCount[t.amountBucket] || 0) + 1;
+            catCount[t.category] = (catCount[t.category] || 0) + 1;
+        }
+        const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const bucketLine = Object.entries(bucketCount)
+            .map(([b, n]) => `${bucketLabel(b)} ${n}`).join(' · ');
+        const catLine = topCats.length > 0
+            ? topCats.map(([c, n]) => `${categoryLabel(c)} ${n}건`).join(', ')
+            : '';
+
+        const netExact = inExact - outExact;
+        const netLabel = netExact >= 0 ? '순수입' : '순지출';
+        const netSign = netExact >= 0 ? '+' : '−';
+        const netExactHtml = (inExact > 0 || outExact > 0)
+            ? `<div class="sensitive" style="font-size:12px; margin-top:6px">
+                   ${netLabel}: ${netSign}${Math.abs(netExact).toLocaleString('ko-KR')}원
+                   (수입 ${inExact.toLocaleString('ko-KR')} · 지출 ${outExact.toLocaleString('ko-KR')})
+               </div>`
+            : '';
+
+        block.innerHTML = `
+            <div class="ai-summary-card" style="background:var(--bg-quiet, rgba(0,0,0,0.03));">
+                <strong style="display:block; margin-bottom:6px">오늘의 거래</strong>
+                <div style="font-size:13px; color:var(--text-secondary, var(--ink-secondary)); line-height:1.7">
+                    총 ${txs.length}건 · 수입 ${inCount} · 지출 ${outCount}<br>
+                    크기: ${bucketLine}<br>
+                    ${catLine ? '많이: ' + escapeHtml(catLine) : ''}
+                </div>
+                ${netExactHtml}
+            </div>
+        `;
+    } catch (e) {
+        console.warn('today economy block load failed:', e);
+        block.innerHTML = '';
+    }
+}
+
+// 외부(app.js 의 economy-changed listener)에서 호출 가능하도록 노출
+window.__sanctumRefreshTodayReportEconomy = loadTodayEconomyBlock;
 
 function renderTodayReportButton(body, dek) {
     body.innerHTML = `

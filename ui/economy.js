@@ -301,6 +301,7 @@ function renderTxList(list, isAll) {
                 await deleteTransaction(_userId, txId);
                 showToast('거래를 지웠어요');
                 renderTransactionsTab();
+                window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'delete', id: txId }}));
             } catch (err) {
                 console.error('[economy] delete tx failed:', err);
                 showToast('지우는 중에 잠깐 막혔어요.');

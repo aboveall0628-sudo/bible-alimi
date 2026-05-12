@@ -4815,7 +4815,7 @@ svg.person-radar { display: block; }
 }
 [data-theme="dark"] .econ-qa-huge-note { color: #ea8c75; }
 
-/* quickReview 안의 "💰 거래 한 건 적기" 줄 */
+/* quickReview 안의 "💰 거래 한 건 적기" 줄 + 추가된 거래 리스트 */
 .qr-link-section {
     margin-top: 12px;
     padding-top: 10px;
@@ -4827,12 +4827,65 @@ svg.person-radar { display: block; }
     color: var(--ink-secondary);
     margin-bottom: 6px;
 }
+.qr-tx-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.qr-tx-item {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    font-size: 12px;
+}
+.qr-tx-item .qr-tx-bucket {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+.qr-tx-item .qr-tx-cat { font-weight: 500; }
+.qr-tx-item .qr-tx-desc {
+    color: var(--ink-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.qr-tx-item .qr-tx-exact {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+.qr-tx-del-btn {
+    padding: 0 6px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--ink-secondary);
+}
+.qr-tx-del-btn:hover { color: var(--dot-red, #E5654A); }
+
+/* "오늘" 화면 거래 행의 X 버튼 */
+.today-tx-del-btn {
+    padding: 0 6px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--ink-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.today-tx-del-btn:hover { color: var(--dot-red, #E5654A); }
 
 /* "오늘" 뷰의 경제 빠른 카드 */
 .today-tx-list { display: flex; flex-direction: column; gap: 4px; }
 .today-tx-row {
     display: grid;
-    grid-template-columns: auto auto 1fr auto;
+    grid-template-columns: auto auto 1fr auto auto;
     gap: 8px;
     align-items: center;
     padding: 6px 10px;
@@ -4859,7 +4912,7 @@ svg.person-radar { display: block; }
 @media (max-width: 600px) {
     .econ-qa-buckets { grid-template-columns: 1fr 1fr; }
     .econ-asset-cards { grid-template-columns: 1fr; }
-    .today-tx-row { grid-template-columns: auto 1fr auto; }
+    .today-tx-row { grid-template-columns: auto 1fr auto auto; }
     .today-tx-cat { display: none; }
 }
 

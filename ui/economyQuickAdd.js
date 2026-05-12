@@ -258,7 +258,10 @@ export async function openQuickAdd(opts = {}) {
             const id = await saveTransaction(dek, userId, data);
             showToast(state.direction === 'income' ? '수입을 적었어요' : '지출을 적었어요');
             handle.close();
-            if (typeof onSaved === 'function') onSaved({ id, ...data });
+            const tx = { id, ...data };
+            if (typeof onSaved === 'function') onSaved(tx);
+            // 모든 거래 표시 영역 자동 동기화
+            window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'create', tx }}));
         } catch (e) {
             console.error('[economy] save tx failed:', e);
             showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');

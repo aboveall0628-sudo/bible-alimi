@@ -48,6 +48,15 @@ window.addEventListener('sanctum:legacy-data-seen', () => {
     showToast('🗂️ 옛 형식 데이터가 일부 보여요. 안전하게 읽었어요. 설정에서 한 번에 정리할 수 있어요.');
 }, { once: true });
 
+// Phase F: 거래 생성·삭제 통합 이벤트 — 오늘 카드 + 오늘 리포트 거래 블록 동기화
+window.addEventListener('sanctum:economy-changed', () => {
+    refreshTodayEconomyCard();
+    // 오늘 리포트 안의 거래 블록도 갱신
+    if (typeof window.__sanctumRefreshTodayReportEconomy === 'function') {
+        window.__sanctumRefreshTodayReportEconomy();
+    }
+});
+
 // ─── 전역 상태 ───
 window.appStarted = true;
 let currentUserId = 'anonymous';   // Firebase Auth UID (보안 규칙 매칭용)
@@ -382,7 +391,7 @@ async function refreshTodayData() {
     await refreshTodayEconomyCard();
 }
 
-// 오늘 화면의 "오늘의 돈 흐름" 카드 본문 갱신 (Phase F)
+// 오늘 화면의 "오늘의 현금흐름" 카드 본문 갱신 (Phase F)
 async function refreshTodayEconomyCard() {
     const list = document.getElementById('today-tx-list');
     if (!list || !currentUserId) return;
@@ -402,13 +411,32 @@ async function refreshTodayEconomyCard() {
                 : '';
             const cat = t.category || '';
             const desc = t.description || '';
-            return `<div class="today-tx-row ${dirClass}">
+            return `<div class="today-tx-row ${dirClass}" data-tx-id="${t.id}">
                 <span class="today-tx-bucket econ-bucket-${t.amountBucket}">${t.amountBucket}</span>
                 <span class="today-tx-cat">${cat}</span>
                 <span class="today-tx-desc">${desc}</span>
                 <span class="today-tx-exact">${exact}</span>
+                <button type="button" class="today-tx-del-btn text-btn" data-id="${t.id}" title="지우기" aria-label="거래 지우기">×</button>
             </div>`;
         }).join('');
+
+        // 삭제 핸들러
+        list.querySelectorAll('.today-tx-del-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const txId = btn.dataset.id;
+                if (!confirm('이 거래를 지울까요? 되돌릴 수 없어요.')) return;
+                try {
+                    const repo = await import('../data/economyRepo.js');
+                    await repo.deleteTransaction(currentUserId, txId);
+                    showToast('거래를 지웠어요');
+                    window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'delete', id: txId }}));
+                } catch (err) {
+                    console.error('[economy] today delete failed:', err);
+                    showToast('지우는 중에 잠깐 막혔어요.');
+                }
+            });
+        });
     } catch (e) {
         console.warn('[economy] today card refresh failed:', e);
     }

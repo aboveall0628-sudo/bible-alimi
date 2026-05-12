@@ -48,6 +48,10 @@ let _selectedCategoryId = null;
 let _personRatingLabels = {};
 let _cachedLoadedFor = null;  // userId — 다른 사용자로 바뀌면 다시 로드
 
+// Phase F: 이번 평가 세션에 이 도트와 함께 추가한 거래 (id + 표시용 메타).
+// 도트 저장 시 linkedTransactionIds 에 박힘.
+let _addedTransactions = [];
+
 const STATUS_OPTIONS = [
     { key: 'done', emoji: '😀', label: '잘 했어요', shortcut: '1' },
     { key: 'partial', emoji: '🙂', label: '조금 했어요', shortcut: '2' },
@@ -78,6 +82,7 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     // 기존 도트가 있으면 그 안의 연결을 복원, 없으면 빈 배열
     _selectedPersonIds = Array.isArray(existingDot?.linkedPersonIds) ? existingDot.linkedPersonIds.slice() : [];
     _selectedOrgIds    = Array.isArray(existingDot?.linkedOrgIds)    ? existingDot.linkedOrgIds.slice()    : [];
+    _addedTransactions = []; // 이번 세션에 새로 추가한 거래만 보임 (기존 linked 는 양방향 회차에서)
     _personRatings = (existingDot?.personRatings && typeof existingDot.personRatings === 'object')
         ? { ...existingDot.personRatings } : {};
     _orgRatings    = (existingDot?.orgRatings    && typeof existingDot.orgRatings    === 'object')
@@ -255,6 +260,7 @@ function renderModal() {
                 <div class="qr-link-section">
                     <label class="qr-link-label">💰 이 시간에 돈이 움직였나요?</label>
                     <button type="button" id="qr-add-tx-btn" class="text-btn">+ 거래 한 건 적기</button>
+                    <ul id="qr-tx-list" class="qr-tx-list"></ul>
                 </div>
 
             </div>
@@ -338,11 +344,35 @@ function bindEvents() {
         const m = await import('./economyQuickAdd.js');
         m.openQuickAdd({
             userId: _currentUserId,
-            date: _currentExistingDot?.date || new Date().toISOString().slice(0, 10),
+            date: _currentDate || new Date().toISOString().slice(0, 10),
             linkedPersonIds: Array.isArray(_selectedPersonIds) ? _selectedPersonIds.slice() : [],
             linkedOrgIds: Array.isArray(_selectedOrgIds) ? _selectedOrgIds.slice() : [],
-            onSaved: () => { /* 거래는 독립 저장 — 도트 저장 흐름 유지 */ },
+            onSaved: (tx) => {
+                // 모달 안에 거래 추가 표시 + 도트 저장 시 linkedTransactionIds 에 박을 ID 누적
+                _addedTransactions.push(tx);
+                renderAddedTransactions();
+            },
         });
+    });
+
+    // 모달 안의 거래 X 버튼 — 삭제 + 누적 배열에서 제거 + 다른 화면 동기화
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.qr-tx-del-btn');
+        if (!btn) return;
+        const txId = btn.dataset.id;
+        if (!txId) return;
+        if (!confirm('이 거래를 지울까요? 되돌릴 수 없어요.')) return;
+        try {
+            const repo = await import('../data/economyRepo.js');
+            await repo.deleteTransaction(_currentUserId, txId);
+            _addedTransactions = _addedTransactions.filter(t => t.id !== txId);
+            renderAddedTransactions();
+            showToast('거래를 지웠어요');
+            window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'delete', id: txId }}));
+        } catch (err) {
+            console.error('[quickReview] delete tx failed:', err);
+            showToast('지우는 중에 잠깐 막혔어요.');
+        }
     });
 
     // 저장
@@ -876,7 +906,10 @@ async function handleSave() {
             linkedOrgIds: _selectedOrgIds.slice(),
             personRatings: { ..._personRatings },
             orgRatings: { ..._orgRatings },
-            linkedTransactionIds: _currentExistingDot?.linkedTransactionIds || [],
+            linkedTransactionIds: [
+                ...(_currentExistingDot?.linkedTransactionIds || []),
+                ..._addedTransactions.map(t => t.id),
+            ],
             category: _selectedCategoryId || null,
         };
         if (_selectedCategoryId) pushRecentCategory(_selectedCategoryId);
@@ -901,6 +934,30 @@ async function handleSave() {
         btn.disabled = false;
         showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
     }
+}
+
+function renderAddedTransactions() {
+    const ul = document.getElementById('qr-tx-list');
+    if (!ul) return;
+    if (_addedTransactions.length === 0) {
+        ul.innerHTML = '';
+        return;
+    }
+    ul.innerHTML = _addedTransactions.map(t => {
+        const sign = t.direction === 'income' ? '+' : '−';
+        const exact = t.exactAmount != null
+            ? `<span class="sensitive qr-tx-exact">${sign}${Number(t.exactAmount).toLocaleString('ko-KR')}원</span>`
+            : '';
+        return `
+            <li class="qr-tx-item">
+                <span class="qr-tx-bucket econ-bucket-${escapeAttr(t.amountBucket || 'small')}">${escapeHtml(t.amountBucket || '')}</span>
+                <span class="qr-tx-cat">${escapeHtml(t.category || '')}</span>
+                <span class="qr-tx-desc">${escapeHtml(t.description || '')}</span>
+                ${exact}
+                <button type="button" class="qr-tx-del-btn text-btn" data-id="${escapeAttr(t.id)}" title="지우기" aria-label="거래 지우기">×</button>
+            </li>
+        `;
+    }).join('');
 }
 
 function closeModal() {
