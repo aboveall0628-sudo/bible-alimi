@@ -66,6 +66,7 @@ export const EXPENSE_CATEGORIES = [
     { id: 'housing',        label: '주거',       icon: 'home' },
     { id: 'utility',        label: '공과금',     icon: 'plug' },
     { id: 'telecom',        label: '통신',       icon: 'smartphone' },
+    { id: 'subscription',   label: '구독',       icon: 'repeat' },
     { id: 'health',         label: '의료',       icon: 'heart-pulse' },
     { id: 'education',      label: '교육',       icon: 'book-open' },
     { id: 'clothing',       label: '의류',       icon: 'shirt' },
@@ -73,8 +74,20 @@ export const EXPENSE_CATEGORIES = [
     { id: 'giving',         label: '헌금·기부',  icon: 'hand-heart',  isGiving: true },
     { id: 'tax',            label: '세금',       icon: 'receipt' },
     { id: 'insurance',      label: '보험',       icon: 'shield' },
+    { id: 'fixed-cost',     label: '기타 고정비', icon: 'calendar-clock' },
     { id: 'other-expense',  label: '기타 지출',  icon: 'circle-minus' },
 ];
+
+// expenseType — 지출의 성질 (고정 / 변동). 카테고리와는 별도 축.
+// 같은 음식 거래도 매일의 식대(변동) vs 정기 구독(고정) 으로 구분 가능.
+export const EXPENSE_TYPES = [
+    { id: 'variable', label: '변동 지출' },
+    { id: 'fixed',    label: '고정 지출' },
+];
+
+export function expenseTypeLabel(typeId) {
+    return EXPENSE_TYPES.find(t => t.id === typeId)?.label || typeId;
+}
 
 /**
  * direction 별 카테고리 리스트.

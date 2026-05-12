@@ -21,6 +21,7 @@ import { personDisplayHtml } from './personNameFormat.js';
 import { computeAllPersonStats, computeAllOrgStats } from '../data/cardStats.js';
 import { applyDerivedToPerson, applyDerivedToOrg } from '../data/derivedScores.js';
 import { getAllCategories, getRecentCategories, pushRecentCategory, addUserCategory, findCategory } from '../data/dotCategories.js';
+import { getRatingAxesForCategory, applyRatingLabelsToPerson } from '../data/categoryRatingMap.js';
 
 let _currentSlot = null;
 let _currentCells = [];
@@ -43,6 +44,8 @@ let _newlyCreatedPersonIds = new Set();
 let _newlyCreatedOrgIds = new Set();
 // 활동 카테고리 (2026-05-12) — 도트 1개당 1개. null 허용.
 let _selectedCategoryId = null;
+// 인물별 카테고리 평가 라벨 — { personId: [ratingDefId, ...] } (복수 선택)
+let _personRatingLabels = {};
 let _cachedLoadedFor = null;  // userId — 다른 사용자로 바뀌면 다시 로드
 
 const STATUS_OPTIONS = [
@@ -329,7 +332,7 @@ function bindEvents() {
         if (e.target.id !== 'qr-add-tx-btn') return;
         const m = await import('./economyQuickAdd.js');
         m.openQuickAdd({
-            userId: _userId,
+            userId: _currentUserId,
             date: _currentExistingDot?.date || new Date().toISOString().slice(0, 10),
             linkedPersonIds: Array.isArray(_selectedPersonIds) ? _selectedPersonIds.slice() : [],
             linkedOrgIds: Array.isArray(_selectedOrgIds) ? _selectedOrgIds.slice() : [],

@@ -4446,6 +4446,28 @@ svg.person-radar { display: block; }
     font-size: 10px;
     color: var(--ink-secondary);
 }
+.econ-qa-hint {
+    font-weight: 400;
+    color: var(--ink-secondary);
+    font-size: 11px;
+}
+.econ-qa-extype { display: flex; gap: 6px; }
+.econ-qa-extype-btn {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+}
+.econ-qa-extype-btn.active {
+    background: var(--brand-primary);
+    color: #fff;
+    border-color: var(--brand-primary);
+}
 .econ-qa-cats {
     display: flex; flex-wrap: wrap; gap: 6px;
 }

@@ -26,7 +26,7 @@ import { showToast } from './quickReview.js';
 import { openModal } from './modalManager.js';
 import { saveTransaction, getAllAccounts } from '../data/economyRepo.js';
 import {
-    AMOUNT_BUCKETS, INCOME_CATEGORIES, EXPENSE_CATEGORIES,
+    AMOUNT_BUCKETS, INCOME_CATEGORIES, EXPENSE_CATEGORIES, EXPENSE_TYPES,
     isGivingCategory, amountToBucket,
 } from '../config/economyBuckets.js';
 
@@ -80,7 +80,12 @@ export async function openQuickAdd(opts = {}) {
                 </div>
 
                 <div class="econ-qa-row">
-                    <label>크기</label>
+                    <label>금액 <span class="econ-qa-hint">(자물쇠 안에 저장돼요)</span></label>
+                    <input id="ec-qa-exact" type="number" inputmode="numeric" placeholder="예: 12000" autofocus />
+                </div>
+
+                <div class="econ-qa-row">
+                    <label>크기 <span class="econ-qa-hint">(금액 적으면 자동, 직접 골라도 OK)</span></label>
                     <div class="econ-qa-buckets" id="ec-qa-buckets">
                         ${AMOUNT_BUCKETS.map(b => `
                             <button type="button" class="econ-qa-bucket-btn" data-id="${b.id}">
@@ -95,21 +100,18 @@ export async function openQuickAdd(opts = {}) {
                     <div class="econ-qa-cats" id="ec-qa-cats"></div>
                 </div>
 
+                <div class="econ-qa-row econ-qa-extype-row hidden" id="ec-qa-extype-row">
+                    <label>성질</label>
+                    <div class="econ-qa-extype">
+                        ${EXPENSE_TYPES.map((t, i) => `
+                            <button type="button" class="econ-qa-extype-btn ${i === 0 ? 'active' : ''}" data-id="${t.id}">${t.label}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
                 <div class="econ-qa-row">
                     <label>메모 (선택)</label>
                     <input id="ec-qa-desc" type="text" placeholder="예: 회사 앞 김밥" maxlength="120" />
-                </div>
-
-                <div class="econ-qa-row econ-qa-exact-row hidden" id="ec-qa-exact-row">
-                    <label>정확 금액 (선택)</label>
-                    <input id="ec-qa-exact" type="number" inputmode="numeric" placeholder="예: 12000" />
-                    <p class="section-desc" style="font-size:11px;margin-top:4px">
-                        자물쇠 안에만 저장돼요. 입력하면 크기는 자동으로 다시 계산해요.
-                    </p>
-                </div>
-
-                <div class="econ-qa-row">
-                    <button type="button" id="ec-qa-toggle-exact" class="text-btn">정확 금액도 적기</button>
                 </div>
 
                 ${accounts.length > 1 ? `
@@ -137,7 +139,7 @@ export async function openQuickAdd(opts = {}) {
         </div>
     `;
 
-    const handle = openModal({ overlay, initialFocus: '#ec-qa-buckets .econ-qa-bucket-btn', label: 'econ-quickadd' });
+    const handle = openModal({ overlay, initialFocus: '#ec-qa-exact', label: 'econ-quickadd' });
     overlay.querySelector('.modal-close')?.addEventListener('click', () => handle.close());
     overlay.querySelector('.modal-cancel')?.addEventListener('click', () => handle.close());
 
@@ -146,7 +148,16 @@ export async function openQuickAdd(opts = {}) {
         direction: 'expense',
         amountBucket: null,
         category: null,
+        expenseType: 'variable',
     };
+
+    // expense 일 때만 성질(고정/변동) 행 표시
+    function updateExpenseTypeVisibility() {
+        const row = overlay.querySelector('#ec-qa-extype-row');
+        if (!row) return;
+        row.classList.toggle('hidden', state.direction !== 'expense');
+    }
+    updateExpenseTypeVisibility();
 
     // 카테고리 렌더 (direction 별)
     const catsWrap = overlay.querySelector('#ec-qa-cats');
@@ -177,6 +188,7 @@ export async function openQuickAdd(opts = {}) {
             btn.classList.add('active');
             renderCats();
             updateGivingNote();
+            updateExpenseTypeVisibility();
         });
     });
 
@@ -190,12 +202,16 @@ export async function openQuickAdd(opts = {}) {
         });
     });
 
-    // 정확 금액 토글
-    overlay.querySelector('#ec-qa-toggle-exact')?.addEventListener('click', () => {
-        overlay.querySelector('#ec-qa-exact-row')?.classList.toggle('hidden');
+    // 성질(고정/변동) 토글 — expense 일 때만 노출됨
+    overlay.querySelectorAll('.econ-qa-extype-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.expenseType = btn.dataset.id;
+            overlay.querySelectorAll('.econ-qa-extype-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
     });
 
-    // 정확 금액 입력 시 bucket 재계산
+    // 금액 입력 시 bucket 자동 계산 (디폴트 노출이 됐으므로 핵심 입력)
     overlay.querySelector('#ec-qa-exact')?.addEventListener('input', (e) => {
         const v = Number(e.target.value);
         if (!isNaN(v) && v > 0) {
@@ -231,6 +247,7 @@ export async function openQuickAdd(opts = {}) {
             description: overlay.querySelector('#ec-qa-desc').value.trim(),
         };
         if (exactStr) data.exactAmount = Number(exactStr);
+        if (state.direction === 'expense') data.expenseType = state.expenseType;
         if (accounts.length === 1) data.accountId = accounts[0].id;
         else if (accounts.length > 1) data.accountId = overlay.querySelector('#ec-qa-account').value;
         if (linkedDotId) data.linkedDotId = linkedDotId;
