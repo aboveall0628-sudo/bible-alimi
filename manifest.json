@@ -1,0 +1,25 @@
+{
+    "name": "Sanctum OS",
+    "short_name": "Sanctum",
+    "description": "매일의 일상, 매일의 성소, 하나의 시스템",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "lang": "ko",
+    "background_color": "#FAF7F2",
+    "theme_color": "#FAF7F2",
+    "icons": [
+        {
+            "src": "assets/sanctum-mark.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/favicon-32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        }
+    ]
+}

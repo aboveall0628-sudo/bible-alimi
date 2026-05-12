@@ -38,6 +38,19 @@
             window.lucide.createIcons();
         }
 
+        // Phase E-9/M-1: 인앱 브라우저(카카오톡·인스타 등) 가드
+        // CTA 클릭 시점에 가드 — 첫 화면은 안내 없이 깔끔히 보여주고, 로그인 시도할 때만 차단.
+        var cta = document.getElementById('landing-cta');
+        if (cta && window.SanctumInApp && window.SanctumInApp.detect()) {
+            cta.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.SanctumInApp.showGuideModal({
+                    // 외부 브라우저에서 열 때 ?login=true까지 함께 보냄 → 자동 로그인 진행
+                    targetUrl: location.origin + location.pathname.replace(/landing\.html$/, '') + 'index.html?login=true'
+                });
+            });
+        }
+
         // 3) CTA는 anchor(href="./index.html?login=true")로 자체 동작.
         //    JS 핸들러로 location.href를 재할당하면 일부 환경에서 더블 navigation이 일어남.
         //    app.js가 ?login=true를 감지해 GIS 준비 직후 Google 로그인 모달을 발사한다.
@@ -50,5 +63,14 @@
                 if (stack) stack.classList.add('is-ready');
             });
         });
+
+        // Phase E-9/M-1: service worker 등록 — PWA installable
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('./sw.js').catch(function (e) {
+                    console.warn('SW register failed:', e);
+                });
+            });
+        }
     });
 })();

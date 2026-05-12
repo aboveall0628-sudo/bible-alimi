@@ -150,6 +150,22 @@ async function init() {
     } else {
         // ?login=true 즉시 정리 — 새로고침 시 무한 트리거 방지
         history.replaceState({}, '', location.pathname);
+
+        // Phase E-9/M-1: 카카오톡 등 인앱 webview면 Google OAuth가 막힘 → 안내 모달.
+        // 사용자가 외부 브라우저로 옮길 때까지 자동 로그인 트리거를 멈춤.
+        if (window.SanctumInApp && window.SanctumInApp.detect()) {
+            _isLoginFlow = false;
+            try {
+                window.SanctumInApp.showGuideModal({
+                    targetUrl: location.origin + location.pathname + '?login=true'
+                });
+            } catch (e) { console.warn('inapp guide failed:', e); }
+        }
+    }
+
+    // Phase E-9/M-1: service worker 등록 — PWA installable
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW register failed:', e));
     }
 
     // 0. 글로벌 에러 핸들러 (가장 먼저 — 이후 모든 에러를 안전하게 잡기)

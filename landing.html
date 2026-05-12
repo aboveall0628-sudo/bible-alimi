@@ -2,7 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#FAF7F2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1A1814" media="(prefers-color-scheme: dark)">
+    <link rel="manifest" href="manifest.json">
     <title>Sanctum OS</title>
     <meta name="description" content="Sanctum OS — 매일의 일상, 매일의 성소, 하나의 시스템">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -35,6 +38,8 @@
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
     <link rel="stylesheet" href="landing.css">
     <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js" defer></script>
+    <!-- Phase E-9/M-1: 인앱 브라우저 감지 (카카오톡 등) — landing.js보다 먼저 로드 -->
+    <script src="utils/inAppBrowser.js" defer></script>
     <script src="landing.js" defer></script>
 </head>
 <body>
