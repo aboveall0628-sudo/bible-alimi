@@ -7,19 +7,28 @@
     "display": "standalone",
     "orientation": "portrait",
     "lang": "ko",
+    "dir": "ltr",
     "background_color": "#FAF7F2",
     "theme_color": "#FAF7F2",
+    "categories": ["lifestyle", "productivity"],
     "icons": [
         {
             "src": "assets/sanctum-mark.svg",
             "sizes": "any",
             "type": "image/svg+xml",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "assets/sanctum-mark.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
         },
         {
             "src": "assets/favicon-32.png",
             "sizes": "32x32",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         }
     ]
 }

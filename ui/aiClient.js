@@ -639,6 +639,186 @@ function buildWeeklyReportFallback(weekStats) {
     };
 }
 
+/**
+ * 월간 리포트 호출 (Reports 모듈 STEP 2 — Phase E-9/R-2)
+ *
+ * 응답 구조 (spec §3.3 / llmProxy monthReport 출력):
+ *   {
+ *     aiSummary: string|null,                       // ## 사실
+ *     hypotheses: Array<{text, repetitionCount}>,   // ## 가설 (2주+ 반복)
+ *     patternsObserved: Array<{title, body}>,       // ## 이번 달 자주 관찰된 패턴 (A1)
+ *     decisionFlow: string|null,                    // ## 결단의 흐름 (A3 추상화)
+ *     questionsForMeditation: string[],             // ## 묵상 질문 (4~5개)
+ *     fallback: boolean
+ *   }
+ */
+export async function callMonthlyReport(monthStats, context = {}, weekSummaries = null, opts = {}) {
+    const plain = {
+        stats:         monthStats,
+        weekSummaries: weekSummaries || null,
+        context: {
+            persons: context.persons || [],
+            orgs:    context.orgs    || [],
+            places:  context.places  || [],
+            amounts: context.amounts || [],
+        },
+    };
+
+    const result = await callLLM('monthReport', plain, {
+        deep:        true,                  // pro 모델 (spec §3.3)
+        stats:       monthStats,
+        bypassCache: !!opts.force,
+    });
+
+    if (result.fallback) {
+        return { ...buildMonthlyReportFallback(monthStats), fallback: true };
+    }
+
+    const parsed = parseMonthlyReportResponse(result.text);
+    return { ...parsed, fallback: false };
+}
+
+/**
+ * monthReport 응답 파서 — 다섯 마크다운 헤더를 섹션으로 분리.
+ * 가설 패턴은 weekly와 동일 (`(N/4)` 또는 `(N/주)`).
+ * "패턴" 섹션은 sub-bullet 구조이므로 본문을 그대로 보관 (title 추출은 첫 줄).
+ */
+function parseMonthlyReportResponse(text) {
+    const result = {
+        aiSummary:              null,
+        hypotheses:             [],
+        patternsObserved:       [],
+        decisionFlow:           null,
+        questionsForMeditation: [],
+    };
+    const headers = [
+        { keys: ['사실'],                                     target: 'aiSummary'              },
+        { keys: ['가설'],                                     target: 'hypotheses'             },
+        { keys: ['이번 달 자주 관찰된 패턴', '관찰된 패턴'],   target: 'patternsObserved'       },
+        { keys: ['결단의 흐름', '결단 흐름'],                  target: 'decisionFlow'           },
+        { keys: ['묵상에 가져갈 질문', '묵상 질문'],            target: 'questionsForMeditation' },
+    ];
+
+    const lines = String(text).split(/\r?\n/);
+    let currentTarget = null;
+    let buffer = [];
+
+    const stripBullet = (s) => s.replace(/^[-*•·]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+
+    const flush = () => {
+        if (!currentTarget || buffer.length === 0) return;
+        const content = buffer.join('\n').trim();
+
+        if (currentTarget === 'hypotheses') {
+            const bullets = content.split(/\n/).map(stripBullet).filter(l => l.length > 0);
+            result.hypotheses = bullets.slice(0, 7).map(line => {
+                const m = line.match(/^\(?\s*(\d+\s*\/\s*\d+)(?:\s*주?에?서?)?\s*\)?\s*[-—:]?\s*(.+)$/);
+                if (m) return { text: m[2].trim(), repetitionCount: m[1].replace(/\s+/g, '') };
+                return { text: line, repetitionCount: null };
+            });
+        } else if (currentTarget === 'questionsForMeditation') {
+            const questions = content.split(/\n/).map(stripBullet).filter(l => l.length > 0);
+            result.questionsForMeditation = questions.slice(0, 5);
+        } else if (currentTarget === 'patternsObserved') {
+            // 패턴 N개 — "패턴 — 제목" 헤더로 분할. 빈 블록 제거.
+            const blocks = content.split(/\n(?=패턴\b|패턴\s*\d|##)/).map(b => b.trim()).filter(Boolean);
+            result.patternsObserved = blocks.slice(0, 5).map(block => {
+                const firstLine = block.split(/\n/, 1)[0] || '';
+                const title = firstLine.replace(/^패턴\s*[\d:.\-—]*\s*/, '').trim() || '관찰된 패턴';
+                return { title, body: block };
+            });
+        } else {
+            result[currentTarget] = content;
+        }
+        buffer = [];
+    };
+
+    for (const line of lines) {
+        const m = line.match(/^#{1,3}\s*(.+?)\s*$/);
+        if (m) {
+            const headerText = m[1].trim();
+            const found = headers.find(h => h.keys.some(k => headerText.includes(k)));
+            if (found) {
+                flush();
+                currentTarget = found.target;
+                continue;
+            }
+        }
+        if (currentTarget) buffer.push(line);
+    }
+    flush();
+
+    const empty = !result.aiSummary
+        && result.hypotheses.length === 0
+        && result.patternsObserved.length === 0
+        && !result.decisionFlow
+        && result.questionsForMeditation.length === 0;
+    if (empty) result.aiSummary = String(text).trim();
+
+    return result;
+}
+
+/**
+ * 월간 fallback — llmProxy 미배포·실패 시 stats만으로 최소 진단.
+ * 가설/패턴은 비워둠 (반복 횟수 없는 가설은 spec 위반).
+ */
+function buildMonthlyReportFallback(monthStats) {
+    const s = monthStats || {};
+    const totalDots = s.totalDots ?? 0;
+    const wm = s.weeklyMatrix?.weeks || [];
+    const cat = s.categorySatisfactionMatrix?.items || [];
+    const persons = s.personNetwork?.items || [];
+    const decision = s.decisionFlow || {};
+    const pinned = s.pinnedPrincipleEffectiveness || {};
+
+    const factsParts = [];
+    if (totalDots > 0) {
+        factsParts.push(`이번 달 도트가 ${totalDots}개 기록되었습니다.`);
+    } else {
+        factsParts.push('이번 달은 아직 기록된 도트가 적었습니다.');
+    }
+    if (wm.length > 0) {
+        factsParts.push(`주간 리포트가 ${wm.length}주분 합류되었습니다.`);
+    }
+    if (cat.length > 0) {
+        const top = cat[0];
+        const hours = Math.round((top.durationMinutes || 0) / 60 * 10) / 10;
+        factsParts.push(`가장 많은 시간이 "${top.category}"에 ${hours}시간 잡혔습니다.`);
+    }
+    if (persons.length > 0) {
+        factsParts.push(`함께한 사람은 ${s.personNetwork.totalUniquePersons || persons.length}명이었습니다.`);
+    }
+    if (pinned.hasPinned && pinned.applied && pinned.unapplied
+        && pinned.applied.avgSatisfaction != null && pinned.unapplied.avgSatisfaction != null) {
+        factsParts.push(
+            `핀 원칙을 의식한 도트의 만족도 평균은 ${pinned.applied.avgSatisfaction}, ` +
+            `의식하지 않은 도트는 ${pinned.unapplied.avgSatisfaction}로 관찰되었습니다.`
+        );
+    }
+
+    let decisionFlowText;
+    if (decision.sampleSize > 0) {
+        decisionFlowText =
+            `이번 달, 결단에서 실행까지의 평균 거리는 ${decision.avgDistanceDays}일이었습니다. ` +
+            `시간표에 옮겨진 결단의 흐름이 ${decision.sampleSize}회 관찰되었습니다.`;
+    } else {
+        decisionFlowText = '이번 달은 시간표에 옮겨진 결단의 실행 흐름을 관찰하기에 표본이 부족했습니다.';
+    }
+
+    return {
+        aiSummary:        factsParts.join(' ') || null,
+        hypotheses:       [],
+        patternsObserved: [],
+        decisionFlow:     decisionFlowText,
+        questionsForMeditation: [
+            '이번 달, 가장 자주 머문 자리는 어디였습니까?',
+            '결단과 행동 사이의 거리가 어떻게 변해갔습니까?',
+            '함께한 사람들 사이에서 무엇이 보였습니까?',
+            '이번 달 시간의 결을 한 단어로 부른다면 무엇입니까?',
+        ],
+    };
+}
+
 function buildDailyReportFallback(stats) {
     const ds    = stats.dotStats || {};
     const sat   = stats.satisfactionDistribution || {};
