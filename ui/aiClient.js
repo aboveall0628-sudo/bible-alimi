@@ -927,6 +927,125 @@ function buildReportQuestionFallback(stats, question) {
     };
 }
 
+/**
+ * 분기 리포트 호출 (Phase E-9/R-3)
+ *
+ * 응답: { aiSummary, hypotheses, decisionFlow, principleValidation, questionsForMeditation, fallback }
+ */
+export async function callQuarterlyReport(quarterStats, context = {}, monthSummaries = null, opts = {}) {
+    const plain = {
+        stats:          quarterStats,
+        monthSummaries: monthSummaries || null,
+        context: {
+            persons: context.persons || [],
+            orgs:    context.orgs    || [],
+            places:  context.places  || [],
+            amounts: context.amounts || [],
+        },
+    };
+    const result = await callLLM('quarterReport', plain, {
+        deep:        true,           // pro 모델 (spec §3.4)
+        stats:       quarterStats,
+        bypassCache: !!opts.force,
+    });
+    if (result.fallback) {
+        return { ...buildQuarterlyReportFallback(quarterStats), fallback: true };
+    }
+    const parsed = parseQuarterlyReportResponse(result.text);
+    return { ...parsed, fallback: false };
+}
+
+function parseQuarterlyReportResponse(text) {
+    const result = {
+        aiSummary:              null,
+        hypotheses:             [],
+        decisionFlow:           null,
+        principleValidation:    [],  // 원칙 라이프사이클 미완 — 빈 채로 보관
+        questionsForMeditation: [],
+    };
+    const headers = [
+        { keys: ['사실'],                                  target: 'aiSummary' },
+        { keys: ['가설'],                                  target: 'hypotheses' },
+        { keys: ['결단의 흐름', '결단 흐름'],               target: 'decisionFlow' },
+        { keys: ['묵상에 가져갈 질문', '묵상 질문'],         target: 'questionsForMeditation' },
+    ];
+    const lines = String(text).split(/\r?\n/);
+    let currentTarget = null;
+    let buffer = [];
+    const stripBullet = (s) => s.replace(/^[-*•·]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+    const flush = () => {
+        if (!currentTarget || buffer.length === 0) return;
+        const content = buffer.join('\n').trim();
+        if (currentTarget === 'hypotheses') {
+            const bullets = content.split(/\n/).map(stripBullet).filter(l => l.length > 0);
+            result.hypotheses = bullets.slice(0, 7).map(line => {
+                const m = line.match(/^\(?\s*(\d+\s*\/\s*\d+)\s*\)?\s*[-—:]?\s*(.+)$/);
+                if (m) return { text: m[2].trim(), repetitionCount: m[1].replace(/\s+/g, '') };
+                return { text: line, repetitionCount: null };
+            });
+        } else if (currentTarget === 'questionsForMeditation') {
+            const questions = content.split(/\n/).map(stripBullet).filter(l => l.length > 0);
+            result.questionsForMeditation = questions.slice(0, 5);
+        } else {
+            result[currentTarget] = content;
+        }
+        buffer = [];
+    };
+    for (const line of lines) {
+        const m = line.match(/^#{1,3}\s*(.+?)\s*$/);
+        if (m) {
+            const headerText = m[1].trim();
+            const found = headers.find(h => h.keys.some(k => headerText.includes(k)));
+            if (found) {
+                flush();
+                currentTarget = found.target;
+                continue;
+            }
+        }
+        if (currentTarget) buffer.push(line);
+    }
+    flush();
+    const empty = !result.aiSummary && result.hypotheses.length === 0
+        && !result.decisionFlow && result.questionsForMeditation.length === 0;
+    if (empty) result.aiSummary = String(text).trim();
+    return result;
+}
+
+function buildQuarterlyReportFallback(quarterStats) {
+    const s = quarterStats || {};
+    const totalDots = s.totalDots ?? 0;
+    const monthly = s.monthlyMatrix?.months || [];
+    const persons = s.personNetwork?.items || [];
+    const decision = s.decisionFlow || {};
+    const factsParts = [];
+    if (totalDots > 0) factsParts.push(`이번 분기 도트가 ${totalDots}개 기록되었습니다.`);
+    else factsParts.push('이번 분기는 아직 기록된 도트가 적었습니다.');
+    if (monthly.length > 0) factsParts.push(`월간 리포트가 ${monthly.length}개 합류되었습니다.`);
+    if (persons.length > 0) {
+        factsParts.push(`함께한 사람은 ${s.personNetwork.totalUniquePersons || persons.length}명이었습니다.`);
+    }
+    let decisionFlowText;
+    if (decision.sampleSize > 0) {
+        decisionFlowText =
+            `이번 분기, 결단에서 실행까지의 평균 거리는 ${decision.avgDistanceDays}일이었습니다. ` +
+            `시간표에 옮겨진 결단의 흐름이 ${decision.sampleSize}회 관찰되었습니다.`;
+    } else {
+        decisionFlowText = '이번 분기는 시간표에 옮겨진 결단의 실행 흐름을 관찰하기에 표본이 부족했습니다.';
+    }
+    return {
+        aiSummary:           factsParts.join(' ') || null,
+        hypotheses:          [],
+        decisionFlow:        decisionFlowText,
+        principleValidation: [],
+        questionsForMeditation: [
+            '이번 분기, 가장 자주 머문 자리는 어디였습니까?',
+            '결단과 행동 사이의 거리가 어떻게 변해갔습니까?',
+            '함께한 사람들 사이에서 무엇이 보였습니까?',
+            '이번 분기 시간의 결을 한 문장으로 부른다면?',
+        ],
+    };
+}
+
 function buildDailyReportFallback(stats) {
     const ds    = stats.dotStats || {};
     const sat   = stats.satisfactionDistribution || {};

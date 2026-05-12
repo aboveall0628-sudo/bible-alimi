@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<title>Sanctum Mark — 한붓그리기 가이드</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  body { padding: 28px; }
+  .wrap { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; }
+  .panel { background: var(--surface-card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+  h1 { font: 700 22px/1.3 "Pretendard Variable", Pretendard, sans-serif; color: #3E5C76; margin: 0 0 6px; letter-spacing: -0.4px; }
+  .lede { color: #6B7280; font-size: 13.5px; line-height: 1.65; margin-bottom: 16px; }
+  svg.stage { width: 100%; aspect-ratio: 1 / 1.1; background: #0E0E10; border-radius: 14px; display: block; }
+  .controls { display:flex; gap: 8px; margin-top: 12px; align-items: center; }
+  button { font: 600 13px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: #3E5C76; cursor: pointer; }
+  button.primary { background: #3E5C76; color: #fff; border-color: #3E5C76; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .meter { flex: 1; height: 8px; background: #EAECEF; border-radius: 999px; overflow: hidden; }
+  .meter > i { display:block; height:100%; background: linear-gradient(90deg, #3E5C76, #C76F4A); width: 0%; transition: width .4s ease; }
+  .step-count { font: 600 12px/1 "Pretendard Variable", Pretendard, sans-serif; color: #6B7280; min-width: 56px; text-align: right; }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; padding: 10px 12px 10px 44px; position: relative; border-radius: 10px; font: 500 13.5px/1.5 "Pretendard Variable", Pretendard, sans-serif; color: #3E3E40; }
+  ol.steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 12px; top: 10px; font: 700 12px/1 "Pretendard Variable", Pretendard, sans-serif; color: #B8BCC2; letter-spacing: 0.5px; }
+  ol.steps li.active { background: #FFF7F1; color: #C76F4A; }
+  ol.steps li.active::before { color: #C76F4A; }
+  ol.steps li.done { color: #B8BCC2; }
+  ol.steps li.done::before { color: #D8DCE2; }
+  ol.steps li b { color: inherit; font-weight: 700; }
+  kbd { font: 600 11px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 3px 6px; border-radius: 5px; background: #EDEFF3; color: #3E5C76; margin: 0 2px; }
+  .tip { font-size: 12.5px; color: #6B7280; line-height: 1.6; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="panel">
+    <h1>한붓그리기 — 22 포인트를 따라 그리기</h1>
+    <div class="lede">펜을 한 번도 떼지 않고 ① → ㉒ 까지 순서대로 잇기만 하면 마크가 완성됩니다. 모든 선분은 정확히 한 번씩만 지나가요.</div>
+
+    <svg class="stage" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
+      <!-- faint ghost of full mark -->
+      <path id="ghost" fill="none" stroke="#3E3E40" stroke-width="0.6" stroke-dasharray="1.6 1.6"
+            d="M 50 8 L 50 28 L 15 28 L 15 62 L 38 62 L 38 46 L 50 46 L 50 28 L 66 28 L 66 46 L 82 46 L 82 80 L 50 80 L 50 62 L 66 62 L 66 46 L 50 46 L 50 62 L 38 62 L 38 80 L 50 80 L 50 98"/>
+      <!-- progress path drawn over -->
+      <path id="drawn" fill="none" stroke="#F2B43A" stroke-width="2.6"
+            stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2"
+            d=""/>
+      <!-- numbered nodes -->
+      <g id="nodes"></g>
+    </svg>
+
+    <div class="controls">
+      <button id="prev">← 이전</button>
+      <button id="next" class="primary">다음 →</button>
+      <button id="play">▶ 자동재생</button>
+      <button id="reset">↺ 처음부터</button>
+      <div class="meter"><i id="bar"></i></div>
+      <div class="step-count" id="counter">0 / 21</div>
+    </div>
+    <div class="tip">키보드 <kbd>→</kbd> 다음 · <kbd>←</kbd> 이전 · <kbd>스페이스</kbd> 재생/일시정지 · <kbd>R</kbd> 리셋</div>
+  </div>
+
+  <div class="panel">
+    <h1 style="font-size:18px;">획 순서 (22 vertices)</h1>
+    <div class="lede">각 단계 = 한 선분. 같은 좌표를 여러 번 지나가는 건 정상이에요 — 모든 <em>선분</em>이 정확히 한 번씩 지나가도록 설계됐습니다.</div>
+    <ol class="steps" id="legend">
+      <!-- filled by JS -->
+    </ol>
+  </div>
+</div>
+
+<script>
+  // 22 vertices = 21 segments. Each entry: [x, y, "label describing the move INTO this point"]
+  const pts = [
+    [50,  8, "맨 위 시작점"],
+    [50, 28, "수직 ↓ 위쪽 보관함 윗변까지"],
+    [15, 28, "← 위 보관함 윗변 (왼쪽 끝)"],
+    [15, 62, "↓ 위 보관함 왼변"],
+    [38, 62, "→ 위 보관함 밑변 (왼쪽 토막)"],
+    [38, 46, "↑ 아래 보관함 왼변 윗부분 — 위 보관함 안으로 들어감"],
+    [50, 46, "→ 아래 보관함 윗변 (왼쪽 토막)"],
+    [50, 28, "↑ 수직선 안쪽 토막 (위 보관함 윗변까지 되돌아옴)"],
+    [66, 28, "→ 위 보관함 윗변 (오른쪽 토막)"],
+    [66, 46, "↓ 위 보관함 오른변 윗부분 — 아래 보관함 윗변과 만남"],
+    [82, 46, "→ 아래 보관함 윗변 (오른쪽 끝)"],
+    [82, 80, "↓ 아래 보관함 오른변"],
+    [50, 80, "← 아래 보관함 밑변 (오른쪽 토막)"],
+    [50, 62, "↑ 수직선 (아래 보관함 안쪽 토막)"],
+    [66, 62, "→ 위 보관함 밑변 (가운데 토막) — 아래쪽 보관함 안에서"],
+    [66, 46, "↑ 위 보관함 오른변 윗부분 다시 한 번 (반대 방향)"],
+    [50, 46, "← 아래 보관함 윗변 (가운데 토막)"],
+    [50, 62, "↓ 수직선 (위·아래 보관함이 겹친 안쪽)"],
+    [38, 62, "← 위 보관함 밑변 (가운데 토막)"],
+    [38, 80, "↓ 아래 보관함 왼변 아랫부분"],
+    [50, 80, "→ 아래 보관함 밑변 (왼쪽 토막)"],
+    [50, 98, "↓ 맨 아래 끝점 — 완성"]
+  ];
+
+  const stage = document.querySelector("svg.stage");
+  const nodesG = document.getElementById("nodes");
+  const drawn = document.getElementById("drawn");
+  const counter = document.getElementById("counter");
+  const bar = document.getElementById("bar");
+  const legend = document.getElementById("legend");
+
+  // place nodes
+  pts.forEach((p, i) => {
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    c.setAttribute("data-i", i);
+    c.innerHTML = `
+      <circle cx="${p[0]}" cy="${p[1]}" r="2.6" fill="#1A1A1C" stroke="#6B7280" stroke-width="0.6"/>
+      <text x="${p[0]}" y="${p[1] + 1.1}" text-anchor="middle"
+            font-family="Pretendard Variable, Pretendard, sans-serif"
+            font-weight="700" font-size="3.4" fill="#9CA3AF">${i+1}</text>
+    `;
+    nodesG.appendChild(c);
+  });
+
+  // build legend
+  pts.forEach((p, i) => {
+    if (i === 0) return; // step labels describe MOVE INTO point, so step 1 = into pts[1]
+    const li = document.createElement("li");
+    li.dataset.i = i;
+    li.innerHTML = `<b>${p[2]}</b><br><span style="color:#9CA3AF; font-size:12px;">→ (${p[0]}, ${p[1]})</span>`;
+    legend.appendChild(li);
+  });
+
+  let step = 0; // 0 = nothing drawn; 21 = full
+
+  function render() {
+    // path
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i <= step; i++) d += ` L ${pts[i][0]} ${pts[i][1]}`;
+    drawn.setAttribute("d", d);
+
+    // counter
+    counter.textContent = `${step} / 21`;
+    bar.style.width = `${(step / 21) * 100}%`;
+
+    // node colors
+    nodesG.querySelectorAll("g").forEach((g, i) => {
+      const circle = g.querySelector("circle");
+      const text = g.querySelector("text");
+      if (i <= step) { circle.setAttribute("fill", "#F2B43A"); circle.setAttribute("stroke", "#C76F4A"); text.setAttribute("fill", "#1A1A1C"); }
+      else { circle.setAttribute("fill", "#1A1A1C"); circle.setAttribute("stroke", "#6B7280"); text.setAttribute("fill", "#9CA3AF"); }
+      if (i === step) { circle.setAttribute("r", "3.8"); }
+      else { circle.setAttribute("r", "2.6"); }
+    });
+
+    // legend state
+    legend.querySelectorAll("li").forEach(li => {
+      const i = parseInt(li.dataset.i, 10);
+      li.classList.toggle("active", i === step);
+      li.classList.toggle("done", i < step);
+    });
+
+    // scroll active into view
+    const active = legend.querySelector("li.active");
+    if (active) {
+      const parent = legend;
+      const top = active.offsetTop - parent.offsetTop;
+      parent.scrollTop = top - 40;
+    }
+
+    document.getElementById("prev").disabled = step === 0;
+    document.getElementById("next").disabled = step === 21;
+  }
+
+  document.getElementById("next").onclick = () => { if (step < 21) { step++; render(); } };
+  document.getElementById("prev").onclick = () => { if (step > 0) { step--; render(); } };
+  document.getElementById("reset").onclick = () => { step = 0; stopPlay(); render(); };
+
+  let playTimer = null;
+  function stopPlay() {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; document.getElementById("play").textContent = "▶ 자동재생"; }
+  }
+  document.getElementById("play").onclick = () => {
+    if (playTimer) { stopPlay(); return; }
+    if (step === 21) { step = 0; render(); }
+    document.getElementById("play").textContent = "❚❚ 일시정지";
+    playTimer = setInterval(() => {
+      if (step >= 21) { stopPlay(); return; }
+      step++; render();
+    }, 520);
+  };
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") { document.getElementById("next").click(); e.preventDefault(); }
+    else if (e.key === "ArrowLeft") { document.getElementById("prev").click(); e.preventDefault(); }
+    else if (e.key === " ") { document.getElementById("play").click(); e.preventDefault(); }
+    else if (e.key === "r" || e.key === "R") { document.getElementById("reset").click(); }
+  });
+
+  // overflow scroll on legend
+  legend.style.maxHeight = "560px";
+  legend.style.overflowY = "auto";
+  legend.style.scrollBehavior = "smooth";
+
+  render();
+</script>
+</body></html>

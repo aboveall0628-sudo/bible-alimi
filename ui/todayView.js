@@ -31,6 +31,9 @@ import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 // Phase E-9/R-2: 월말 토요일 월간 리포트 흐름
 import { generateMonthlyReport } from '../reports/monthlyReportFlow.js';
 import { getMonthRange } from '../reports/monthlyAggregator.js';
+// Phase E-9/R-3: 분기말 토요일 분기 리포트 흐름
+import { generateQuarterlyReport } from '../reports/quarterlyReportFlow.js';
+import { getQuarterRange, dateToYearQuarter } from '../reports/quarterlyAggregator.js';
 // 토요일이면 주/월/분기/연/5·10년 회고가 단계별로 추가 (eveningLoop의 토요일 감지 재사용)
 import { determineLayers } from './eveningLoop.js';
 // Phase E-9/R-DD: 인라인 카드에도 드릴다운
@@ -298,18 +301,20 @@ function renderSaturdayLayers(body) {
         ${layerButtonsHtml}
         <div id="today-week-report-inline"></div>
         <div id="today-month-report-inline"></div>
+        <div id="today-quarter-report-inline"></div>
         <div style="text-align:center; margin-top:10px">
             <button class="primary-btn" id="today-go-next-day-btn">🌅 내일 묵상 시작하기 →</button>
         </div>
     `;
     body.appendChild(section);
 
-    // 단계별 회고 버튼 — week / month 가 실제 흐름. quarter/year/decade 는 placeholder.
+    // 단계별 회고 버튼 — week / month / quarter 가 실제 흐름. year/decade 는 placeholder.
     section.querySelectorAll('button[data-layer]').forEach(btn => {
         btn.addEventListener('click', async () => {
             const layer = btn.dataset.layer;
-            if (layer === 'week')  { await handleWeekReportClick(btn);  return; }
-            if (layer === 'month') { await handleMonthReportClick(btn); return; }
+            if (layer === 'week')    { await handleWeekReportClick(btn);    return; }
+            if (layer === 'month')   { await handleMonthReportClick(btn);   return; }
+            if (layer === 'quarter') { await handleQuarterReportClick(btn); return; }
             showToast(`${layerLabels[layer].label}는 곧 만들어질 예정이에요`);
         });
     });
@@ -613,6 +618,138 @@ function renderMonthReportInline(r) {
 }
 
 /**
+ * Phase E-9/R-3: 이번 분기 리포트 생성 — 분기말 토요일 회고 인라인.
+ */
+async function handleQuarterReportClick(btn) {
+    const dek = getDEK();
+    if (!dek) { showToast('잠금 해제가 필요해요'); return; }
+
+    const inline = document.getElementById('today-quarter-report-inline');
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '만드는 중이에요...';
+
+    try {
+        const yearQuarter = dateToYearQuarter(_date);
+        const range = getQuarterRange(yearQuarter);
+        if (!range) {
+            showToast('분기 범위를 정할 수 없어요');
+            btn.disabled = false; btn.textContent = originalLabel;
+            return;
+        }
+        const result = await generateQuarterlyReport(dek, _userId, range.start, range.end);
+
+        if (result.status === 'no-dots') {
+            if (inline) {
+                inline.innerHTML = `<p style="color:var(--text-secondary); font-size:13px; margin-top:12px; text-align:center">이번 분기는 아직 기록된 도트가 없어서 리포트가 만들어지지 않았어요.</p>`;
+            }
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+            return;
+        }
+
+        if (inline) inline.innerHTML = renderQuarterReportInline(result.report);
+        btn.style.display = 'none';
+        if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+        bindInlineDrill(inline, dek);
+
+        document.getElementById('quarter-report-regenerate-btn')?.addEventListener('click', async () => {
+            const rb = document.getElementById('quarter-report-regenerate-btn');
+            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            try {
+                const r2 = await generateQuarterlyReport(dek, _userId, range.start, range.end, { force: true });
+                if (inline) inline.innerHTML = renderQuarterReportInline(r2.report);
+                if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+                bindInlineDrill(inline, dek);
+                showToast('분기 리포트가 새로 만들어졌어요');
+            } catch (e) {
+                console.error('quarterly regenerate failed:', e);
+                showToast('재작성이 잠깐 막혔어요');
+                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+            }
+        });
+    } catch (e) {
+        console.error('quarterly report generate failed:', e);
+        showToast('분기 리포트 생성이 잠깐 막혔어요');
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+    }
+}
+
+function renderQuarterReportInline(r) {
+    if (!r) return '';
+    const stats = r.stats || {};
+    const totalDots = stats.totalDots ?? 0;
+    const months = stats.monthlyMatrix?.months || [];
+    const monthsWithData = stats.monthlyMatrix?.monthsWithData ?? 0;
+    const personCount = stats.personNetwork?.totalUniquePersons ?? 0;
+
+    const hypothesesHtml = (r.hypotheses || []).length > 0
+        ? `<div class="report-section" style="margin-top:14px">
+               <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="lightbulb"></i> 가설 (3개월 일관성)
+               </div>
+               <ul style="margin:0; padding-left:20px">
+                   ${r.hypotheses.map(h => `
+                       <li style="margin-bottom:6px">
+                           ${h.repetitionCount ? `<span style="display:inline-block; padding:1px 6px; background:var(--bg-secondary, #f0f0f0); border-radius:10px; font-size:11px; margin-right:6px">${escapeHtml(h.repetitionCount)}</span>` : ''}
+                           ${escapeHtml(h.text)}
+                       </li>
+                   `).join('')}
+               </ul>
+           </div>`
+        : '';
+
+    const qSamples = stats.decisionFlow?.sampleSize ?? 0;
+    const decisionFlowHtml = r.decisionFlow
+        ? `<div class="report-section" style="margin-top:14px">
+               <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="compass"></i> 결단의 흐름
+               </div>
+               <p style="margin:0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${qSamples > 0
+                    ? `<button class="drill-link" data-inline-drill="decision" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}" style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
+           </div>`
+        : '';
+
+    const questionsHtml = (r.questionsForMeditation || []).length > 0
+        ? `<div class="report-section" style="margin-top:14px">
+               <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
+                   <i data-lucide="message-circle-question"></i> 묵상에 가져갈 질문
+               </div>
+               <ul style="margin:0; padding-left:20px">${r.questionsForMeditation.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    return `
+        <article class="card-section quarter-report-inline" style="margin-top:16px; padding:16px" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}">
+            <header style="margin-bottom:10px">
+                <h3 style="margin:0; font-size:15px">${escapeHtml(stats.yearQuarter || r.startDate || '')}</h3>
+                ${r.startDate && r.endDate ? `<p style="margin:4px 0 0; font-size:12px; color:var(--text-secondary)">${escapeHtml(r.startDate)} ~ ${escapeHtml(r.endDate)}</p>` : ''}
+            </header>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px; font-size:13px; color:var(--text-secondary)">
+                <span><strong>${totalDots}</strong> 도트</span>
+                ${monthsWithData > 0 ? `<span><strong>${monthsWithData}</strong> 월 합류</span>` : ''}
+                ${personCount > 0 ? `<span><strong>${personCount}</strong> 만난 사람</span>` : ''}
+            </div>
+            ${r.aiSummary ? `<div class="ai-summary-card"><p style="margin:0; white-space:pre-wrap">${escapeHtml(r.aiSummary)}</p></div>` : ''}
+            ${hypothesesHtml}
+            ${decisionFlowHtml}
+            ${questionsHtml}
+            <div style="text-align:center; margin-top:14px">
+                <button id="quarter-report-regenerate-btn" class="text-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
+                    ↻ 리포트 재작성하기
+                </button>
+            </div>
+            <div style="text-align:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border, rgba(0,0,0,0.08)); font-size:12px; color:var(--text-secondary)">
+                여기까지가 데이터예요. 다음은 묵상 안에서.
+            </div>
+        </article>
+    `;
+}
+
+/**
  * Phase E-9/R-DD: 인라인 카드의 [상세] 버튼에 드릴다운 부착.
  * 인라인은 길이를 절제해 결단 흐름만 부착. 인물·라벨 chip은 리포트 메뉴에서.
  */
@@ -632,19 +769,30 @@ function bindInlineDrill(inlineRoot, dek) {
         });
     });
     // Phase E-9/R-QA: 인라인 카드 안에 Q&A 입력창 — 푸터(여기까지가 데이터예요…) 앞에.
-    inlineRoot.querySelectorAll('.week-report-inline, .month-report-inline').forEach(card => {
-        // 마지막 자식이 "여기까지가 데이터예요…" 푸터. 거기 앞에 박음.
+    inlineRoot.querySelectorAll('.week-report-inline, .month-report-inline, .quarter-report-inline').forEach(card => {
         const foot = [...card.children].reverse().find(el => el.textContent?.includes('여기까지가 데이터'));
         if (!foot) return;
+        const isQuarter = card.classList.contains('quarter-report-inline');
         const isMonth = card.classList.contains('month-report-inline');
         const start = card.dataset.start;
         const end = card.dataset.end;
-        const reportId = isMonth ? (start || '').slice(0, 7) : weeklyKeyFromRange(start, end);
+        let reportId, reportType;
+        if (isQuarter) {
+            // 'YYYY-MM-DD' → 'YYYY-Qn'
+            const [y, m] = (start || '').split('-').map(Number);
+            const q = Math.ceil((m || 1) / 3);
+            reportId = `${y}-Q${q}`;
+            reportType = 'quarter';
+        } else if (isMonth) {
+            reportId = (start || '').slice(0, 7);
+            reportType = 'month';
+        } else {
+            reportId = weeklyKeyFromRange(start, end);
+            reportType = 'week';
+        }
         mountReportQna(foot, {
             reportId,
-            reportType: isMonth ? 'month' : 'week',
-            // 인라인은 stats를 따로 들고 다니지 않음 — Q&A 호출 시 그 자리에서 lazy 로딩 가능하지만
-            // 우선 빈 stats로 보내고, 답변 톤은 시스템 프롬프트가 책임짐.
+            reportType,
             stats: {},
             context: {},
             dek,

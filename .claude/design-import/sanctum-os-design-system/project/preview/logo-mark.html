@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_shared.css">
+<style>
+  .row { display:grid; grid-template-columns: 280px 1fr; gap: 28px; align-items: center; }
+  .mark-tile { border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; place-items: center; min-height: 240px; background: var(--surface-card); }
+  .mark-tile.dark { background: #0E0E10; border-color: #2E2E32; }
+  .mark-tile.dark img { filter: invert(96%) sepia(2%) saturate(0%) hue-rotate(180deg) brightness(108%); }
+  .tile-row { display:flex; gap:10px; }
+  .seq { display:flex; flex-wrap:wrap; gap:5px; margin-top:12px; }
+  .seq span { font: 600 11px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 5px 8px; border-radius: 6px; background: #EDEFF3; color: #3E5C76; letter-spacing: 0.5px; }
+  .seq span.start { background: #3E5C76; color: #fff; }
+  .seq span.end { background: #C76F4A; color: #fff; }
+</style>
+</head>
+<body><div class="card">
+  <div class="row">
+    <div class="tile-row">
+      <div class="mark-tile"><img src="../assets/sanctum-mark.svg" alt="" style="height:180px;"></div>
+      <div class="mark-tile dark"><img src="../assets/sanctum-mark.svg" alt="" style="height:180px;"></div>
+    </div>
+    <div>
+      <div class="tiny" style="margin-bottom:8px;">MIRROR MARK · 한붓그리기 · Growth Feedback Spiral</div>
+      <div class="muted" style="font-size:13.5px; line-height:1.7;">
+        창립자가 직접 그린 10-포인트 단일 경로. 하나의 의도(↓)로 출발해 90°씩 꺾이며 소용돌이를 그리고,
+        결국 본래 가려던 방향을 다시 잡고 빠져나갑니다 — 피드백 루프 = 성장.
+        펜을 떼지 않고 그려지는 단 하나의 stroke 으로 완성됩니다.
+      </div>
+      <div class="seq">
+        <span class="start">① 50,10</span>
+        <span>↓ 50,60</span>
+        <span>→ 85,60</span>
+        <span>↑ 85,25</span>
+        <span>← 20,25</span>
+        <span>↓ 20,75</span>
+        <span>→ 70,75</span>
+        <span>↑ 70,40</span>
+        <span>← 35,40</span>
+        <span class="end">↓ 35,100</span>
+      </div>
+    </div>
+  </div>
+</div></body></html>

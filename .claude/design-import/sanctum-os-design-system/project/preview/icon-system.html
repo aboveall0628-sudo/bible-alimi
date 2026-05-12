@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_shared.css">
+<style>
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .ic { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; }
+  .ic svg { width: 22px; height: 22px; stroke-width: 1.5; color: var(--ink-primary); }
+  .ic span { font-size: 11px; color: var(--ink-secondary); }
+</style>
+</head>
+<body><div class="card">
+  <div class="row">
+    <div class="ic"><i data-lucide="book-open"></i><span>오늘의 말씀</span></div>
+    <div class="ic"><i data-lucide="target"></i><span>나의 목표</span></div>
+    <div class="ic"><i data-lucide="moon"></i><span>저녁 회고</span></div>
+    <div class="ic"><i data-lucide="layout-dashboard"></i><span>대시보드</span></div>
+    <div class="ic"><i data-lucide="scroll-text"></i><span>지난 묵상</span></div>
+    <div class="ic"><i data-lucide="trending-up"></i><span>리포트</span></div>
+    <div class="ic"><i data-lucide="users"></i><span>인물</span></div>
+    <div class="ic"><i data-lucide="building-2"></i><span>조직</span></div>
+    <div class="ic"><i data-lucide="settings"></i><span>설정·보안</span></div>
+    <div class="ic"><i data-lucide="pin"></i><span>핀 원칙</span></div>
+  </div>
+  <div class="muted" style="margin-top:14px; font-size:12px;">Lucide · stroke 1.5 · round caps. 단일 컬러(--ink-secondary→active 시 --brand-primary). 본문·CTA·마이크로카피에는 아이콘 금지.</div>
+</div>
+<script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
+</body></html>

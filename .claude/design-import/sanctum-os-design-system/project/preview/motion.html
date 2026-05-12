@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_shared.css"></head>
+<body><div class="card">
+  <div style="display:flex; gap:24px; align-items:center;">
+    <div>
+      <div style="font-size:30px; font-weight:700; color:var(--brand-primary); letter-spacing:-0.01em;">200ms</div>
+      <div class="mono" style="margin-top:4px;">ease-out</div>
+      <div class="muted" style="margin-top:6px;">단일 토큰 — 모든 트랜지션</div>
+    </div>
+    <div style="flex:1; height:48px; background:var(--surface-elevated); border-radius:12px; position:relative; overflow:hidden;">
+      <div id="b" style="position:absolute; left:6px; top:6px; bottom:6px; width:36px; background:var(--brand-primary); border-radius:8px; transition: left 200ms ease-out;"></div>
+    </div>
+  </div>
+  <div class="muted" style="margin-top:14px; font-size:12px;">예외 두 가지만: <span class="mono">pendingPulse 2.4s</span> (노란 도트 숨쉬기) · <span class="mono">spin 1s linear</span> (스피너). 바운스·스프링·이즈인아웃 사용 안 함.</div>
+  <script>
+    const b = document.getElementById('b');
+    let on = false;
+    setInterval(() => { on = !on; b.style.left = on ? 'calc(100% - 42px)' : '6px'; }, 1400);
+  </script>
+</div></body></html>

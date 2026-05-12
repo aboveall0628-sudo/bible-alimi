@@ -12,6 +12,8 @@ import { listWeekReports } from '../reports/weekReportRepo.js';
 import { generateWeeklyReport } from '../reports/weeklyReportFlow.js';
 import { listMonthReports } from '../reports/monthReportRepo.js';
 import { generateMonthlyReport } from '../reports/monthlyReportFlow.js';
+import { listQuarterReports } from '../reports/quarterReportRepo.js';
+import { generateQuarterlyReport } from '../reports/quarterlyReportFlow.js';
 import { getReports } from '../data/reportPipeline.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
@@ -23,9 +25,8 @@ import { mountReportQna } from './reportQna.js';
 let _userId = null;
 let _currentTab = 'day';
 
-// month 는 STEP 2 에서 새 spec 으로 전환됨. quarter/year 만 옛 흐름 유지.
+// quarter는 STEP 3 에서 새 spec으로 전환됨. year 만 아직 옛 흐름 유지.
 const OLD_COLLECTION_MAP = {
-    quarter: 'quarterReports',
     year:    'yearReports',
 };
 
@@ -85,6 +86,14 @@ async function loadReports() {
             bindMonthRegenerateButtons(dek);
             bindMonthDrillDown(container, dek, reports || []);
             bindMonthQna(container, dek, reports || []);
+            bindCollapsibleCards(container);
+        } else if (_currentTab === 'quarter') {
+            // Phase E-9/R-3: 분기도 새 spec 카드로
+            const reports = await safeList(() => listQuarterReports(dek, _userId, 8), 'quarter');
+            container.innerHTML = renderQuarterList(reports);
+            bindQuarterRegenerateButtons(dek);
+            bindQuarterDrillDown(container, dek, reports || []);
+            bindQuarterQna(container, dek, reports || []);
             bindCollapsibleCards(container);
         } else {
             const reports = await safeList(
@@ -789,7 +798,229 @@ function bindMonthRegenerateButtons(dek) {
     });
 }
 
-// ─── 옛 탭 (quarter/year) — 새 spec 구축 전 호환 ───
+// ─── quarter 탭 (새 spec — Phase E-9/R-3) ─────────────
+function renderQuarterList(reports) {
+    if (reports === null) {
+        return `<div class="no-data">일부 또는 전체 분기 리포트를 불러오지 못했어요.</div>`;
+    }
+    if (!reports || reports.length === 0) {
+        return `
+            <div class="no-data">
+                아직 만든 분기 리포트가 없어요. 분기말 토요일(3·6·9·12월 마지막 토)에 오늘 화면 하단에서 [이번 분기 리포트 만들기]를 눌러 보세요.
+            </div>
+        `;
+    }
+    return reports.map(renderQuarterCard).join('');
+}
+
+function renderQuarterCard(r) {
+    const stats = r.stats || {};
+    const totalDots = stats.totalDots ?? 0;
+    const months = stats.monthlyMatrix?.months || [];
+    const monthsWithData = stats.monthlyMatrix?.monthsWithData ?? 0;
+
+    const decisionDistance = stats.decisionFlow?.avgDistanceDays;
+    const decisionSample   = stats.decisionFlow?.sampleSize ?? 0;
+    const personCount = stats.personNetwork?.totalUniquePersons ?? 0;
+
+    const pinned = stats.pinnedPrincipleEffectiveness || {};
+    const pinnedDelta = (pinned.hasPinned
+        && pinned.applied?.avgSatisfaction != null
+        && pinned.unapplied?.avgSatisfaction != null)
+        ? Math.round((pinned.applied.avgSatisfaction - pinned.unapplied.avgSatisfaction) * 100) / 100
+        : null;
+
+    const statsRow = `
+        <div class="report-stats-row">
+            <span class="report-stat"><strong>${totalDots}</strong> <small>도트</small></span>
+            ${monthsWithData > 0 ? `<span class="report-stat"><strong>${monthsWithData}</strong> <small>월 합류</small></span>` : ''}
+            ${decisionSample > 0 ? `<span class="report-stat"><strong>${decisionDistance}일</strong> <small>결단→실행 평균</small></span>` : ''}
+            ${personCount > 0 ? `<span class="report-stat"><strong>${personCount}</strong> <small>만난 사람</small></span>` : ''}
+            ${pinnedDelta != null ? `<span class="report-stat"><strong>${pinnedDelta > 0 ? '+' : ''}${pinnedDelta}</strong> <small>핀 원칙 효과</small></span>` : ''}
+        </div>
+    `;
+
+    const summaryBlock = r.aiSummary
+        ? `<div class="report-summary"><p style="white-space:pre-wrap">${escapeHtml(r.aiSummary)}</p></div>`
+        : `<div class="report-summary report-summary-empty">
+               이 분기는 아직 AI 산문이 채워지지 않았어요. 카드 하단의 [리포트 재작성하기]를 눌러 보세요.
+           </div>`;
+
+    const hypotheses = r.hypotheses || [];
+    const hypothesesBlock = hypotheses.length > 0
+        ? `<div class="report-section report-hypotheses" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="lightbulb" class="report-section-icon"></i> 가설 (3개월 일관성)</span>
+               <ul style="margin:6px 0 0 0; padding-left:20px">
+                   ${hypotheses.map(h => `
+                       <li style="margin-bottom:6px">
+                           ${h.repetitionCount ? `<span class="hypothesis-badge" style="display:inline-block; padding:1px 6px; background:var(--bg-secondary, #f0f0f0); border-radius:10px; font-size:11px; margin-right:6px">${escapeHtml(h.repetitionCount)}</span>` : ''}
+                           ${escapeHtml(h.text)}
+                       </li>
+                   `).join('')}
+               </ul>
+           </div>`
+        : '';
+
+    const qDecisionSamples = stats.decisionFlow?.sampleSize ?? 0;
+    const decisionFlowBlock = r.decisionFlow
+        ? `<div class="report-section" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름</span>
+               <p style="margin:6px 0 0 0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${qDecisionSamples > 0
+                    ? `<button class="drill-link" data-drill-decision style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
+           </div>`
+        : '';
+
+    // Drill (인물 / 라벨 쌍 — 카테고리는 월별로만 의미 있어 분기에는 안 둠)
+    const qPersons = stats.personNetwork?.items || [];
+    const qLabelPairs = stats.labelCorrelation?.topPairs || [];
+    const qDrillBlock = (qPersons.length > 0 || qLabelPairs.length > 0)
+        ? `<div class="report-section drill-section" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="search" class="report-section-icon"></i> 자세히 보기</span>
+               ${qPersons.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">함께한 사람</span>
+                       <div class="drill-chip-row">
+                           ${qPersons.slice(0, 10).map(p => `
+                               <span class="drill-chip" data-drill="person" data-person-id="${escapeHtml(p.personId)}">
+                                   ${escapeHtml(p.personId.slice(0, 8))} · ${p.interactionCount}회
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
+               ${qLabelPairs.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">자주 함께 등장한 라벨</span>
+                       <div class="drill-chip-row">
+                           ${qLabelPairs.slice(0, 10).map(pair => `
+                               <span class="drill-chip" data-drill="labelPair" data-a="${escapeHtml(pair.a)}" data-b="${escapeHtml(pair.b)}">
+                                   ${escapeHtml(pair.a)} × ${escapeHtml(pair.b)} · ${pair.count}
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
+           </div>`
+        : '';
+
+    const questions = r.questionsForMeditation || [];
+    const qBlock = questions.length > 0
+        ? `<div class="report-questions">
+               <span class="report-section-label"><i data-lucide="message-circle-question" class="report-section-icon"></i> 묵상에 가져갈 질문</span>
+               <ul>${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    return `
+        <article class="report-card card-section" data-year-quarter="${escapeHtml(stats.yearQuarter || '')}" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}">
+            <header class="report-card-header">
+                <h3>${escapeHtml(stats.yearQuarter || r.startDate || '')} ${r.startDate && r.endDate ? `<span class="report-card-meta">${escapeHtml(r.startDate)} ~ ${escapeHtml(r.endDate)}</span>` : ''}</h3>
+                <p class="report-preview">${escapeHtml(previewLine(r))}</p>
+                <i class="report-card-chev" data-lucide="chevron-down"></i>
+            </header>
+            <div class="report-card-body">
+            ${statsRow}
+            ${summaryBlock}
+            ${hypothesesBlock}
+            ${decisionFlowBlock}
+            ${qDrillBlock}
+            ${qBlock}
+            <div style="text-align:center; margin-top:14px">
+                <button class="text-btn quarter-regenerate-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
+                    ↻ 리포트 재작성하기
+                </button>
+            </div>
+            <div class="report-card-foot">여기까지가 데이터예요. 다음은 묵상 안에서.</div>
+            </div>
+        </article>
+    `;
+}
+
+function bindQuarterRegenerateButtons(dek) {
+    document.querySelectorAll('.quarter-regenerate-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const card = e.target.closest('[data-year-quarter]');
+            if (!card) return;
+            const quarterStart = card.dataset.start;
+            const quarterEnd   = card.dataset.end;
+            if (!quarterStart || !quarterEnd) {
+                showToast('이 카드는 기간 정보가 없어요');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '다시 만드는 중이에요...';
+            try {
+                await generateQuarterlyReport(dek, _userId, quarterStart, quarterEnd, { force: true });
+                await loadReports();
+                showToast('분기 리포트가 새로 만들어졌어요');
+            } catch (e) {
+                console.error('quarter regenerate failed:', e);
+                showToast('재작성이 잠깐 막혔어요. 잠시 후 다시 시도해 주세요');
+                btn.disabled = false;
+                btn.textContent = '↻ 리포트 재작성하기';
+            }
+        });
+    });
+}
+
+function bindQuarterDrillDown(container, dek, reports) {
+    const cards = container.querySelectorAll('[data-year-quarter]');
+    cards.forEach((card, idx) => {
+        const r = reports[idx];
+        if (!r) return;
+        const range = { start: r.startDate, end: r.endDate };
+
+        card.querySelectorAll('[data-drill]').forEach(chip => {
+            const type = chip.dataset.drill;
+            if (type === 'person') {
+                attachDrillDown(chip, {
+                    type: 'person',
+                    params: { personId: chip.dataset.personId },
+                    range, dek, userId: _userId,
+                });
+            } else if (type === 'labelPair') {
+                attachDrillDown(chip, {
+                    type: 'labelPair',
+                    params: { a: chip.dataset.a, b: chip.dataset.b },
+                    range, dek, userId: _userId,
+                });
+            }
+        });
+
+        const decisionBtn = card.querySelector('[data-drill-decision]');
+        if (decisionBtn) {
+            attachDrillDown(decisionBtn, {
+                type: 'decision',
+                params: {},
+                range, dek, userId: _userId,
+                label: '이 분기 결단의 흐름 (raw)',
+            });
+        }
+
+        enrichPersonChips(card, dek);
+    });
+}
+
+function bindQuarterQna(container, dek, reports) {
+    try {
+        container.querySelectorAll('[data-year-quarter]').forEach((card, idx) => {
+            const r = reports[idx];
+            if (!r) return;
+            const foot = card.querySelector('.report-card-foot');
+            if (!foot) return;
+            const yearQuarter = card.dataset.yearQuarter || r.stats?.yearQuarter || r.startDate;
+            mountReportQna(foot, {
+                reportId:   yearQuarter,
+                reportType: 'quarter',
+                stats:      r.stats || {},
+                context:    {},
+                dek, userId: _userId,
+            });
+        });
+    } catch (e) { console.warn('bindQuarterQna failed:', e); }
+}
+
+// ─── 옛 탭 (year) — 새 spec 구축 전 호환 ───
 function renderOldList(reports) {
     if (reports === null) {
         return `<div class="no-data">일부 또는 전체 리포트를 불러오지 못했어요.</div>`;

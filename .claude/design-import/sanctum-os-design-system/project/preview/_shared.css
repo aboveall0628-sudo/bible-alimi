@@ -1,0 +1,16 @@
+/* shared by preview cards. Loads Pretendard from project fonts/. */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/PretendardVariable.woff2") format("woff2-variations"),
+       url("../fonts/PretendardVariable.woff2") format("woff2");
+}
+@import url("../colors_and_type.css");
+
+html, body { margin: 0; background: var(--surface-canvas); color: var(--ink-primary); font-family: var(--font); }
+body { padding: 16px; }
+.card { background: var(--surface-card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow-sm); }
+.muted { color: var(--ink-secondary); }
+.tiny { font-size: 11px; color: var(--ink-tertiary); text-transform: uppercase; letter-spacing: 0.06em; }

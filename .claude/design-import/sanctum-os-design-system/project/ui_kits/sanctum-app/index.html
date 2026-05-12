@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Sanctum OS — Today</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  /* layout */
+  body { margin: 0; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; background: var(--surface-card);
+    border-right: 1px solid var(--line);
+    padding: 16px; display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .logo { font-size: 18px; font-weight: 700; color: var(--brand-primary); letter-spacing: -0.01em; padding: 16px 8px 24px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    border: none; background: none; cursor: pointer;
+    font: 400 14px var(--font); color: var(--ink-secondary);
+    border-radius: 12px; width: 100%; text-align: left;
+    transition: background var(--ease), color var(--ease);
+  }
+  .nav-item:hover { background: var(--hover); color: var(--ink-primary); }
+  .nav-item.active { background: var(--brand-soft); color: var(--brand-primary); font-weight: 600; }
+  .nav-item .icon { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.5; }
+  .section-title svg { width: 18px; height: 18px; stroke-width: 1.5; color: var(--ink-secondary); }
+  .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.5; }
+  .nav-divider { border: none; border-top: 1px solid var(--line); margin: 8px 0; }
+  .sidebar-profile { display: flex; align-items: center; gap: 12px; padding: 12px; margin-top: auto; }
+  .sidebar-profile .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); display: grid; place-items: center; color: var(--brand-primary); font-weight: 600; font-size: 12px; }
+  .sidebar-footer { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .icon-btn { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 12px; color: var(--ink-secondary); font-size: 16px; }
+  .icon-btn:hover { background: var(--hover); color: var(--ink-primary); }
+  .lock-timer { font-size: 11px; color: var(--ink-secondary); margin-left: auto; }
+
+  .content { flex: 1; padding: 40px 64px; max-width: 1080px; }
+  .pinned {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; background: var(--brand-soft);
+    border-left: 3px solid var(--brand-primary); border-radius: 12px;
+    font-size: 13px; margin-bottom: 16px;
+  }
+  .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 12px; flex-wrap: wrap; }
+  .page-header h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+  .date-picker { font: 400 13px var(--font); padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-card); color: var(--ink-primary); cursor: pointer; }
+
+  .card-section {
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; }
+  .section-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section-desc { font-size: 13px; color: var(--ink-secondary); margin-top: -4px; margin-bottom: 12px; line-height: 1.65; }
+  .collapse-btn { background: none; border: none; cursor: pointer; color: var(--ink-secondary); font: 400 12px var(--font); padding: 4px 8px; }
+  .collapse-btn:hover { color: var(--brand-primary); }
+
+  /* scripture */
+  .passage { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-card); margin-bottom: 12px; overflow: hidden; }
+  .passage-head { padding: 12px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--line); }
+  .passage-head:hover { background: var(--hover); }
+  .passage-head::after { content: '▾'; margin-left: auto; color: var(--ink-secondary); font-size: 11px; transition: transform var(--ease); }
+  .passage.collapsed .passage-head { border-bottom: none; }
+  .passage.collapsed .passage-head::after { transform: rotate(-90deg); }
+  .passage.collapsed .verses { display: none; }
+  .passage-title { font-size: 14px; font-weight: 600; color: var(--brand-primary); }
+  .passage-meta { font-size: 11px; color: var(--ink-secondary); margin-left: auto; }
+  .verses { padding: 12px 16px; }
+  .verse { display: flex; gap: 12px; padding: 4px 0; font-size: 14px; line-height: 1.7; cursor: pointer; }
+  .verse:hover { color: var(--brand-primary); }
+  .verse-num { font-size: 11px; color: var(--ink-secondary); min-width: 24px; font-variant-numeric: tabular-nums; padding-top: 4px; }
+
+  /* note editor */
+  .note-editor {
+    min-height: 100px; padding: 16px;
+    border: 1px solid var(--line); border-radius: 12px;
+    font: 400 15px/1.65 var(--font);
+    background: var(--surface-elevated); color: var(--ink-primary);
+    outline: none; transition: all var(--ease);
+  }
+  .note-editor:focus { border-color: var(--brand-primary); background: var(--surface-card); }
+  .note-editor:empty::before { content: attr(data-placeholder); color: var(--ink-secondary); }
+
+  /* decisions */
+  .decisions { display: flex; flex-direction: column; gap: 8px; }
+  .decision-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--surface-elevated);
+    transition: all var(--ease);
+  }
+  .decision-card.placed { background: var(--brand-soft); border-color: var(--brand-primary); }
+  .handle { font-size: 14px; color: var(--ink-secondary); cursor: grab; padding: 0 4px; user-select: none; }
+  .decision-text { flex: 1; border: none; background: transparent; font: 400 15px var(--font); color: var(--ink-primary); outline: none; min-width: 0; }
+  .decision-slot { font-size: 11px; color: var(--ink-secondary); padding: 2px 8px; border-radius: 4px; background: var(--hover); }
+  .decision-card.placed .decision-slot { background: var(--brand-primary); color: white; }
+  .decision-action { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; color: var(--ink-secondary); font-size: 14px; }
+  .decision-action:hover { background: var(--hover); color: var(--ink-primary); }
+  .add-btn { margin-top: 12px; width: 100%; padding: 8px 12px; background: none; border: 1px dashed var(--line); border-radius: 12px; color: var(--ink-secondary); cursor: pointer; font: 400 14px var(--font); transition: all var(--ease); }
+  .add-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+  /* timeline */
+  .tl-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tl-tool {
+    font: 400 12px var(--font); padding: 4px 12px;
+    background: var(--surface-elevated); border: 1px solid var(--line);
+    color: var(--ink-secondary); border-radius: 12px; cursor: pointer;
+    transition: all var(--ease);
+  }
+  .tl-tool:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+  .timeline { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface-card); }
+  .tl-header {
+    display: grid; grid-template-columns: 60px 1fr 1fr;
+    padding: 8px 12px;
+    background: var(--surface-elevated);
+    border-bottom: 1px solid var(--line);
+    font-size: 11px; font-weight: 600; color: var(--ink-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .tl-body { display: grid; grid-template-columns: 60px 1fr 1fr; position: relative; max-height: 480px; overflow-y: auto; }
+  .tl-col { display: grid; grid-auto-rows: 16px; position: relative; }
+  .tl-tick { font-size: 10px; color: var(--ink-secondary); text-align: right; padding-right: 6px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; line-height: 16px; opacity: 0.8; }
+  .tl-tick.minor { color: transparent; border-top-color: transparent; }
+  .tl-tick.half { opacity: 0.4; }
+  .tl-cell { border-top: 1px dotted color-mix(in srgb, var(--line) 35%, transparent); cursor: pointer; transition: background var(--ease); position: relative; }
+  .tl-cell.hour-mark { border-top: 1px solid var(--line); }
+  .tl-cell.half-mark { border-top: 1px dashed var(--line); }
+  .tl-cell:hover { background: var(--hover); }
+  .tl-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--dot-red); z-index: 5; pointer-events: none; }
+  .tl-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--dot-red); }
+
+  .tl-slot {
+    position: absolute; left: 4px; right: 4px;
+    border-radius: 6px; padding: 4px 8px 4px 12px;
+    font-size: 11px; line-height: 1.3;
+    background: var(--surface-elevated); border: 1px solid var(--line);
+    cursor: pointer; overflow: hidden; user-select: none;
+  }
+  .tl-slot::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--dot-gray); border-radius: 6px 0 0 6px; }
+  .tl-slot.dot-yellow::before { background: var(--dot-yellow); }
+  .tl-slot.dot-green::before  { background: var(--dot-green); }
+  .tl-slot.dot-orange::before { background: var(--dot-orange); }
+  .tl-slot.dot-red::before    { background: var(--dot-red); }
+  .tl-slot.dot-purple::before { background: var(--dot-purple); }
+  .tl-slot.dot-yellow { animation: pendingPulse 2.4s ease-in-out infinite; }
+  @keyframes pendingPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 200, 75, 0); }
+    50%      { box-shadow: 0 0 0 3px rgba(245, 200, 75, 0.20); }
+  }
+  .tl-slot:hover { box-shadow: var(--shadow-sm); }
+  .tl-slot .slot-time { font-size: 10px; color: var(--ink-secondary); display: block; }
+  .tl-slot .slot-title { font-weight: 500; color: var(--ink-primary); display: block; }
+  .tl-slot.gcal::before { background: var(--brand-primary); }
+  .tl-slot.gcal { background: var(--surface-card); }
+
+  /* quick review modal */
+  .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--surface-card); border-radius: 16px; padding: 24px; max-width: 420px; width: 92%; box-shadow: var(--shadow-lg); color: var(--ink-primary); }
+  .modal h3 { font-size: 18px; font-weight: 600; margin: 0; }
+  .modal .planned { font-size: 13px; color: var(--ink-secondary); display: block; margin-top: 4px; }
+  .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
+  .qr-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; border: 2px solid var(--line); border-radius: 12px; background: var(--surface-elevated); cursor: pointer; font: 600 12px var(--font); color: var(--ink-primary); transition: all var(--ease); }
+  .qr-btn:hover { border-color: var(--brand-primary); transform: translateY(-1px); }
+  .qr-btn.selected { border-color: var(--brand-primary); background: var(--brand-soft); }
+  .qr-emoji { font-size: 26px; line-height: 1; }
+  .qr-key { font-size: 9px; color: var(--ink-secondary); background: var(--hover); padding: 1px 4px; border-radius: 3px; }
+  .qr-slider { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .qr-slider label { font-size: 13px; color: var(--ink-secondary); min-width: 60px; }
+  .qr-slider input[type="range"] { flex: 1; accent-color: var(--brand-primary); }
+  .qr-sat { font-weight: 700; font-size: 18px; min-width: 24px; text-align: center; color: var(--brand-primary); }
+  .qr-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .primary-btn { background: var(--brand-primary); color: white; border: none; padding: 8px 16px; border-radius: 12px; font: 600 14px var(--font); cursor: pointer; transition: opacity var(--ease); }
+  .primary-btn:hover { opacity: 0.9; }
+  .text-btn { background: none; border: none; cursor: pointer; color: var(--brand-primary); font: 400 14px var(--font); padding: 8px 12px; border-radius: 12px; }
+  .text-btn:hover { background: var(--hover); }
+
+  /* toast */
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--brand-primary); color: white; padding: 12px 24px; border-radius: 12px; font: 500 14px var(--font); box-shadow: var(--shadow-lg); opacity: 0; transition: all var(--ease); z-index: 3000; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body data-screen-label="01 Today">
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">Sanctum OS</div>
+    <nav class="nav" id="nav">
+      <button class="nav-item" data-view="goals"><i data-lucide="target" class="icon"></i> 나의 목표</button>
+      <button class="nav-item active" data-view="today"><i data-lucide="calendar" class="icon"></i> 오늘</button>
+      <button class="nav-item" data-view="evening"><i data-lucide="moon" class="icon"></i> 저녁 회고</button>
+      <hr class="nav-divider">
+      <button class="nav-item" data-view="dashboard"><i data-lucide="layout-dashboard" class="icon"></i> 대시보드</button>
+      <button class="nav-item" data-view="past"><i data-lucide="scroll-text" class="icon"></i> 지난 묵상</button>
+      <button class="nav-item" data-view="principles"><i data-lucide="book-open" class="icon"></i> 나의 원칙</button>
+      <button class="nav-item" data-view="reports"><i data-lucide="trending-up" class="icon"></i> 리포트</button>
+      <hr class="nav-divider">
+      <button class="nav-item" data-view="persons"><i data-lucide="users" class="icon"></i> 인물</button>
+      <button class="nav-item" data-view="orgs"><i data-lucide="building-2" class="icon"></i> 조직</button>
+      <hr class="nav-divider">
+      <button class="nav-item" data-view="settings"><i data-lucide="settings" class="icon"></i> 설정·보안</button>
+    </nav>
+    <div class="sidebar-profile"><div class="avatar">미</div><span style="font-size:14px;">미수</span></div>
+    <div class="sidebar-footer">
+      <button class="icon-btn" title="민감 정보 숨기기"><i data-lucide="eye"></i></button>
+      <span class="lock-timer"><i data-lucide="lock" style="width:11px; height:11px; vertical-align:-1px;"></i> 14:38</span>
+      <button class="icon-btn" id="theme-toggle" title="테마"><i data-lucide="moon"></i></button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="pinned">
+      <i data-lucide="pin" style="width:14px; height:14px; flex-shrink:0;"></i>
+      <span>매일, 비교 대신 거울을 본다.</span>
+    </div>
+
+    <header class="page-header">
+      <h1 id="hdr-date">2026년 5월 11일 (월)</h1>
+      <input type="date" class="date-picker" value="2026-05-11">
+    </header>
+
+    <!-- 말씀 -->
+    <section class="card-section">
+      <div class="section-head">
+        <div class="section-title"><i data-lucide="book-open"></i> 오늘의 말씀</div>
+        <button class="collapse-btn" id="collapse-btn">접기</button>
+      </div>
+      <div id="scripture">
+        <div class="passage">
+          <div class="passage-head"><span class="passage-title">시편 27편</span><span class="passage-meta">14절</span></div>
+          <div class="verses">
+            <div class="verse"><span class="verse-num">1</span><span>여호와는 나의 빛이요 나의 구원이시니 내가 누구를 두려워하리요</span></div>
+            <div class="verse"><span class="verse-num">4</span><span>내가 여호와께 바라는 한 가지 일 — 평생에 여호와의 집에 살면서 그의 아름다움을 바라보는 것이라</span></div>
+            <div class="verse"><span class="verse-num">14</span><span>너는 여호와를 바랄지어다 강하고 담대하며 여호와를 바랄지어다</span></div>
+          </div>
+        </div>
+        <div class="passage collapsed">
+          <div class="passage-head"><span class="passage-title">잠언 3장</span><span class="passage-meta">12절</span></div>
+          <div class="verses"></div>
+        </div>
+        <div class="passage collapsed">
+          <div class="passage-head"><span class="passage-title">누가복음 6장</span><span class="passage-meta">18절</span></div>
+          <div class="verses"></div>
+        </div>
+        <div class="passage collapsed">
+          <div class="passage-head"><span class="passage-title">로마서 8장</span><span class="passage-meta">28절</span></div>
+          <div class="verses"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 묵상 노트 -->
+    <section class="card-section">
+      <div class="section-head">
+        <div class="section-title"><i data-lucide="pen-line"></i> 묵상 노트</div>
+        <span id="save-status" style="font-size:11px; color:var(--ink-secondary);"></span>
+      </div>
+      <div class="note-editor" contenteditable="true" id="note" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
+    </section>
+
+    <!-- 결단 -->
+    <section class="card-section">
+      <div class="section-title"><i data-lucide="hand"></i> 오늘의 결단</div>
+      <p class="section-desc">오늘 어디에 순종할까요? ⋮⋮ 핸들을 잡고 아래 시간표로 끌어 옮길 수 있어요.</p>
+      <div class="decisions" id="decisions">
+        <div class="decision-card placed">
+          <span class="handle">⋮⋮</span>
+          <input class="decision-text" value="아침에 시편 1편 묵상하기">
+          <span class="decision-slot">06:30 – 07:00</span>
+          <button class="decision-action" title="지우기">✕</button>
+        </div>
+        <div class="decision-card">
+          <span class="handle">⋮⋮</span>
+          <input class="decision-text" value="점심 후 어머니께 짧은 안부 전화">
+          <span class="decision-slot">미배치</span>
+          <button class="decision-action" title="지우기">✕</button>
+        </div>
+        <div class="decision-card placed">
+          <span class="handle">⋮⋮</span>
+          <input class="decision-text" value="저녁에 30분 산책 + 묵상 정리">
+          <span class="decision-slot">20:00 – 20:30</span>
+          <button class="decision-action" title="지우기">✕</button>
+        </div>
+      </div>
+      <button class="add-btn" id="add-decision">+ 새 결단 적기</button>
+    </section>
+
+    <!-- 통합 타임라인 -->
+    <section class="card-section">
+      <div class="section-head">
+        <div class="section-title"><i data-lucide="clock"></i> 오늘의 시간표</div>
+        <div class="tl-toolbar">
+          <button class="tl-tool">Google 연결</button>
+          <button class="tl-tool">📅 일정 새로고침</button>
+          <button class="tl-tool">📤 캘린더에 옮기기</button>
+        </div>
+      </div>
+      <div class="timeline">
+        <div class="tl-header"><span>시간</span><span>계획 (결단 · 캘린더)</span><span>실제 (지난 일)</span></div>
+        <div class="tl-body" id="tl-body"></div>
+      </div>
+    </section>
+
+    <!-- 오늘의 리포트 -->
+    <section class="card-section">
+      <div class="section-title"><i data-lucide="trending-up"></i> 오늘의 리포트</div>
+      <p style="color:var(--ink-secondary); font-size:13px; margin:0;">시간표에서 도트 평가를 채워가면, 오늘의 결이 여기에 자동으로 정리돼요.</p>
+    </section>
+
+    <div style="display:flex; justify-content:center; margin:24px 0 40px;">
+      <button class="primary-btn" style="padding:12px 24px; font-size:15px;">내일 묵상 시작하기 →</button>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="qr-modal" style="display:none;">
+  <div class="modal">
+    <h3>아침 묵상 평가</h3>
+    <span class="planned">06:30 – 07:00 · 아침에 시편 1편 묵상하기</span>
+    <div class="qr-grid">
+      <button class="qr-btn selected" data-key="1"><span class="qr-emoji">😀</span><span>잘 했어요</span><span class="qr-key">1</span></button>
+      <button class="qr-btn" data-key="2"><span class="qr-emoji">🙂</span><span>조금 했어요</span><span class="qr-key">2</span></button>
+      <button class="qr-btn" data-key="3"><span class="qr-emoji">🔄</span><span>다른 걸 했어요</span><span class="qr-key">3</span></button>
+      <button class="qr-btn" data-key="4"><span class="qr-emoji">😣</span><span>못 했어요</span><span class="qr-key">4</span></button>
+    </div>
+    <div class="qr-slider">
+      <label>만족도</label>
+      <input type="range" min="1" max="5" value="4" id="qr-range">
+      <span class="qr-sat" id="qr-sat">4</span>
+    </div>
+    <div class="qr-actions">
+      <button class="text-btn" id="qr-close">닫기</button>
+      <button class="primary-btn" id="qr-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js"></script>
+<script>
+  lucide.createIcons();
+  // theme toggle
+  const themeBtn = document.getElementById('theme-toggle');
+  themeBtn.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? '' : 'dark';
+    if (next) document.documentElement.setAttribute('data-theme', next);
+    else document.documentElement.removeAttribute('data-theme');
+    themeBtn.querySelector('i, svg')?.remove();
+    const i = document.createElement('i');
+    i.setAttribute('data-lucide', next === 'dark' ? 'sun' : 'moon');
+    themeBtn.appendChild(i);
+    lucide.createIcons();
+  });
+
+  // sidebar nav
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      if (b.dataset.view !== 'today') toast('이 데모에선 오늘 화면만 둘러볼 수 있어요');
+    });
+  });
+
+  // passage collapse
+  document.querySelectorAll('.passage-head').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+  document.getElementById('collapse-btn').addEventListener('click', (e) => {
+    document.getElementById('scripture').style.display =
+      document.getElementById('scripture').style.display === 'none' ? '' : 'none';
+    e.target.textContent = document.getElementById('scripture').style.display === 'none' ? '펼치기' : '접기';
+  });
+
+  // note autosave (faked)
+  const note = document.getElementById('note');
+  const status = document.getElementById('save-status');
+  let t;
+  note.addEventListener('input', () => {
+    status.textContent = '저장 중…';
+    clearTimeout(t);
+    t = setTimeout(() => {
+      status.textContent = '저장됐어요';
+      setTimeout(() => status.textContent = '', 1500);
+    }, 800);
+  });
+
+  // add decision
+  document.getElementById('add-decision').addEventListener('click', () => {
+    const card = document.createElement('div');
+    card.className = 'decision-card';
+    card.innerHTML = `
+      <span class="handle">⋮⋮</span>
+      <input class="decision-text" placeholder="결단 한 줄을 적어 보세요" autofocus>
+      <span class="decision-slot">미배치</span>
+      <button class="decision-action" title="지우기">✕</button>`;
+    document.getElementById('decisions').appendChild(card);
+    card.querySelector('input').focus();
+    card.querySelector('.decision-action').addEventListener('click', () => card.remove());
+  });
+  document.querySelectorAll('.decision-action').forEach(b => b.addEventListener('click', () => b.parentElement.remove()));
+
+  // timeline grid build (24h × 4 = 96 slots × 16px → 1536px)
+  const body = document.getElementById('tl-body');
+  function buildCol(extraClass) {
+    const col = document.createElement('div');
+    col.className = 'tl-col ' + extraClass;
+    return col;
+  }
+  const axis = buildCol(''); axis.style.background = 'var(--surface-elevated)';
+  const plan = buildCol('plan');
+  const actual = buildCol('actual');
+  for (let i = 0; i < 96; i++) {
+    const h = Math.floor(i / 4), m = (i % 4) * 15;
+    const tick = document.createElement('div');
+    tick.className = 'tl-tick' + (m === 0 ? '' : (m === 30 ? ' half' : ' minor'));
+    if (m === 0) tick.textContent = String(h).padStart(2,'0');
+    else if (m === 30) tick.textContent = ':30';
+    axis.appendChild(tick);
+
+    const pc = document.createElement('div'); pc.className = 'tl-cell' + (m === 0 ? ' hour-mark' : (m === 30 ? ' half-mark' : ''));
+    const ac = document.createElement('div'); ac.className = 'tl-cell' + (m === 0 ? ' hour-mark' : (m === 30 ? ' half-mark' : ''));
+    plan.appendChild(pc); actual.appendChild(ac);
+  }
+  body.appendChild(axis); body.appendChild(plan); body.appendChild(actual);
+
+  // slots — 1 slot = 15min = 16px. row index = h*4 + m/15.
+  function slot(col, startSlot, lenSlot, cls, time, title, onClick) {
+    const s = document.createElement('div');
+    s.className = 'tl-slot ' + cls;
+    s.style.top = (startSlot * 16) + 'px';
+    s.style.height = (lenSlot * 16 - 2) + 'px';
+    s.innerHTML = `<span class="slot-time">${time}</span><span class="slot-title">${title}</span>`;
+    if (onClick) s.addEventListener('click', onClick);
+    col.appendChild(s);
+  }
+  slot(plan, 26, 2, 'dot-green',  '06:30 – 07:00', '아침 시편 묵상', openQR);  // 6:30
+  slot(plan, 38, 4, 'gcal',       '09:30 – 10:30', '팀 스탠드업 (Google)', null); // 9:30
+  slot(plan, 80, 2, 'dot-yellow', '20:00 – 20:30', '저녁 산책 + 정리', openQR);
+
+  slot(actual, 26, 2, 'dot-green',  '06:32 – 06:58', '시편 1편 + 한 줄', null);
+  slot(actual, 50, 4, 'dot-orange', '12:30 – 13:30', '점심 약속 (예정 X)', null);
+  slot(actual, 64, 6, 'dot-red',    '16:00 – 17:30', 'SNS 흐른 시간', null);
+
+  // now-line: hardcoded at 14:24
+  const nowSlot = 14 * 4 + Math.round(24 / 15);
+  ['plan','actual'].forEach(cls => {
+    const col = document.querySelector('.tl-col.' + cls);
+    const n = document.createElement('div');
+    n.className = 'tl-now';
+    n.style.top = (nowSlot * 16) + 'px';
+    col.appendChild(n);
+  });
+
+  // QR modal
+  function openQR() {
+    document.getElementById('qr-modal').style.display = 'flex';
+  }
+  document.getElementById('qr-close').addEventListener('click', () => document.getElementById('qr-modal').style.display = 'none');
+  document.getElementById('qr-save').addEventListener('click', () => {
+    document.getElementById('qr-modal').style.display = 'none';
+    toast('저장됐어요');
+  });
+  document.querySelectorAll('.qr-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.qr-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+  }));
+  document.getElementById('qr-range').addEventListener('input', (e) => document.getElementById('qr-sat').textContent = e.target.value);
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('qr-modal').style.display !== 'flex') return;
+    if (['1','2','3','4'].includes(e.key)) {
+      document.querySelectorAll('.qr-btn').forEach(x => x.classList.remove('selected'));
+      document.querySelector(`.qr-btn[data-key="${e.key}"]`).classList.add('selected');
+    } else if (['5','6','7','8','9'].includes(e.key)) {
+      const v = Math.min(5, e.key - 4);
+      document.getElementById('qr-range').value = v;
+      document.getElementById('qr-sat').textContent = v;
+    } else if (e.key === 'Escape') document.getElementById('qr-close').click();
+    else if (e.key === 'Enter') document.getElementById('qr-save').click();
+  });
+
+  // toast
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // scroll timeline to 6:00 so morning is visible
+  document.querySelector('.tl-body').scrollTop = 5.5 * 4 * 16;
+</script>
+</body>
+</html>

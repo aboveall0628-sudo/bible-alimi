@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<title>Sanctum Mark — 직접 그려서 전달하기</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  body { padding: 24px; background: #F4F1EC; }
+  .wrap { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+  h1 { font: 700 22px/1.3 "Pretendard Variable", Pretendard, sans-serif; color: #3E5C76; margin: 0 0 6px; letter-spacing: -0.4px; }
+  .lede { color: #6B7280; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px; }
+  .lede strong { color: #C76F4A; }
+
+  .pad-wrap { position: relative; }
+  svg.pad { width: 100%; aspect-ratio: 1 / 1.1; background: #FBFAF8; border: 1px solid var(--line); border-radius: 12px; display: block; cursor: crosshair; touch-action: none; }
+  .modepill { position: absolute; top: 10px; left: 10px; display:flex; gap:4px; background: rgba(255,255,255,0.95); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .modepill button { font: 600 11px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 7px 11px; border-radius: 999px; border: 0; background: transparent; color: #6B7280; cursor: pointer; }
+  .modepill button.on { background: #3E5C76; color: #fff; }
+
+  .controls { display:flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  button.btn { font: 600 13px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: #3E5C76; cursor: pointer; }
+  button.btn.primary { background: #3E5C76; color: #fff; border-color: #3E5C76; }
+  button.btn.danger { color: #C24A2E; border-color: #ECD3CB; }
+  .count { font: 700 12px/1 "Pretendard Variable", Pretendard, sans-serif; color: #6B7280; margin-left: auto; }
+
+  textarea { width: 100%; min-height: 200px; font: 500 12.5px/1.55 "JetBrains Mono", ui-monospace, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #FBFAF8; color: #1A1A1C; resize: vertical; }
+  .out-hint { font-size: 12px; color: #6B7280; margin: 8px 0 12px; line-height: 1.6; }
+
+  ol.steps-mini { margin: 0; padding: 0; list-style: none; max-height: 260px; overflow-y: auto; border: 1px dashed var(--line); border-radius: 10px; padding: 8px; background: #FBFAF8; }
+  ol.steps-mini li { font: 500 12.5px/1.55 "Pretendard Variable", Pretendard, sans-serif; padding: 4px 8px; color: #3E3E40; display: flex; gap: 10px; align-items: center; }
+  ol.steps-mini li b { display:inline-block; min-width: 22px; color: #B8BCC2; font-weight: 700; }
+
+  .tip { font-size: 12.5px; color: #6B7280; line-height: 1.6; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  kbd { font: 600 11px/1 "Pretendard Variable", Pretendard, sans-serif; padding: 3px 6px; border-radius: 5px; background: #EDEFF3; color: #3E5C76; margin: 0 2px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="panel">
+    <h1>여기에 직접 그려 주세요</h1>
+    <div class="lede">
+      격자 위에 클릭(또는 터치)으로 한 점씩 찍으면 자동으로 직전 점과 이어집니다. 한붓그리기 — <strong>펜을 떼지 말고</strong> 순서대로 클릭해 주세요. 점은 자동으로 격자에 스냅됩니다. 다 그리시면 오른쪽의 <b>좌표 목록</b>을 복사해서 저에게 붙여 주세요.
+    </div>
+
+    <div class="pad-wrap">
+      <div class="modepill">
+        <button id="m-snap" class="on">격자 스냅</button>
+        <button id="m-free">자유 위치</button>
+      </div>
+      <svg id="pad" class="pad" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
+        <!-- grid -->
+        <g id="grid"></g>
+        <!-- drawn path -->
+        <path id="userPath" fill="none" stroke="#3E5C76" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2" d=""/>
+        <!-- preview segment from last point to cursor -->
+        <line id="ghostLine" stroke="#C76F4A" stroke-width="1.4" stroke-dasharray="1.4 1.4" opacity="0.65" x1="0" y1="0" x2="0" y2="0" style="display:none"/>
+        <!-- numbered nodes -->
+        <g id="userNodes"></g>
+      </svg>
+    </div>
+
+    <div class="controls">
+      <button id="undo" class="btn">↶ 마지막 점 취소</button>
+      <button id="clear" class="btn danger">전체 지우기</button>
+      <button id="save" class="btn primary">PNG 저장</button>
+      <div class="count" id="count">0 points</div>
+    </div>
+    <div class="tip">
+      <kbd>Z</kbd> 마지막 점 취소 · <kbd>Esc</kbd> 전체 지우기 · 점을 잘못 찍었다면 Z 한 번 누르세요.<br>
+      <b>격자 스냅</b> 모드면 5단위(좌표 0–100)로 정렬됩니다. 종이에 그리듯이 정확히 같은 길이의 선분을 그리고 싶을 때 추천해요.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h1 style="font-size:18px;">좌표 목록 (이걸 저에게 주세요)</h1>
+    <div class="out-hint">아래 텍스트를 그대로 복사해서 채팅에 붙여 넣으시면 됩니다. 클릭한 순서대로 점이 기록되고, 이웃 점끼리 직선으로 이어집니다.</div>
+    <textarea id="output" readonly placeholder="여기에 좌표가 자동으로 채워집니다. 예) 50,8 → 50,28 → 15,28 ..."></textarea>
+    <div style="display:flex; gap:8px; margin-top: 10px;">
+      <button id="copy" class="btn primary">📋 좌표 복사</button>
+      <button id="copy-svg" class="btn">SVG path 로 복사</button>
+    </div>
+
+    <h1 style="font-size:15px; margin-top: 22px;">단계 미리보기</h1>
+    <ol id="stepList" class="steps-mini"></ol>
+
+    <div class="tip">
+      <b>대신 사진으로 주셔도 됩니다.</b> 종이에 그리고 휴대폰으로 찍은 사진을 첨부해 주세요 — 그 위에 격자를 얹어서 좌표를 다시 읽어드릴 수 있어요. 다만 직접 클릭으로 그려 주시는 게 가장 정확합니다.
+    </div>
+  </div>
+</div>
+
+<script>
+  const pad = document.getElementById("pad");
+  const grid = document.getElementById("grid");
+  const userPath = document.getElementById("userPath");
+  const userNodes = document.getElementById("userNodes");
+  const ghostLine = document.getElementById("ghostLine");
+  const output = document.getElementById("output");
+  const stepList = document.getElementById("stepList");
+  const countEl = document.getElementById("count");
+
+  // build grid 0..100 x 0..110, gridline every 5, bold every 10
+  let gridSvg = "";
+  for (let x = 0; x <= 100; x += 5) {
+    const bold = x % 10 === 0;
+    gridSvg += `<line x1="${x}" y1="0" x2="${x}" y2="110" stroke="${bold ? '#DCDEE2' : '#EDEFF1'}" stroke-width="${bold ? 0.25 : 0.15}"/>`;
+  }
+  for (let y = 0; y <= 110; y += 5) {
+    const bold = y % 10 === 0;
+    gridSvg += `<line x1="0" y1="${y}" x2="100" y2="${y}" stroke="${bold ? '#DCDEE2' : '#EDEFF1'}" stroke-width="${bold ? 0.25 : 0.15}"/>`;
+  }
+  // axis labels every 10
+  for (let x = 0; x <= 100; x += 10) {
+    gridSvg += `<text x="${x}" y="4" text-anchor="middle" font-family="Pretendard Variable, sans-serif" font-size="2.4" fill="#B8BCC2">${x}</text>`;
+  }
+  for (let y = 10; y <= 100; y += 10) {
+    gridSvg += `<text x="1.6" y="${y + 0.8}" font-family="Pretendard Variable, sans-serif" font-size="2.4" fill="#B8BCC2">${y}</text>`;
+  }
+  grid.innerHTML = gridSvg;
+
+  let mode = "snap";
+  document.getElementById("m-snap").onclick = () => { mode = "snap"; document.getElementById("m-snap").classList.add("on"); document.getElementById("m-free").classList.remove("on"); };
+  document.getElementById("m-free").onclick = () => { mode = "free"; document.getElementById("m-free").classList.add("on"); document.getElementById("m-snap").classList.remove("on"); };
+
+  let points = []; // {x, y}
+
+  function svgPoint(evt) {
+    const pt = pad.createSVGPoint();
+    const e = evt.touches ? evt.touches[0] : evt;
+    pt.x = e.clientX; pt.y = e.clientY;
+    const ctm = pad.getScreenCTM().inverse();
+    const p = pt.matrixTransform(ctm);
+    let x = p.x, y = p.y;
+    if (mode === "snap") {
+      x = Math.round(x); y = Math.round(y);
+    } else {
+      x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10;
+    }
+    return { x, y };
+  }
+
+  function render() {
+    // path
+    let d = "";
+    points.forEach((p, i) => { d += (i === 0 ? "M " : " L ") + p.x + " " + p.y; });
+    userPath.setAttribute("d", d);
+
+    // nodes
+    userNodes.innerHTML = points.map((p, i) => `
+      <g>
+        <circle cx="${p.x}" cy="${p.y}" r="${i === points.length - 1 ? 2.4 : 1.7}"
+                fill="${i === 0 ? '#C76F4A' : (i === points.length - 1 ? '#F2B43A' : '#3E5C76')}"
+                stroke="#fff" stroke-width="0.5"/>
+        <text x="${p.x + 2.6}" y="${p.y - 1.4}" font-family="Pretendard Variable, sans-serif"
+              font-weight="700" font-size="3" fill="#3E5C76">${i + 1}</text>
+      </g>
+    `).join("");
+
+    // text outputs
+    countEl.textContent = `${points.length} point${points.length === 1 ? '' : 's'}`;
+    output.value = points.map(p => `${p.x}, ${p.y}`).join("  →  ");
+
+    // step list (segments)
+    let html = "";
+    if (points.length === 0) html = `<li style="color:#B8BCC2;">아직 점이 없어요 — 캔버스를 클릭해 시작하세요.</li>`;
+    else {
+      html += `<li><b>0</b>시작 (${points[0].x}, ${points[0].y})</li>`;
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i-1], b = points[i];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        let dir = "";
+        if (dx === 0 && dy < 0) dir = "↑";
+        else if (dx === 0 && dy > 0) dir = "↓";
+        else if (dy === 0 && dx > 0) dir = "→";
+        else if (dy === 0 && dx < 0) dir = "←";
+        else dir = "↗";
+        html += `<li><b>${i}</b>${dir} (${b.x}, ${b.y})  <span style="color:#9CA3AF;">Δ ${Math.abs(dx) || ''}${dx && dy ? '+' : ''}${Math.abs(dy) || ''}</span></li>`;
+      }
+    }
+    stepList.innerHTML = html;
+  }
+
+  pad.addEventListener("click", (e) => {
+    const p = svgPoint(e);
+    points.push(p);
+    render();
+  });
+
+  pad.addEventListener("mousemove", (e) => {
+    if (points.length === 0) { ghostLine.style.display = "none"; return; }
+    const p = svgPoint(e);
+    const last = points[points.length - 1];
+    ghostLine.style.display = "";
+    ghostLine.setAttribute("x1", last.x);
+    ghostLine.setAttribute("y1", last.y);
+    ghostLine.setAttribute("x2", p.x);
+    ghostLine.setAttribute("y2", p.y);
+  });
+  pad.addEventListener("mouseleave", () => { ghostLine.style.display = "none"; });
+
+  // touch support
+  pad.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const p = svgPoint(e);
+    points.push(p);
+    render();
+  }, { passive: false });
+
+  document.getElementById("undo").onclick = () => { points.pop(); render(); };
+  document.getElementById("clear").onclick = () => { points = []; render(); };
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "z" || e.key === "Z") { points.pop(); render(); }
+    if (e.key === "Escape") { points = []; render(); }
+  });
+
+  document.getElementById("copy").onclick = async () => {
+    await navigator.clipboard.writeText(output.value || "");
+    const b = document.getElementById("copy");
+    const t = b.textContent; b.textContent = "✓ 복사됨"; setTimeout(() => b.textContent = t, 1200);
+  };
+  document.getElementById("copy-svg").onclick = async () => {
+    let d = points.map((p, i) => (i === 0 ? "M " : "L ") + p.x + " " + p.y).join(" ");
+    await navigator.clipboard.writeText(d);
+    const b = document.getElementById("copy-svg");
+    const t = b.textContent; b.textContent = "✓ 복사됨"; setTimeout(() => b.textContent = t, 1200);
+  };
+
+  document.getElementById("save").onclick = () => {
+    // export as PNG via canvas
+    const xml = new XMLSerializer().serializeToString(pad);
+    const blob = new Blob([xml], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = 1000; c.height = 1100;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#FBFAF8"; ctx.fillRect(0,0,c.width,c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob((b) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = "sanctum-mark-sketch.png";
+        a.click();
+      });
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  render();
+</script>
+</body></html>

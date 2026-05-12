@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 120" width="440" height="120">
+  <defs>
+    <clipPath id="leftBlock"><rect x="10" y="6" width="108" height="108"></rect></clipPath>
+  </defs>
+  <g clip-path="url(#leftBlock)" opacity="0.78">
+    <rect x="22" y="8" width="68" height="104" fill="#2C6FB1" transform="rotate(-4 56 60)"></rect>
+    <rect x="58" y="34" width="56" height="78" fill="#D24A2E" transform="rotate(6 86 70)"></rect>
+    <polygon points="30,98 96,68 96,114 26,114" fill="#F2B43A"></polygon>
+    <rect x="22" y="8" width="68" height="104" fill="none" stroke="#2C6FB1" stroke-width="0.8" transform="rotate(-7 56 60) translate(-3 -2)" opacity="0.6"></rect>
+    <rect x="58" y="34" width="56" height="78" fill="none" stroke="#D24A2E" stroke-width="0.8" transform="rotate(9 86 70) translate(3 -2)" opacity="0.6"></rect>
+  </g>
+  <g transform="translate(14 4) scale(0.92)">
+    <path fill="none" stroke="#FFFFFF" stroke-width="5.4" stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="2" d="M 50 10 L 50 60 L 85 60 L 85 25 L 20 25 L 20 75 L 70 75 L 70 40 L 35 40 L 35 100"></path>
+  </g>
+  <text x="140" y="68" fill="#3E5C76" font-family="Pretendard Variable, Pretendard, -apple-system, system-ui, sans-serif" font-weight="700" font-size="36" letter-spacing="-0.6">Sanctum OS</text>
+  <text x="140" y="92" fill="#7A8898" font-family="Pretendard Variable, Pretendard, -apple-system, system-ui, sans-serif" font-weight="500" font-size="13" letter-spacing="2.4">A SHELTER FOR THE MIND</text>
+</svg>

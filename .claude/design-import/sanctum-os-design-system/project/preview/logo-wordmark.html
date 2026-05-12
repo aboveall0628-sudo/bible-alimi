@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_shared.css">
+<style>
+  .stack { display: grid; gap: 14px; }
+  .tile { border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .tile.marble {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.7), transparent 40%),
+      radial-gradient(circle at 80% 60%, rgba(220,225,232,0.6), transparent 50%),
+      linear-gradient(135deg, #ECEEF1 0%, #DCE0E6 100%);
+  }
+  .tile.dark { background: #1A1A1C; border-color: #2E2E32; }
+  .tile.dark text { fill: #ECECEE !important; }
+  .label-row { display:flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+</style>
+</head>
+<body><div class="card">
+  <div class="stack">
+
+    <div class="tile marble">
+      <div class="label-row">
+        <div class="tiny">PRIMARY · 앨범 커버 모티프 (블루·옐로·레드 패널)</div>
+        <div class="muted" style="font-size:11px;">marketing / cover / hero</div>
+      </div>
+      <img src="../assets/sanctum-wordmark.svg" alt="Sanctum OS" style="height:96px; display:block;">
+    </div>
+
+    <div class="tile">
+      <div class="label-row">
+        <div class="tiny">QUIET · 마크 + 텍스트 (라이트 서피스용)</div>
+        <div class="muted" style="font-size:11px;">in-product · 사이드바 헤더 · 문서 헤더</div>
+      </div>
+      <img src="../assets/sanctum-wordmark-quiet.svg" alt="Sanctum OS" style="height:88px; display:block;">
+    </div>
+
+    <div class="tile dark">
+      <div class="label-row">
+        <div class="tiny" style="color:#9CA3AF;">DARK · 반전 (다크 모드 / 영상 / 인쇄 검정)</div>
+        <div class="muted" style="font-size:11px; color:#6B7280;">night UI · video bumper</div>
+      </div>
+      <img src="../assets/sanctum-wordmark-quiet.svg" alt="Sanctum OS"
+           style="height:88px; display:block; filter: invert(96%) sepia(2%) saturate(0%) hue-rotate(180deg) brightness(108%);">
+    </div>
+
+    <div class="muted" style="font-size:12.5px; line-height:1.7; padding: 4px 4px 0;">
+      태그라인 <code>A Shelter for the Mind</code> 는 워드마크 잠금형의 일부 — 임의로 떼어 쓰지 마세요.
+      앨범 커버 백드롭은 <strong>외부 노출용</strong>(쿠어버, 앱 스토어, 하이라이트 영상)에만 쓰고,
+      제품 내부에서는 Quiet 락업을 기본으로 합니다.
+    </div>
+  </div>
+</div></body></html>
