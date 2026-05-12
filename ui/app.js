@@ -33,6 +33,8 @@ import { renderSettingsView } from './settings.js';
 import { renderPastMeditationsView } from './pastMeditations.js';
 import { renderPersonsView } from './personCard.js';
 import { renderOrganizationsView } from './orgCard.js';
+import { renderEconomyView, getTodaysTxSummary } from './economy.js';
+import { openQuickAdd as openEconomyQuickAdd } from './economyQuickAdd.js';
 // Phase E-7: 우측 상단 알람 종 + 자동 알람 생성기
 import { initRemindersUI, refreshRemindersUI } from './reminders.js';
 import { generateAllAutoReminders } from '../data/reminderGenerator.js';
@@ -377,6 +379,39 @@ async function refreshTodayData() {
     if (!currentUserId || !currentDate) return;
     await refreshTimeline({ userId: currentUserId, date: currentDate });
     await refreshTodayView({ userId: currentUserId, date: currentDate });
+    await refreshTodayEconomyCard();
+}
+
+// 오늘 화면의 "오늘의 돈 흐름" 카드 본문 갱신 (Phase F)
+async function refreshTodayEconomyCard() {
+    const list = document.getElementById('today-tx-list');
+    if (!list || !currentUserId) return;
+    try {
+        const { list: txs } = await getTodaysTxSummary(currentUserId, currentDate);
+        if (!txs || txs.length === 0) {
+            list.innerHTML = `<p style="color:var(--ink-secondary); font-size:13px">
+                오늘 적은 거래가 여기에 모여요. 위 [거래 한 건] 으로 빠르게 적을 수 있어요.
+            </p>`;
+            return;
+        }
+        list.innerHTML = txs.map(t => {
+            const sign = t.direction === 'income' ? '+' : '−';
+            const dirClass = t.direction === 'income' ? 'econ-tx-in' : 'econ-tx-out';
+            const exact = t.exactAmount != null
+                ? `<span class="sensitive">${sign}${Number(t.exactAmount).toLocaleString('ko-KR')}원</span>`
+                : '';
+            const cat = t.category || '';
+            const desc = t.description || '';
+            return `<div class="today-tx-row ${dirClass}">
+                <span class="today-tx-bucket econ-bucket-${t.amountBucket}">${t.amountBucket}</span>
+                <span class="today-tx-cat">${cat}</span>
+                <span class="today-tx-desc">${desc}</span>
+                <span class="today-tx-exact">${exact}</span>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        console.warn('[economy] today card refresh failed:', e);
+    }
 }
 
 // ─── 네비게이션 ───
@@ -390,6 +425,7 @@ function setupNavigation() {
         'nav-reports': 'reports',
         'nav-persons': 'persons',
         'nav-organizations': 'organizations',
+        'nav-economy': 'economy',
         'nav-settings': 'settings',
     };
 
@@ -399,6 +435,18 @@ function setupNavigation() {
             btn.addEventListener('click', () => switchView(viewId));
         }
     });
+
+    // 오늘 화면의 "거래 한 건" 빠른 추가 (Phase F)
+    const addTxBtn = document.getElementById('today-add-tx-btn');
+    if (addTxBtn) {
+        addTxBtn.addEventListener('click', () => {
+            openEconomyQuickAdd({
+                userId: currentUserId,
+                date: currentDate,
+                onSaved: () => refreshTodayEconomyCard(),
+            });
+        });
+    }
 
     // 모바일 메뉴 토글 (사이드바 + 백드롭)
     const menuToggle = document.getElementById('menu-toggle');
@@ -548,6 +596,8 @@ function switchView(viewId) {
         renderPersonsView(currentUserId);
     } else if (viewId === 'organizations') {
         renderOrganizationsView(currentUserId);
+    } else if (viewId === 'economy') {
+        renderEconomyView(currentUserId);
     }
 
     // 뷰 전환 직후엔 항상 새 뷰의 최상단에서 시작 (main-content + window 둘 다).

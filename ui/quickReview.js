@@ -245,6 +245,12 @@ function renderModal() {
                     <div id="qr-org-chips" class="qr-chip-row"></div>
                 </div>
 
+                <!-- 💰 돈 움직임 — Phase F. 이 도트와 함께 거래 한 건도 적기 -->
+                <div class="qr-link-section">
+                    <label class="qr-link-label">💰 이 시간에 돈이 움직였나요?</label>
+                    <button type="button" id="qr-add-tx-btn" class="text-btn">+ 거래 한 건 적기</button>
+                </div>
+
             </div>
 
             <div class="qr-actions">
@@ -316,6 +322,19 @@ function bindEvents() {
             const isHidden = section.classList.toggle('hidden');
             e.target.textContent = isHidden ? '조금 더 자세히 ▼' : '접기 ▲';
         }
+    });
+
+    // 💰 거래 한 건 추가 (Phase F) — 평가 모달 안에서 economyQuickAdd 호출
+    document.addEventListener('click', async (e) => {
+        if (e.target.id !== 'qr-add-tx-btn') return;
+        const m = await import('./economyQuickAdd.js');
+        m.openQuickAdd({
+            userId: _userId,
+            date: _currentExistingDot?.date || new Date().toISOString().slice(0, 10),
+            linkedPersonIds: Array.isArray(_selectedPersonIds) ? _selectedPersonIds.slice() : [],
+            linkedOrgIds: Array.isArray(_selectedOrgIds) ? _selectedOrgIds.slice() : [],
+            onSaved: () => { /* 거래는 독립 저장 — 도트 저장 흐름 유지 */ },
+        });
     });
 
     // 저장

@@ -4028,3 +4028,391 @@ svg.person-radar { display: block; }
     margin-top: 8px;
 }
 
+/* ═══════════════════════════════════════════════════
+   경제 모듈 (Phase F)
+   ─ bucket / 카드 / 통계 / 빠른 추가 모달
+   ─ .sensitive 마스킹 활용 (기존 sensitiveMode.js 정책)
+   ═══════════════════════════════════════════════════ */
+
+/* 메인 뷰 — 마법사 */
+.econ-wizard {
+    max-width: 560px;
+}
+.econ-wizard-step {
+    margin: 16px 0;
+    padding: 12px;
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    border-radius: 10px;
+}
+.econ-wizard-step h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.econ-form-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.econ-wizard input,
+.econ-wizard select,
+.econ-form-card input,
+.econ-form-card select,
+.econ-form-card textarea {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    background: var(--surface, #fff);
+    color: var(--ink-primary);
+    font: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+/* 탭 바 */
+.econ-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-subtle, rgba(0,0,0,0.08));
+    margin: 0 0 16px;
+    overflow-x: auto;
+}
+.econ-tab-btn {
+    background: transparent;
+    border: none;
+    padding: 10px 16px;
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink-secondary);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+}
+.econ-tab-btn.active {
+    color: var(--ink-primary);
+    border-bottom-color: var(--brand-primary);
+    font-weight: 600;
+}
+.econ-tab-body {
+    padding: 0 4px;
+}
+
+/* 툴바 */
+.econ-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.econ-toolbar-spacer { flex: 1; }
+
+/* bucket 색상 — bucket-{small|medium|large|huge} */
+.econ-bucket-small  { background: rgba(107, 191, 123, 0.15); color: #4a8a55; }
+.econ-bucket-medium { background: rgba(245, 200, 75, 0.18); color: #a07e10; }
+.econ-bucket-large  { background: rgba(245, 158, 75, 0.18); color: #b76b1d; }
+.econ-bucket-huge   { background: rgba(229, 101, 74, 0.18); color: #b73d20; }
+[data-theme="dark"] .econ-bucket-small  { background: rgba(107, 191, 123, 0.25); color: #7fc890; }
+[data-theme="dark"] .econ-bucket-medium { background: rgba(245, 200, 75, 0.25); color: #f0d97c; }
+[data-theme="dark"] .econ-bucket-large  { background: rgba(245, 158, 75, 0.25); color: #f5b378; }
+[data-theme="dark"] .econ-bucket-huge   { background: rgba(229, 101, 74, 0.30); color: #ea8c75; }
+
+/* 거래 리스트 */
+.econ-tx-list { display: flex; flex-direction: column; gap: 16px; }
+.econ-tx-day { }
+.econ-tx-day-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border-subtle, rgba(0,0,0,0.06));
+    margin-bottom: 6px;
+}
+.econ-tx-day-date { font-weight: 600; font-size: 13px; }
+.econ-tx-day-count { font-size: 11px; color: var(--ink-secondary); }
+
+.econ-tx-card {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    margin-bottom: 6px;
+    align-items: center;
+}
+.econ-tx-card.econ-tx-in {
+    border-left: 3px solid var(--dot-green, #6BBF7B);
+}
+.econ-tx-card.econ-tx-out {
+    border-left: 3px solid var(--ink-secondary, #6b6b6b);
+}
+.econ-tx-card.econ-tx-giving {
+    background: linear-gradient(0deg, rgba(91,141,239,0.06), rgba(91,141,239,0.06)), var(--surface-elevated, rgba(0,0,0,0.03));
+    border-left-color: var(--brand-primary);
+}
+.econ-tx-icon { font-size: 18px; }
+.econ-tx-main { min-width: 0; }
+.econ-tx-top {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.econ-tx-cat { font-size: 13px; font-weight: 600; }
+.econ-tx-tag-giving {
+    font-size: 10px;
+    color: var(--brand-primary);
+    background: rgba(91,141,239,0.12);
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+.econ-tx-bucket {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 500;
+}
+.econ-tx-desc { font-size: 12px; color: var(--ink-secondary); margin-top: 2px; }
+.econ-tx-right { display: flex; align-items: center; gap: 6px; }
+.econ-tx-exact {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+}
+.econ-tx-del-btn {
+    padding: 2px 8px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* 자산 / 부채 그리드 */
+.econ-asset-grid, .econ-liab-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.econ-asset-group { }
+.econ-asset-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--border-subtle, rgba(0,0,0,0.06));
+    margin-bottom: 8px;
+}
+.econ-asset-group-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.econ-asset-count { font-size: 11px; color: var(--ink-secondary); }
+.econ-asset-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+}
+.econ-asset-card, .econ-liab-card {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    cursor: pointer;
+    transition: background 120ms ease;
+}
+.econ-asset-card:hover, .econ-liab-card:hover {
+    background: var(--surface-hover, rgba(0,0,0,0.05));
+}
+.econ-asset-label, .econ-liab-type { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.econ-asset-bucket, .econ-liab-bucket {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+.econ-asset-exact, .econ-liab-exact {
+    font-size: 12px;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-secondary);
+}
+.econ-empty {
+    padding: 24px 12px;
+    color: var(--ink-secondary);
+    font-size: 13px;
+    text-align: center;
+}
+.econ-empty-small {
+    padding: 8px;
+    color: var(--ink-secondary);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* 폼 모달 (자산·부채·분류·통장 공용) */
+.econ-form-card {
+    width: min(440px, 100%);
+}
+.econ-form-card .modal-body label {
+    display: block;
+    margin: 10px 0 4px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+}
+.modal-head, .modal-foot {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+}
+.modal-head { border-bottom: 1px solid var(--border-subtle, rgba(0,0,0,0.06)); }
+.modal-foot { border-top: 1px solid var(--border-subtle, rgba(0,0,0,0.06)); }
+.modal-body { padding: 12px 16px; max-height: 70vh; overflow-y: auto; }
+.modal-card {
+    background: var(--surface, #fff);
+    border-radius: 14px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.25);
+    width: min(560px, 100%);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+[data-theme="dark"] .modal-card {
+    background: var(--surface, #1f1f23);
+    color: var(--ink-primary);
+}
+.modal-close {
+    background: transparent; border: none;
+    font-size: 22px; line-height: 1; cursor: pointer;
+    color: var(--ink-secondary);
+    margin-left: auto;
+    padding: 4px 8px; border-radius: 6px;
+}
+.modal-close:hover { background: var(--surface-elevated, rgba(0,0,0,0.05)); }
+
+/* 빠른 거래 입력 모달 */
+.econ-quickadd-card { width: min(520px, 100%); }
+.econ-qa-row { margin: 10px 0; }
+.econ-qa-row > label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    font-weight: 600;
+}
+.econ-qa-dir { display: flex; gap: 6px; }
+.econ-qa-dir-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+}
+.econ-qa-dir-btn.active {
+    background: var(--brand-primary);
+    color: #fff;
+    border-color: var(--brand-primary);
+}
+.econ-qa-buckets {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+.econ-qa-bucket-btn {
+    padding: 12px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: center;
+    font: inherit;
+    line-height: 1.4;
+}
+.econ-qa-bucket-btn.active {
+    border-color: var(--brand-primary);
+    background: rgba(91,141,239,0.12);
+}
+.econ-qa-bucket-desc {
+    font-size: 10px;
+    color: var(--ink-secondary);
+}
+.econ-qa-cats {
+    display: flex; flex-wrap: wrap; gap: 6px;
+}
+.econ-qa-cat-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+}
+.econ-qa-cat-btn.active {
+    background: var(--brand-primary);
+    color: #fff;
+    border-color: var(--brand-primary);
+}
+.econ-qa-giving-note,
+.econ-qa-huge-note {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-top: 8px;
+}
+.econ-qa-giving-note {
+    background: rgba(91,141,239,0.10);
+    color: var(--brand-primary);
+}
+.econ-qa-huge-note {
+    background: rgba(229, 101, 74, 0.10);
+    color: #b73d20;
+}
+[data-theme="dark"] .econ-qa-huge-note { color: #ea8c75; }
+
+/* quickReview 안의 "💰 거래 한 건 적기" 줄 */
+.qr-link-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-subtle, rgba(0,0,0,0.08));
+}
+.qr-link-label {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    margin-bottom: 6px;
+}
+
+/* "오늘" 뷰의 경제 빠른 카드 */
+.today-tx-list { display: flex; flex-direction: column; gap: 4px; }
+.today-tx-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    font-size: 13px;
+}
+.today-tx-row.econ-tx-in    { border-left: 3px solid var(--dot-green, #6BBF7B); }
+.today-tx-row.econ-tx-out   { border-left: 3px solid var(--ink-secondary, #6b6b6b); }
+.today-tx-bucket {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-secondary);
+}
+.today-tx-cat { font-weight: 500; }
+.today-tx-desc {
+    color: var(--ink-secondary);
+    font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.today-tx-exact { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* 모바일 */
+@media (max-width: 600px) {
+    .econ-qa-buckets { grid-template-columns: 1fr 1fr; }
+    .econ-asset-cards { grid-template-columns: 1fr; }
+    .today-tx-row { grid-template-columns: auto 1fr auto; }
+    .today-tx-cat { display: none; }
+}
+

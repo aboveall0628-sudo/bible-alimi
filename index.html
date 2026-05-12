@@ -104,6 +104,7 @@
                 <hr class="nav-divider">
                 <button class="sidebar-item" id="nav-persons"><i class="icon" data-lucide="users"></i> 인물</button>
                 <button class="sidebar-item" id="nav-organizations"><i class="icon" data-lucide="building-2"></i> 조직</button>
+                <button class="sidebar-item" id="nav-economy"><i class="icon" data-lucide="wallet"></i> 경제</button>
                 <hr class="nav-divider">
                 <button class="sidebar-item" id="nav-settings"><i class="icon" data-lucide="settings"></i> 설정</button>
             </nav>
@@ -208,6 +209,24 @@
                         </div>
                         <div id="utl-body" class="utl-body"></div>
                         <div id="utl-mobile-list" class="utl-mobile-list"></div>
+                    </div>
+                </section>
+
+                <!-- 오늘의 돈 흐름 (Phase F) — 경제 모듈 빠른 진입 -->
+                <section id="section-today-economy" class="card-section">
+                    <div class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="wallet"></i> 오늘의 돈 흐름</h2>
+                        <div class="page-header-actions">
+                            <button id="today-add-tx-btn" class="text-btn">
+                                <i data-lucide="plus" class="btn-icon"></i> 거래 한 건
+                            </button>
+                            <button class="collapsible-toggle" data-target="today-economy-body">접기</button>
+                        </div>
+                    </div>
+                    <div id="today-economy-body" class="collapsible-body">
+                        <div id="today-tx-list" class="today-tx-list">
+                            <p style="color:var(--ink-secondary); font-size:13px">오늘 적은 거래가 여기에 모여요.</p>
+                        </div>
                     </div>
                 </section>
 
@@ -317,6 +336,9 @@
 
             <!-- ── 조직 뷰 (v3-①) ── -->
             <div id="view-organizations" class="view hidden"></div>
+
+            <!-- ── 경제 뷰 (Phase F) ── -->
+            <div id="view-economy" class="view hidden"></div>
 
             <!-- ── 설정 뷰 ── -->
             <div id="view-settings" class="view hidden">

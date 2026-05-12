@@ -240,7 +240,9 @@ export const SHORTCUTS = [
       label: '인물',     description: '인물 화면으로 이동.', action: navTo('persons'), preventDefault: true },
     { id: 'nav.orgs.num',      keys: 'Alt+7', context: 'global', category: '영역 이동',
       label: '조직',     description: '조직 화면으로 이동.', action: navTo('organizations'), preventDefault: true },
-    { id: 'nav.settings.num',  keys: 'Alt+8', context: 'global', category: '영역 이동',
+    { id: 'nav.economy.num',   keys: 'Alt+8', context: 'global', category: '영역 이동',
+      label: '경제',     description: '경제 화면으로 이동.', action: navTo('economy'), preventDefault: true },
+    { id: 'nav.settings.num',  keys: 'Alt+9', context: 'global', category: '영역 이동',
       label: '설정',     description: '설정 화면으로 이동.', action: navTo('settings'), preventDefault: true },
 
     // 2층 — 의미 기반 문자 별칭 (숫자와 동일 동작, 별도 표시는 X)
@@ -258,6 +260,8 @@ export const SHORTCUTS = [
       label: 'Users',     description: '인물 (U).', action: navTo('persons'), hidden: true, preventDefault: true },
     { id: 'nav.orgs.alpha',      keys: 'Alt+O', context: 'global', category: '영역 이동',
       label: 'Org',       description: '조직 (O).', action: navTo('organizations'), hidden: true, preventDefault: true },
+    { id: 'nav.economy.alpha',   keys: 'Alt+E', context: 'global', category: '영역 이동',
+      label: 'Economy',   description: '경제 (E).', action: navTo('economy'), hidden: true, preventDefault: true },
     { id: 'nav.settings.alpha',  keys: 'Alt+S', context: 'global', category: '영역 이동',
       label: 'Settings',  description: '설정 (S).', action: navTo('settings'), hidden: true, preventDefault: true },
 ];
