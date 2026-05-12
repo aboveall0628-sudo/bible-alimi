@@ -5,26 +5,52 @@
  *   - 정확한 금액(exactAmount) 은 자물쇠 안에만 저장
  *   - 평문엔 bucket("소액"/"중액"/"고액"/"거액") 만 — 통계·검색용
  *
- * 한국 직장인 표준 임계값 (2026-05 결정):
- *   - 소액 < 1만원
- *   - 중액 1만 ~ 10만
- *   - 고액 10만 ~ 100만
- *   - 거액 > 100만
+ * 디폴트 임계값 (한국 직장인 표준, 2026-05):
+ *   - 소액 < 1만원 / 중액 1만~10만 / 고액 10만~100만 / 거액 > 100만
  *
- * 사용자 라이프스타일이 변하면 settings 에서 조정 가능 (별도 회차).
- * ⚠️ 임계값 변경 시 옛 거래의 amountBucket 라벨도 재계산 필요.
+ * 사용자가 [설정 → 경제 임계값] 에서 조정하면 setBucketThresholds 가 호출되어
+ * AMOUNT_BUCKETS 라이브 바인딩이 갱신됨 (ES module live binding 활용).
+ *
+ * ⚠️ 임계값 변경 시 옛 거래의 amountBucket 라벨도 재계산 필요 →
+ *    data/economyRepo.recalcAllTransactionBuckets() 를 같이 호출.
  */
 
-export const AMOUNT_BUCKETS = [
-    { id: 'small',  label: '소액', max: 10000,    icon: '🟢', desc: '1만원 미만' },
-    { id: 'medium', label: '중액', max: 100000,   icon: '🟡', desc: '1만 ~ 10만' },
-    { id: 'large',  label: '고액', max: 1000000,  icon: '🟠', desc: '10만 ~ 100만' },
-    { id: 'huge',   label: '거액', max: Infinity, icon: '🔴', desc: '100만 이상' },
-];
+// let 으로 export 해야 import 한 쪽에서 갱신값을 보게 됨 (ES module live binding).
+export let AMOUNT_BUCKETS = buildBuckets(10000, 100000, 1000000);
+
+/**
+ * 사용자 임계값으로 AMOUNT_BUCKETS 갱신. settings 로드 시 + 저장 시 호출.
+ *
+ * @param {{smallMax:number, mediumMax:number, largeMax:number}} thresholds
+ */
+export function setBucketThresholds({ smallMax, mediumMax, largeMax }) {
+    AMOUNT_BUCKETS = buildBuckets(smallMax, mediumMax, largeMax);
+}
+
+/**
+ * 현재 임계값 읽기 (저장 시 prefill 등에 사용).
+ */
+export function getBucketThresholds() {
+    return {
+        smallMax:  AMOUNT_BUCKETS[0].max,
+        mediumMax: AMOUNT_BUCKETS[1].max,
+        largeMax:  AMOUNT_BUCKETS[2].max,
+    };
+}
+
+function buildBuckets(smallMax, mediumMax, largeMax) {
+    const fmt = (n) => Number(n).toLocaleString('ko-KR');
+    return [
+        { id: 'small',  label: '소액', max: smallMax,   icon: '🟢', desc: `${fmt(smallMax)}원 미만` },
+        { id: 'medium', label: '중액', max: mediumMax,  icon: '🟡', desc: `${fmt(smallMax)} ~ ${fmt(mediumMax)}` },
+        { id: 'large',  label: '고액', max: largeMax,   icon: '🟠', desc: `${fmt(mediumMax)} ~ ${fmt(largeMax)}` },
+        { id: 'huge',   label: '거액', max: Infinity,   icon: '🔴', desc: `${fmt(largeMax)} 이상` },
+    ];
+}
 
 /**
  * 금액 → bucket id.
- * 음수도 절대값 기준.
+ * 음수도 절대값 기준. 호출 시점의 AMOUNT_BUCKETS 사용.
  */
 export function amountToBucket(amount) {
     const v = Math.abs(Number(amount) || 0);
@@ -33,6 +59,15 @@ export function amountToBucket(amount) {
     }
     return 'huge';
 }
+
+/**
+ * 추천 프리셋 — 설정 화면의 빠른 시작 버튼.
+ */
+export const BUCKET_PRESETS = [
+    { id: 'student',   label: '학생·1인 자취', smallMax: 3000,  mediumMax: 30000,  largeMax: 300000 },
+    { id: 'worker',    label: '직장인',         smallMax: 10000, mediumMax: 100000, largeMax: 1000000 },
+    { id: 'household', label: '부양가족·자영업', smallMax: 50000, mediumMax: 500000, largeMax: 5000000 },
+];
 
 /**
  * bucket id → 한국어 라벨.

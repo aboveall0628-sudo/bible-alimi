@@ -35,7 +35,8 @@ import { renderPersonsView } from './personCard.js';
 import { renderOrganizationsView } from './orgCard.js';
 import { renderEconomyView, getTodaysTxSummary } from './economy.js';
 import { openQuickAdd as openEconomyQuickAdd } from './economyQuickAdd.js';
-import { bucketLabel as economyBucketLabel, categoryLabel as economyCategoryLabel } from '../config/economyBuckets.js';
+import { bucketLabel as economyBucketLabel, categoryLabel as economyCategoryLabel, setBucketThresholds } from '../config/economyBuckets.js';
+import { getBucketSettings } from '../data/economyRepo.js';
 // Phase E-7: 우측 상단 알람 종 + 자동 알람 생성기
 import { initRemindersUI, refreshRemindersUI } from './reminders.js';
 import { generateAllAutoReminders } from '../data/reminderGenerator.js';
@@ -348,6 +349,13 @@ async function onVaultUnlocked(dek) {
         await initializeSeedData(dek, currentUserId, seedOpts);
         delete window.__sanctumSeedOpts;
     } catch (e) { console.warn('seed init failed:', e); }
+
+    // Phase F: 사용자 bucket 임계값 로드 → 전역 AMOUNT_BUCKETS 갱신.
+    // 실패해도 디폴트 값으로 동작.
+    try {
+        const thresholds = await getBucketSettings(dek, currentUserId);
+        setBucketThresholds(thresholds);
+    } catch (e) { console.warn('bucket settings load failed:', e); }
 
     // 오늘 뷰 컴포넌트 마운트 + 데이터 로드 (핀 원칙 띠, 묵상 노트, 결단 패널)
     initTodayView({ userId: currentUserId, date: currentDate });

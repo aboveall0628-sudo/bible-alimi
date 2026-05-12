@@ -251,6 +251,15 @@ export const POLICY = {
         ],
         encrypted: []
     },
+    // 경제 모듈 설정 (Phase F) — bucket 임계값 등.
+    // 임계값 자체는 라이프스타일 분류 기준일 뿐이라 평문 OK.
+    economySettings: {
+        plaintext: [
+            'id', 'smallMax', 'mediumMax', 'largeMax',
+            'updatedAt'
+        ],
+        encrypted: []
+    },
 };
 
 /**

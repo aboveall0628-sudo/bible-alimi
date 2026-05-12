@@ -148,6 +148,46 @@ function injectExtraSections() {
         </button>
     `;
     container.appendChild(shortcutCard);
+
+    // 경제 임계값 카드 (Phase F)
+    const economyCard = document.createElement('div');
+    economyCard.id = 'settings-economy-card';
+    economyCard.className = 'card-section';
+    economyCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="wallet"></i> 경제 임계값</h3>
+        <p class="section-desc">
+            거래 금액을 <strong>소액 / 중액 / 고액 / 거액</strong> 네 단계로 분류하는 기준이에요.
+            정확한 금액은 자물쇠 안에 안전하게 보관되고, 검색·통계는 이 라벨로 동작해요.
+            라이프스타일에 맞게 조정해 주세요.
+        </p>
+        <div class="econ-thr-presets" id="econ-thr-presets"></div>
+        <div class="econ-thr-form">
+            <div class="econ-thr-row">
+                <label>소액 한계 (이 금액 <em>미만</em>)</label>
+                <input id="econ-thr-small" type="number" inputmode="numeric" min="1" /> 원
+            </div>
+            <div class="econ-thr-row">
+                <label>중액 한계 (소액~이 금액)</label>
+                <input id="econ-thr-medium" type="number" inputmode="numeric" min="1" /> 원
+            </div>
+            <div class="econ-thr-row">
+                <label>고액 한계 (중액~이 금액)</label>
+                <input id="econ-thr-large" type="number" inputmode="numeric" min="1" /> 원
+            </div>
+            <div class="econ-thr-row econ-thr-huge">
+                <label>거액</label>
+                <span id="econ-thr-huge-display">고액 한계 이상 (자동)</span>
+            </div>
+        </div>
+        <p class="section-desc" style="margin-top:8px; font-size:11px; color:var(--ink-secondary)">
+            ⚠️ 저장하면 정확 금액이 있는 옛 거래의 크기 라벨이 새 기준으로 다시 분류돼요.
+        </p>
+        <div id="econ-thr-status" style="margin: 8px 0; font-size: 13px; color: var(--ink-secondary);"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="econ-thr-save-btn" class="primary-btn">저장하기</button>
+        </div>
+    `;
+    container.appendChild(economyCard);
 }
 
 async function bindShortcutSettings() {
@@ -173,6 +213,107 @@ async function bindShortcutSettings() {
     if (helpBtn) {
         helpBtn.addEventListener('click', () => help.openShortcutHelp());
     }
+}
+
+async function bindEconomyThresholdSettings() {
+    const { getBucketSettings, saveBucketSettings, recalcAllTransactionBuckets } =
+        await import('../data/economyRepo.js');
+    const { BUCKET_PRESETS } = await import('../config/economyBuckets.js');
+    const { showToast } = await import('./quickReview.js');
+
+    const dek = getDEK();
+    if (!dek) return;
+
+    const inputs = {
+        small:  document.getElementById('econ-thr-small'),
+        medium: document.getElementById('econ-thr-medium'),
+        large:  document.getElementById('econ-thr-large'),
+    };
+    const presetsWrap = document.getElementById('econ-thr-presets');
+    const saveBtn  = document.getElementById('econ-thr-save-btn');
+    const statusEl = document.getElementById('econ-thr-status');
+    const hugeDisplay = document.getElementById('econ-thr-huge-display');
+    if (!inputs.small || !saveBtn) return;
+
+    // 현재 값 prefill
+    try {
+        const cur = await getBucketSettings(dek, _userId);
+        inputs.small.value  = cur.smallMax;
+        inputs.medium.value = cur.mediumMax;
+        inputs.large.value  = cur.largeMax;
+        updateHugeDisplay();
+    } catch (e) { console.warn('[economy] threshold prefill failed:', e); }
+
+    // 프리셋 버튼
+    if (presetsWrap) {
+        presetsWrap.innerHTML = BUCKET_PRESETS.map(p => `
+            <button type="button" class="text-btn econ-thr-preset-btn" data-id="${p.id}">
+                ${p.label}<br>
+                <span style="font-size:11px;color:var(--ink-secondary)">
+                    ${Number(p.smallMax).toLocaleString('ko-KR')} / ${Number(p.mediumMax).toLocaleString('ko-KR')} / ${Number(p.largeMax).toLocaleString('ko-KR')}
+                </span>
+            </button>
+        `).join('');
+        presetsWrap.querySelectorAll('.econ-thr-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = BUCKET_PRESETS.find(x => x.id === btn.dataset.id);
+                if (!p) return;
+                inputs.small.value  = p.smallMax;
+                inputs.medium.value = p.mediumMax;
+                inputs.large.value  = p.largeMax;
+                updateHugeDisplay();
+            });
+        });
+    }
+
+    // 입력 변경 시 거액 표시 자동 갱신
+    Object.values(inputs).forEach(el => el && el.addEventListener('input', updateHugeDisplay));
+
+    function updateHugeDisplay() {
+        if (!hugeDisplay) return;
+        const lm = Number(inputs.large.value) || 0;
+        hugeDisplay.textContent = lm > 0
+            ? `${lm.toLocaleString('ko-KR')} 이상 (자동)`
+            : '고액 한계 이상 (자동)';
+    }
+
+    // 저장 + 재계산
+    saveBtn.addEventListener('click', async () => {
+        const sm = Number(inputs.small.value);
+        const mm = Number(inputs.medium.value);
+        const lm = Number(inputs.large.value);
+        // 입력 검증
+        if (!(sm > 0 && mm > 0 && lm > 0)) {
+            statusEl.innerHTML = '<span style="color:var(--dot-red)">모두 0보다 큰 값을 적어 주세요.</span>';
+            return;
+        }
+        if (!(sm < mm && mm < lm)) {
+            statusEl.innerHTML = '<span style="color:var(--dot-red)">소액 &lt; 중액 &lt; 고액 순서로 적어 주세요.</span>';
+            return;
+        }
+        saveBtn.disabled = true;
+        saveBtn.textContent = '저장하는 중...';
+        statusEl.textContent = '';
+        try {
+            await saveBucketSettings(dek, _userId, { smallMax: sm, mediumMax: mm, largeMax: lm });
+            // 옛 거래 재계산
+            statusEl.innerHTML = '<span style="color:var(--ink-secondary)">옛 거래 라벨을 다시 분류하는 중...</span>';
+            const result = await recalcAllTransactionBuckets(dek, _userId, (done, total) => {
+                statusEl.innerHTML = `<span style="color:var(--ink-secondary)">거래 ${done}/${total} 갱신 중...</span>`;
+            });
+            statusEl.innerHTML = `<span style="color:var(--dot-green)">✅ 저장 완료. 옛 거래 ${result.changed}건 라벨이 새로 분류됐어요 (총 ${result.total}건).</span>`;
+            showToast('경제 임계값을 저장했어요');
+            // 다른 화면 즉시 동기화
+            window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'thresholds' }}));
+        } catch (e) {
+            console.error('[economy] threshold save failed:', e);
+            statusEl.innerHTML = `<span style="color:var(--dot-red)">저장이 잠깐 막혔어요: ${escapeHtml(e.message || '알 수 없음')}</span>`;
+            showToast('저장이 잠깐 막혔어요.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '저장하기';
+        }
+    });
 }
 
 function bindEvents() {
@@ -491,6 +632,9 @@ function bindEvents() {
 
     // ─── 단축키 설정 카드 (Phase E-9/Step 1) ───
     bindShortcutSettings().catch(e => console.warn('[shortcuts] settings bind failed:', e));
+
+    // ─── 경제 임계값 카드 (Phase F) ───
+    bindEconomyThresholdSettings().catch(e => console.warn('[economy] threshold bind failed:', e));
 }
 
 function bindAutoLockMinutes() {

@@ -16,9 +16,9 @@
  *   - 통계는 디폴트 숨김 (UI 레벨)
  */
 
-import { db, doc, deleteDoc, query, where } from './firebase.js';
+import { db, doc, deleteDoc, query, where, setDoc, getDoc } from './firebase.js';
 import { saveRecord, getRecord, queryRecords, subPath, colRef } from './baseRepo.js';
-import { amountToBucket } from '../config/economyBuckets.js';
+import { amountToBucket, setBucketThresholds } from '../config/economyBuckets.js';
 
 // ═══════════════════════════════════════════════════
 //  ACCOUNTS — 통장/계좌 카드
@@ -245,4 +245,93 @@ export async function getAllNetWorthSnapshots(dek, userId) {
 export async function isEconomyEmpty(dek, userId) {
     const accts = await getAllAccounts(dek, userId);
     return accts.length === 0;
+}
+
+// ═══════════════════════════════════════════════════
+//  BUCKET 임계값 설정 — settings/economy 단일 문서
+// ═══════════════════════════════════════════════════
+
+const ECONOMY_SETTING_PATH = ['settings', 'economy']; // users/{uid}/settings/economy
+const DEFAULT_THRESHOLDS = { smallMax: 10000, mediumMax: 100000, largeMax: 1000000 };
+
+/**
+ * 사용자 임계값 설정 읽기. 없으면 디폴트 반환.
+ *
+ * economySettings 는 모든 필드가 평문(encryptionPolicy 정책)이라
+ * cryptoService 우회하고 직접 getDoc — 단순.
+ */
+export async function getBucketSettings(dek, userId) {
+    try {
+        const ref = doc(db, 'users', userId, ...ECONOMY_SETTING_PATH);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return { ...DEFAULT_THRESHOLDS };
+        const d = snap.data() || {};
+        return {
+            smallMax:  Number(d.smallMax)  || DEFAULT_THRESHOLDS.smallMax,
+            mediumMax: Number(d.mediumMax) || DEFAULT_THRESHOLDS.mediumMax,
+            largeMax:  Number(d.largeMax)  || DEFAULT_THRESHOLDS.largeMax,
+        };
+    } catch (e) {
+        console.warn('[economyRepo] getBucketSettings failed, using defaults:', e);
+        return { ...DEFAULT_THRESHOLDS };
+    }
+}
+
+/**
+ * 임계값 저장 + 전역 AMOUNT_BUCKETS 갱신.
+ *
+ * 검증:
+ *   - 모두 양수
+ *   - 오름차순: smallMax < mediumMax < largeMax
+ */
+export async function saveBucketSettings(dek, userId, { smallMax, mediumMax, largeMax }) {
+    const sm = Number(smallMax), mm = Number(mediumMax), lm = Number(largeMax);
+    if (!(sm > 0 && mm > 0 && lm > 0)) {
+        throw new Error('THRESHOLDS_NOT_POSITIVE');
+    }
+    if (!(sm < mm && mm < lm)) {
+        throw new Error('THRESHOLDS_NOT_ASCENDING');
+    }
+    const ref = doc(db, 'users', userId, ...ECONOMY_SETTING_PATH);
+    await setDoc(ref, {
+        id: 'economy',
+        smallMax: sm, mediumMax: mm, largeMax: lm,
+        updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    // 전역 갱신 — 다음 호출부터 새 임계값
+    setBucketThresholds({ smallMax: sm, mediumMax: mm, largeMax: lm });
+    return { smallMax: sm, mediumMax: mm, largeMax: lm };
+}
+
+/**
+ * 모든 거래의 amountBucket 라벨 재계산. exactAmount 있는 거래만 갱신.
+ * 변경된 거래 수 + 총 거래 수 반환. onProgress 콜백으로 진행률 알림.
+ *
+ * @param {(done:number, total:number) => void} [onProgress]
+ */
+export async function recalcAllTransactionBuckets(dek, userId, onProgress) {
+    const all = await queryRecords(dek, subPath(userId, TRANSACTIONS));
+    let changed = 0;
+    let done = 0;
+    for (const t of all) {
+        done++;
+        if (t.exactAmount == null) {
+            if (typeof onProgress === 'function') onProgress(done, all.length);
+            continue;
+        }
+        const newBucket = amountToBucket(t.exactAmount);
+        if (newBucket === t.amountBucket) {
+            if (typeof onProgress === 'function') onProgress(done, all.length);
+            continue;
+        }
+        // 변경된 거래만 setDoc({merge:true}) — saveTransaction 이 그렇게 해줌
+        try {
+            await saveRecord(dek, subPath(userId, TRANSACTIONS), { ...t, amountBucket: newBucket }, t.id);
+            changed++;
+        } catch (e) {
+            console.warn(`[economyRepo] recalc skip ${t.id}:`, e);
+        }
+        if (typeof onProgress === 'function') onProgress(done, all.length);
+    }
+    return { changed, total: all.length };
 }

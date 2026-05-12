@@ -4677,6 +4677,68 @@ svg.person-radar { display: block; }
     margin-top: 8px;
 }
 
+/* 설정 화면의 경제 임계값 카드 */
+.econ-thr-presets {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 12px 0;
+}
+.econ-thr-preset-btn {
+    flex: 1 1 auto;
+    min-width: 120px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.4;
+}
+.econ-thr-preset-btn:hover {
+    background: var(--surface-elevated, rgba(0,0,0,0.03));
+    border-color: var(--brand-primary);
+}
+.econ-thr-form {
+    display: flex; flex-direction: column; gap: 8px;
+    margin: 12px 0;
+}
+.econ-thr-row {
+    display: grid;
+    grid-template-columns: 1fr 140px auto;
+    gap: 8px;
+    align-items: center;
+}
+.econ-thr-row label {
+    font-size: 13px;
+    color: var(--ink-secondary);
+}
+.econ-thr-row label em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--brand-primary);
+}
+.econ-thr-row input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 8px;
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.econ-thr-huge span {
+    color: var(--ink-secondary);
+    font-size: 13px;
+    grid-column: 2 / span 2;
+}
+@media (max-width: 600px) {
+    .econ-thr-row { grid-template-columns: 1fr; gap: 4px; }
+    .econ-thr-huge span { grid-column: 1; }
+}
+
 /* ═══════════════════════════════════════════════════
    경제 모듈 (Phase F)
    ─ bucket / 카드 / 통계 / 빠른 추가 모달
