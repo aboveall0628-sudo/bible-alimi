@@ -15,6 +15,8 @@ import { generateMonthlyReport } from '../reports/monthlyReportFlow.js';
 import { getReports } from '../data/reportPipeline.js';
 import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
+// Phase E-9/R-DD: 리포트 카드 드릴다운 (spec §1.6 2층 "raw 데이터")
+import { attachDrillDown } from './reportDrillDown.js';
 
 let _userId = null;
 let _currentTab = 'day';
@@ -60,11 +62,13 @@ async function loadReports() {
             const reports = await listWeekReports(dek, _userId, 12);
             container.innerHTML = renderWeekList(reports);
             bindWeekRegenerateButtons(dek);
+            bindWeekDrillDown(container, dek, reports);
         } else if (_currentTab === 'month') {
             // Phase E-9/R-2: 월간도 새 spec 카드로
             const reports = await listMonthReports(dek, _userId, 6);
             container.innerHTML = renderMonthList(reports);
             bindMonthRegenerateButtons(dek);
+            bindMonthDrillDown(container, dek, reports);
         } else {
             // 옛 흐름 (quarter/year) — 새 spec 구축 전이라 호환 유지
             const reports = await getReports(dek, OLD_COLLECTION_MAP[_currentTab], _userId, 10);
@@ -203,10 +207,57 @@ function renderWeekCard(r) {
            </div>`
         : '';
 
+    const decisionSampleCount = stats.decisionFlow?.sampleSize ?? 0;
     const decisionFlowBlock = r.decisionFlow
         ? `<div class="report-section" style="margin-top:14px">
                <span class="report-section-label"><i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름</span>
                <p style="margin:6px 0 0 0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${decisionSampleCount > 0
+                    ? `<button class="drill-link" data-drill-decision style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
+           </div>`
+        : '';
+
+    // Phase E-9/R-DD: 2층 — raw 데이터 드릴다운 진입점. 산문에 추상화된 흐름이 어디서 왔는지.
+    const persons = stats.personCounts?.items || [];
+    const labelPairs = stats.labelCorrelation?.topPairs || [];
+    const pinnedItems = stats.pinnedPrincipleApplication?.items || [];
+    const drillBlock = (persons.length > 0 || labelPairs.length > 0 || pinnedItems.length > 0)
+        ? `<div class="report-section drill-section" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="search" class="report-section-icon"></i> 자세히 보기</span>
+               ${persons.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">함께한 사람</span>
+                       <div class="drill-chip-row">
+                           ${persons.slice(0, 8).map(p => `
+                               <span class="drill-chip" data-drill="person" data-person-id="${escapeHtml(p.personId)}">
+                                   ${escapeHtml(p.personId.slice(0, 8))} · ${p.interactionCount}회
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
+               ${labelPairs.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">자주 함께 등장한 라벨</span>
+                       <div class="drill-chip-row">
+                           ${labelPairs.slice(0, 8).map(pair => `
+                               <span class="drill-chip" data-drill="labelPair" data-a="${escapeHtml(pair.a)}" data-b="${escapeHtml(pair.b)}">
+                                   ${escapeHtml(pair.a)} × ${escapeHtml(pair.b)} · ${pair.count}
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
+               ${pinnedItems.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">핀 원칙 적용</span>
+                       <div class="drill-chip-row">
+                           ${pinnedItems.map(p => `
+                               <span class="drill-chip" data-drill="pinnedPrinciple" data-principle-id="${escapeHtml(p.principleId)}" data-title="${escapeHtml(p.title || '')}">
+                                   ${escapeHtml(p.title || '(원칙)')} · ${p.appliedCount}회
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
            </div>`
         : '';
 
@@ -228,6 +279,7 @@ function renderWeekCard(r) {
             ${summaryBlock}
             ${hypothesesBlock}
             ${decisionFlowBlock}
+            ${drillBlock}
             ${qBlock}
             <div style="text-align:center; margin-top:14px">
                 <button class="text-btn week-regenerate-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
@@ -237,6 +289,78 @@ function renderWeekCard(r) {
             <div class="report-card-foot">여기까지가 데이터예요. 다음은 묵상 안에서.</div>
         </article>
     `;
+}
+
+/**
+ * Phase E-9/R-DD: week 카드의 drill chip·decision 버튼에 드릴다운 부착.
+ * 또 personId chip의 텍스트를 실제 이름으로 lazy 교체.
+ */
+function bindWeekDrillDown(container, dek, reports) {
+    const cards = container.querySelectorAll('[data-year-week]');
+    cards.forEach((card, idx) => {
+        const r = reports[idx];
+        if (!r) return;
+        const range = { start: r.startDate, end: r.endDate };
+
+        // chip 들
+        card.querySelectorAll('[data-drill]').forEach(chip => {
+            const type = chip.dataset.drill;
+            if (type === 'person') {
+                attachDrillDown(chip, {
+                    type: 'person',
+                    params: { personId: chip.dataset.personId },
+                    range, dek, userId: _userId,
+                });
+            } else if (type === 'labelPair') {
+                attachDrillDown(chip, {
+                    type: 'labelPair',
+                    params: { a: chip.dataset.a, b: chip.dataset.b },
+                    range, dek, userId: _userId,
+                });
+            } else if (type === 'pinnedPrinciple') {
+                attachDrillDown(chip, {
+                    type: 'pinnedPrinciple',
+                    params: { principleId: chip.dataset.principleId, title: chip.dataset.title },
+                    range, dek, userId: _userId,
+                });
+            }
+        });
+
+        // 결단 흐름 버튼
+        const decisionBtn = card.querySelector('[data-drill-decision]');
+        if (decisionBtn) {
+            attachDrillDown(decisionBtn, {
+                type: 'decision',
+                params: {},
+                range, dek, userId: _userId,
+                label: '이 기간 결단의 흐름 (raw)',
+            });
+        }
+
+        // person chip 텍스트 → 실제 이름 (lazy)
+        enrichPersonChips(card, dek);
+    });
+}
+
+async function enrichPersonChips(card, dek) {
+    const chips = [...card.querySelectorAll('.drill-chip[data-drill="person"]')];
+    if (chips.length === 0) return;
+    try {
+        const { getAllPersons } = await import('../data/personRepo.js');
+        const all = await getAllPersons(dek, _userId).catch(() => []);
+        const nameById = new Map(all.map(p => [p.id, p.name || '(이름 미지정)']));
+        chips.forEach(chip => {
+            const id = chip.dataset.personId;
+            const name = nameById.get(id);
+            if (!name) return;
+            // 형식 유지: "이름 · N회"
+            const countMatch = chip.textContent.match(/(\d+)회/);
+            const count = countMatch ? `${countMatch[1]}회` : '';
+            chip.textContent = `${name}${count ? ` · ${count}` : ''}`;
+        });
+    } catch (e) {
+        console.warn('enrich person chips failed:', e);
+    }
 }
 
 function bindWeekRegenerateButtons(dek) {
@@ -346,10 +470,59 @@ function renderMonthCard(r) {
            </div>`
         : '';
 
+    const monthDecisionSamples = stats.decisionFlow?.sampleSize ?? 0;
     const decisionFlowBlock = r.decisionFlow
         ? `<div class="report-section" style="margin-top:14px">
                <span class="report-section-label"><i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름</span>
                <p style="margin:6px 0 0 0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${monthDecisionSamples > 0
+                    ? `<button class="drill-link" data-drill-decision style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
+           </div>`
+        : '';
+
+    // Phase E-9/R-DD: 월간 카드 raw 드릴다운
+    const monthPersons = stats.personNetwork?.items || [];
+    const monthLabelPairs = stats.labelCorrelation?.topPairs || [];
+    const monthCats = stats.categorySatisfactionMatrix?.items || [];
+    const monthDrillBlock = (monthPersons.length > 0 || monthLabelPairs.length > 0 || monthCats.length > 0)
+        ? `<div class="report-section drill-section" style="margin-top:14px">
+               <span class="report-section-label"><i data-lucide="search" class="report-section-icon"></i> 자세히 보기</span>
+               ${monthCats.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">카테고리</span>
+                       <div class="drill-chip-row">
+                           ${monthCats.slice(0, 8).map(c => {
+                               const hours = Math.round((c.durationMinutes || 0) / 60 * 10) / 10;
+                               return `
+                                   <span class="drill-chip" data-drill="category" data-category-id="${escapeHtml(c.category)}">
+                                       ${escapeHtml(c.category)} · ${hours}h · ${c.count}회
+                                   </span>`;
+                           }).join('')}
+                       </div>
+                   </div>` : ''}
+               ${monthPersons.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">함께한 사람</span>
+                       <div class="drill-chip-row">
+                           ${monthPersons.slice(0, 8).map(p => `
+                               <span class="drill-chip" data-drill="person" data-person-id="${escapeHtml(p.personId)}">
+                                   ${escapeHtml(p.personId.slice(0, 8))} · ${p.interactionCount}회
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
+               ${monthLabelPairs.length > 0 ? `
+                   <div class="drill-group">
+                       <span class="drill-group-label">자주 함께 등장한 라벨</span>
+                       <div class="drill-chip-row">
+                           ${monthLabelPairs.slice(0, 8).map(pair => `
+                               <span class="drill-chip" data-drill="labelPair" data-a="${escapeHtml(pair.a)}" data-b="${escapeHtml(pair.b)}">
+                                   ${escapeHtml(pair.a)} × ${escapeHtml(pair.b)} · ${pair.count}
+                               </span>
+                           `).join('')}
+                       </div>
+                   </div>` : ''}
            </div>`
         : '';
 
@@ -372,6 +545,7 @@ function renderMonthCard(r) {
             ${hypothesesBlock}
             ${patternsBlock}
             ${decisionFlowBlock}
+            ${monthDrillBlock}
             ${qBlock}
             <div style="text-align:center; margin-top:14px">
                 <button class="text-btn month-regenerate-btn" style="font-size:13px; color:var(--text-secondary, #888); cursor:pointer; background:none; border:none">
@@ -381,6 +555,53 @@ function renderMonthCard(r) {
             <div class="report-card-foot">여기까지가 데이터예요. 다음은 묵상 안에서.</div>
         </article>
     `;
+}
+
+/**
+ * Phase E-9/R-DD: month 카드 drill 부착. week 와 같은 패턴 + 카테고리 chip 추가.
+ */
+function bindMonthDrillDown(container, dek, reports) {
+    const cards = container.querySelectorAll('[data-year-month]');
+    cards.forEach((card, idx) => {
+        const r = reports[idx];
+        if (!r) return;
+        const range = { start: r.startDate, end: r.endDate };
+
+        card.querySelectorAll('[data-drill]').forEach(chip => {
+            const type = chip.dataset.drill;
+            if (type === 'person') {
+                attachDrillDown(chip, {
+                    type: 'person',
+                    params: { personId: chip.dataset.personId },
+                    range, dek, userId: _userId,
+                });
+            } else if (type === 'category') {
+                attachDrillDown(chip, {
+                    type: 'category',
+                    params: { categoryId: chip.dataset.categoryId },
+                    range, dek, userId: _userId,
+                });
+            } else if (type === 'labelPair') {
+                attachDrillDown(chip, {
+                    type: 'labelPair',
+                    params: { a: chip.dataset.a, b: chip.dataset.b },
+                    range, dek, userId: _userId,
+                });
+            }
+        });
+
+        const decisionBtn = card.querySelector('[data-drill-decision]');
+        if (decisionBtn) {
+            attachDrillDown(decisionBtn, {
+                type: 'decision',
+                params: {},
+                range, dek, userId: _userId,
+                label: '이 기간 결단의 흐름 (raw)',
+            });
+        }
+
+        enrichPersonChips(card, dek);
+    });
 }
 
 function bindMonthRegenerateButtons(dek) {

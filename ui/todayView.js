@@ -30,6 +30,8 @@ import { generateMonthlyReport } from '../reports/monthlyReportFlow.js';
 import { getMonthRange } from '../reports/monthlyAggregator.js';
 // 토요일이면 주/월/분기/연/5·10년 회고가 단계별로 추가 (eveningLoop의 토요일 감지 재사용)
 import { determineLayers } from './eveningLoop.js';
+// Phase E-9/R-DD: 인라인 카드에도 드릴다운
+import { attachDrillDown } from './reportDrillDown.js';
 
 let _userId = null;
 let _date = null;
@@ -267,6 +269,7 @@ async function handleWeekReportClick(btn) {
         if (inline) inline.innerHTML = renderWeekReportInline(result.report);
         btn.style.display = 'none';   // 이미 만들었으니 같은 버튼 숨김
         if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+        bindInlineDrill(inline, dek);
 
         // 인라인 카드의 재작성 버튼
         document.getElementById('week-report-regenerate-btn')?.addEventListener('click', async () => {
@@ -276,6 +279,7 @@ async function handleWeekReportClick(btn) {
                 const r2 = await generateWeeklyReport(dek, _userId, weekStart, weekEnd, { force: true });
                 if (inline) inline.innerHTML = renderWeekReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+                bindInlineDrill(inline, dek);
                 showToast('주간 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('weekly regenerate failed:', e);
@@ -328,12 +332,16 @@ function renderWeekReportInline(r) {
            </div>`
         : '';
 
+    const weeklyDecisionSamples = stats.decisionFlow?.sampleSize ?? 0;
     const decisionFlowHtml = r.decisionFlow
         ? `<div class="report-section" style="margin-top:14px">
                <div class="report-section-label" style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
                    <i data-lucide="compass" class="report-section-icon"></i> 결단의 흐름
                </div>
                <p style="margin:0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${weeklyDecisionSamples > 0
+                    ? `<button class="drill-link" data-inline-drill="decision" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}" style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
            </div>`
         : '';
 
@@ -347,7 +355,7 @@ function renderWeekReportInline(r) {
         : '';
 
     return `
-        <article class="card-section" style="margin-top:16px; padding:16px">
+        <article class="card-section week-report-inline" style="margin-top:16px; padding:16px" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}">
             <header style="margin-bottom:10px">
                 <h3 style="margin:0; font-size:15px">${escapeHtml(r.startDate || '')} ~ ${escapeHtml(r.endDate || '')}</h3>
             </header>
@@ -401,6 +409,7 @@ async function handleMonthReportClick(btn) {
         if (inline) inline.innerHTML = renderMonthReportInline(result.report);
         btn.style.display = 'none';
         if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+        bindInlineDrill(inline, dek);
 
         document.getElementById('month-report-regenerate-btn')?.addEventListener('click', async () => {
             const rb = document.getElementById('month-report-regenerate-btn');
@@ -409,6 +418,7 @@ async function handleMonthReportClick(btn) {
                 const r2 = await generateMonthlyReport(dek, _userId, start, end, { force: true });
                 if (inline) inline.innerHTML = renderMonthReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+                bindInlineDrill(inline, dek);
                 showToast('월간 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('monthly regenerate failed:', e);
@@ -469,12 +479,16 @@ function renderMonthReportInline(r) {
            </div>`
         : '';
 
+    const monthlyDecisionSamples = stats.decisionFlow?.sampleSize ?? 0;
     const decisionFlowHtml = r.decisionFlow
         ? `<div class="report-section" style="margin-top:14px">
                <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:6px">
                    <i data-lucide="compass"></i> 결단의 흐름
                </div>
                <p style="margin:0; white-space:pre-wrap">${escapeHtml(r.decisionFlow)}</p>
+               ${monthlyDecisionSamples > 0
+                    ? `<button class="drill-link" data-inline-drill="decision" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}" style="margin-top:8px">▶ 이 결단들의 raw 목록 보기</button>`
+                    : ''}
            </div>`
         : '';
 
@@ -488,7 +502,7 @@ function renderMonthReportInline(r) {
         : '';
 
     return `
-        <article class="card-section" style="margin-top:16px; padding:16px">
+        <article class="card-section month-report-inline" style="margin-top:16px; padding:16px" data-start="${escapeHtml(r.startDate || '')}" data-end="${escapeHtml(r.endDate || '')}">
             <header style="margin-bottom:10px">
                 <h3 style="margin:0; font-size:15px">${escapeHtml(stats.yearMonth || r.startDate || '')}</h3>
                 ${r.startDate && r.endDate ? `<p style="margin:4px 0 0; font-size:12px; color:var(--text-secondary)">${escapeHtml(r.startDate)} ~ ${escapeHtml(r.endDate)}</p>` : ''}
@@ -514,6 +528,27 @@ function renderMonthReportInline(r) {
             </div>
         </article>
     `;
+}
+
+/**
+ * Phase E-9/R-DD: 인라인 카드의 [상세] 버튼에 드릴다운 부착.
+ * 인라인은 길이를 절제해 결단 흐름만 부착. 인물·라벨 chip은 리포트 메뉴에서.
+ */
+function bindInlineDrill(inlineRoot, dek) {
+    if (!inlineRoot) return;
+    inlineRoot.querySelectorAll('[data-inline-drill="decision"]').forEach(btn => {
+        const start = btn.dataset.start;
+        const end = btn.dataset.end;
+        if (!start || !end) return;
+        attachDrillDown(btn, {
+            type: 'decision',
+            params: {},
+            range: { start, end },
+            dek,
+            userId: _userId,
+            label: '이 기간 결단의 흐름 (raw)',
+        });
+    });
 }
 
 // ─── 다음 날 묵상 버튼 ───

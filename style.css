@@ -1274,6 +1274,178 @@ button .btn-icon { vertical-align: text-bottom; }
     border-top: 1px dashed var(--border);
 }
 
+/* ═══ Drill-down (Phase E-9/R-DD) — 리포트 카드 2층 ═══ */
+.drill-section { /* 본문 섹션 한 묶음 */ }
+.drill-group { margin-top: var(--sp-3); }
+.drill-group:first-child { margin-top: var(--sp-2); }
+.drill-group-label {
+    display: block;
+    font-size: 11px; font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+}
+.drill-chip-row {
+    display: flex; flex-wrap: wrap; gap: 6px;
+}
+.drill-chip {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background var(--ease), border-color var(--ease), color var(--ease);
+}
+.drill-chip:hover,
+.drill-chip:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+}
+.drill-trigger.drill-open,
+.drill-chip.drill-open {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.drill-link {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--ease);
+}
+.drill-link:hover,
+.drill-link:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+}
+.drill-link.drill-open {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.drill-drawer {
+    margin: var(--sp-2) 0 var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--bg-elev);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    animation: drillFadeIn 0.15s ease-out;
+}
+@keyframes drillFadeIn {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: none; }
+}
+.drill-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+}
+.drill-drawer-label {
+    font-size: 12px; font-weight: 600;
+    color: var(--accent);
+}
+.drill-drawer-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; line-height: 1;
+    color: var(--text-secondary);
+    padding: 0 6px;
+}
+.drill-drawer-close:hover { color: var(--text-primary); }
+.drill-drawer-body { font-size: 13px; color: var(--text-primary); }
+.drill-loading,
+.drill-empty,
+.drill-error {
+    font-size: 12px; color: var(--text-secondary);
+    padding: 8px 0; text-align: center; font-style: italic;
+}
+.drill-error { color: var(--dot-orange); }
+.drill-summary {
+    margin: 0 0 var(--sp-2);
+    font-size: 12px; color: var(--text-secondary);
+}
+
+.drill-dot-list,
+.drill-decision-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+    border-radius: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    max-height: 320px; overflow-y: auto;
+}
+.drill-dot-row,
+.drill-decision-row {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+.drill-dot-row:last-child,
+.drill-decision-row:last-child { border-bottom: none; }
+
+.drill-dot-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+}
+.drill-dot-when {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+.drill-dot-title {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.drill-dot-meta {
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.drill-decision-head {
+    display: flex; justify-content: space-between; gap: 10px;
+    align-items: baseline;
+}
+.drill-decision-title { font-weight: 500; }
+.drill-decision-meta {
+    color: var(--text-secondary);
+    font-size: 11.5px; white-space: nowrap;
+}
+.drill-decision-sub {
+    margin-top: 2px;
+    color: var(--text-secondary); font-size: 11.5px;
+}
+
+.drill-overflow {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: right;
+}
+
+/* 모바일 — drill-dot-row 가 좁아서 grid 무너지지 않게 세로 스택 */
+@media (max-width: 640px) {
+    .drill-dot-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+    .drill-dot-meta { white-space: normal; }
+}
+
 /* ═══ Dashboard ═══ */
 /* 대시보드 안의 큰 섹션 단위 (나의 목표 / 이번 주 흐름 등). 메뉴 통합 후 도입. */
 .dash-section {
