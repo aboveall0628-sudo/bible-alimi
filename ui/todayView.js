@@ -43,6 +43,8 @@ import { determineLayers } from './eveningLoop.js';
 import { attachDrillDown } from './reportDrillDown.js';
 // Phase E-9/R-QA: 카드 하단 Q&A 입력창
 import { mountReportQna } from './reportQna.js';
+// STEP A-6: 시간순 도트 펼치기 — reports.js 와 같은 토글 재사용
+import { renderDotsTimelineDetails } from './reports.js';
 
 let _userId = null;
 let _date = null;
@@ -123,6 +125,9 @@ async function loadTodayReport(dek) {
             insightsHtml = buildInsightsBlock(todayDots);
         } catch (e) { console.warn('today insights load failed:', e); }
 
+        // STEP A-6: 시간순 도트 펼치기 토글 — 산문 아래
+        const timelineHtml = renderDotsTimelineDetails(stats.dotsTimeline);
+
         body.innerHTML = `
             <div class="el-stat-row">
                 <div class="el-stat"><span class="el-stat-num">${ds.doneCount || 0}<small>/${ds.totalDots || 0}</small></span><span class="el-stat-lbl">완료</span></div>
@@ -133,6 +138,7 @@ async function loadTodayReport(dek) {
             <div class="ai-summary-card" style="margin-top: 12px">
                 <p style="margin:0; white-space:pre-wrap">${escapeHtml(report.aiSummary)}</p>
             </div>
+            ${timelineHtml}
             ${observationHtml}
             ${questionsHtml}
             <div style="text-align:center; margin-top:14px">

@@ -22,27 +22,61 @@ import { getAllOrganizations } from '../data/orgRepo.js';
 // (2026-05-13 #4) Q&A 응답에 P_001/O_001 토큰 회귀 fix —
 //   reports.js bindDayQna 등이 `context: {}` 로 호출. pseudonymize 매핑이 비어
 //   LLM 의 P_001 토큰이 역가명화 못 되고 그대로 노출됨.
-//   mountReportQna 안에서 stats.connections 기반으로 자동 채움.
-async function buildContextFromStats(stats, dek, userId) {
+// (2026-05-13 STEP A-2) 추가: stats.connections + stats.dotsTimeline 안의 personId·orgId 도
+//   이름으로 치환한 statsForLLM 을 함께 반환. (#4 잔재 회귀 — Q&A 응답 ⑤에 P_001 노출)
+async function enrichStatsAndContext(stats, dek, userId) {
     try {
         const personConns = stats?.connections?.persons || [];
         const orgConns   = stats?.connections?.organizations || [];
-        if (personConns.length === 0 && orgConns.length === 0) return { persons: [], orgs: [] };
+        const timeline   = stats?.dotsTimeline || [];
+        const hasTimelineIds = timeline.some(t =>
+            (t.personIds && t.personIds.length > 0) || (t.orgIds && t.orgIds.length > 0)
+        );
+        if (personConns.length === 0 && orgConns.length === 0 && !hasTimelineIds) {
+            return { context: { persons: [], orgs: [] }, statsForLLM: stats };
+        }
+
         const [allPersons, allOrgs] = await Promise.all([
-            personConns.length > 0 ? getAllPersons(dek, userId).catch(() => []) : Promise.resolve([]),
-            orgConns.length > 0   ? getAllOrganizations(dek, userId).catch(() => []) : Promise.resolve([]),
+            getAllPersons(dek, userId).catch(() => []),
+            getAllOrganizations(dek, userId).catch(() => []),
         ]);
         const personNameById = new Map(allPersons.map(p => [p.id, p.name || '']));
         const orgNameById    = new Map(allOrgs.map(o => [o.id, o.name || '']));
-        const persons = personConns
-            .map(c => personNameById.get(c.personId))
-            .filter(n => n && n.length > 0);
-        const orgs = orgConns
-            .map(c => orgNameById.get(c.orgId))
-            .filter(n => n && n.length > 0);
-        return { persons, orgs };
+
+        const personsForLLM = personConns.map(({ personId, ...rest }) => ({
+            name: personNameById.get(personId) || '(알 수 없는 인물)',
+            ...rest,
+        }));
+        const orgsForLLM = orgConns.map(({ orgId, ...rest }) => ({
+            name: orgNameById.get(orgId) || '(알 수 없는 조직)',
+            ...rest,
+        }));
+        const timelineForLLM = timeline.map(t => ({
+            ...t,
+            personIds: undefined,
+            orgIds:    undefined,
+            persons:   (t.personIds || []).map(id => personNameById.get(id)).filter(Boolean),
+            orgs:      (t.orgIds || []).map(id => orgNameById.get(id)).filter(Boolean),
+        }));
+
+        const statsForLLM = {
+            ...stats,
+            connections: { ...stats.connections, persons: personsForLLM, organizations: orgsForLLM },
+            dotsTimeline: timelineForLLM,
+        };
+
+        const persons = Array.from(new Set([
+            ...personsForLLM.map(p => p.name).filter(n => n && !n.startsWith('(')),
+            ...timelineForLLM.flatMap(t => t.persons || []),
+        ]));
+        const orgs = Array.from(new Set([
+            ...orgsForLLM.map(o => o.name).filter(n => n && !n.startsWith('(')),
+            ...timelineForLLM.flatMap(t => t.orgs || []),
+        ]));
+
+        return { context: { persons, orgs }, statsForLLM };
     } catch {
-        return { persons: [], orgs: [] };
+        return { context: { persons: [], orgs: [] }, statsForLLM: stats };
     }
 }
 
@@ -101,17 +135,18 @@ export async function mountReportQna(anchorEl, cfg) {
         const tempCard = appendPendingCard(wrap.querySelector('.qna-history'), question);
 
         try {
-            // (2026-05-13 #4) cfg.context 비어 있으면 stats.connections 로 자동 채움 — P_001 회귀 fix
+            // (2026-05-13 STEP A-2) cfg.stats 안의 personId/orgId 까지 이름으로 치환한 statsForLLM 사용.
+            //   기존 buildContextFromStats 는 context.persons 만 채웠고 stats 내부 ID 는 그대로 — #4 회귀.
+            const enriched = await enrichStatsAndContext(cfg.stats || {}, cfg.dek, cfg.userId);
             const explicitCtx = cfg.context || {};
-            const needAutoCtx = !explicitCtx.persons?.length && !explicitCtx.orgs?.length;
-            const autoCtx = needAutoCtx
-                ? await buildContextFromStats(cfg.stats, cfg.dek, cfg.userId)
-                : null;
+            const finalCtx = (explicitCtx.persons?.length || explicitCtx.orgs?.length)
+                ? explicitCtx
+                : enriched.context;
             const res = await callReportQuestion({
                 question,
                 reportType: cfg.reportType,
-                stats:      cfg.stats || {},
-                context:    autoCtx || explicitCtx,
+                stats:      enriched.statsForLLM,
+                context:    finalCtx,
             });
 
             // 저장 — Firestore

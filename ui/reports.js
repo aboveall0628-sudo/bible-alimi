@@ -200,6 +200,9 @@ function renderDayCard(r) {
                이 날은 아직 AI 산문이 채워지지 않았어요. 오늘 화면 하단의 [오늘 리포트 만들기]에서 다시 만들 수 있어요.
            </div>`;
 
+    // STEP A-6 (17 흡수): 시간순 도트 펼치기 — raw 투명성 (3층 분리 중 드릴다운 자리)
+    const timelineBlock = renderDotsTimelineDetails(stats.dotsTimeline);
+
     const obsBlock = observation
         ? `<div class="report-observation">
                <span class="report-section-label"><i data-lucide="eye" class="report-section-icon"></i> 관찰</span>
@@ -232,11 +235,44 @@ function renderDayCard(r) {
             <div class="report-card-body">
                 ${statsRow}
                 ${summaryBlock}
+                ${timelineBlock}
                 ${obsBlock}
                 ${qBlock}
                 <div class="report-card-foot">여기까지가 데이터예요. 다음은 묵상 안에서.</div>
             </div>
         </article>
+    `;
+}
+
+// STEP A-6: 시간순 도트 표 details/summary — 산문 아래 접어둠.
+//   17번 흡수: 사용자가 "오늘 그대로" 보고 싶을 때 펼침. 평소엔 산문이 메인.
+//   todayView 의 일간 리포트 카드에서도 동일한 토글 노출하려고 export.
+export function renderDotsTimelineDetails(timeline) {
+    if (!Array.isArray(timeline) || timeline.length === 0) return '';
+    const rows = timeline.map(t => {
+        const satCells = [];
+        if (typeof t.executionSatisfaction === 'number') satCells.push(`실행 ${t.executionSatisfaction}`);
+        if (typeof t.outcomeSatisfaction === 'number')   satCells.push(`결과 ${t.outcomeSatisfaction}`);
+        const sats = satCells.join(' · ');
+        const reasonHtml = t.reason
+            ? `<div class="dot-row-reason">"${escapeHtml(t.reason)}"</div>`
+            : '';
+        return `
+            <li class="dot-row">
+                <span class="dot-row-time">${escapeHtml(t.time || '')}</span>
+                <div class="dot-row-body">
+                    <div class="dot-row-title">${escapeHtml(t.title || '')}</div>
+                    ${reasonHtml}
+                    ${sats ? `<div class="dot-row-meta">${escapeHtml(sats)}</div>` : ''}
+                </div>
+            </li>
+        `;
+    }).join('');
+    return `
+        <details class="report-timeline">
+            <summary>시간순 도트 ${timeline.length}개 펼치기</summary>
+            <ul class="dot-timeline-list">${rows}</ul>
+        </details>
     `;
 }
 

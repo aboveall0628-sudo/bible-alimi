@@ -37,18 +37,24 @@ import { getAllOrganizations } from '../data/orgRepo.js';
  *   orgNames: string[],            // 가명화 context.orgs용
  * }>}
  */
-async function enrichStatsForLLM(dek, userId, stats) {
+export async function enrichStatsForLLM(dek, userId, stats) {
     const personConns = stats.connections?.persons || [];
     const orgConns   = stats.connections?.organizations || [];
+    const timeline   = stats.dotsTimeline || [];
 
-    if (personConns.length === 0 && orgConns.length === 0) {
+    // timeline 안에도 personIds/orgIds 가 들어있으면 매핑 대상.
+    const hasTimelineIds = timeline.some(t =>
+        (t.personIds && t.personIds.length > 0) || (t.orgIds && t.orgIds.length > 0)
+    );
+
+    if (personConns.length === 0 && orgConns.length === 0 && !hasTimelineIds) {
         return { statsForLLM: stats, personNames: [], orgNames: [] };
     }
 
     // 한 번에 모든 인물·조직 fetch (이 도트들에 등장한 사람들 매핑용)
     const [allPersons, allOrgs] = await Promise.all([
-        personConns.length > 0 ? getAllPersons(dek, userId).catch(() => []) : Promise.resolve([]),
-        orgConns.length > 0   ? getAllOrganizations(dek, userId).catch(() => []) : Promise.resolve([]),
+        getAllPersons(dek, userId).catch(() => []),
+        getAllOrganizations(dek, userId).catch(() => []),
     ]);
 
     const personNameById = new Map(allPersons.map(p => [p.id, p.name || '(이름 미지정)']));
@@ -64,6 +70,15 @@ async function enrichStatsForLLM(dek, userId, stats) {
         ...rest,
     }));
 
+    // STEP A-2: timeline 안의 personIds/orgIds 도 이름으로 치환 (#4 회귀 차단)
+    const timelineForLLM = timeline.map(t => ({
+        ...t,
+        personIds: undefined,
+        orgIds:    undefined,
+        persons:   (t.personIds || []).map(id => personNameById.get(id)).filter(Boolean),
+        orgs:      (t.orgIds || []).map(id => orgNameById.get(id)).filter(Boolean),
+    }));
+
     const statsForLLM = {
         ...stats,
         connections: {
@@ -71,11 +86,18 @@ async function enrichStatsForLLM(dek, userId, stats) {
             persons:       personsForLLM,
             organizations: orgsForLLM,
         },
+        dotsTimeline: timelineForLLM,
     };
 
     // 가명화 context — 진짜 이름들 (P_001 등으로 자동 치환됨)
-    const personNames = personsForLLM.map(p => p.name).filter(n => n && !n.startsWith('('));
-    const orgNames    = orgsForLLM.map(o => o.name).filter(n => n && !n.startsWith('('));
+    const personNames = Array.from(new Set([
+        ...personsForLLM.map(p => p.name).filter(n => n && !n.startsWith('(')),
+        ...timelineForLLM.flatMap(t => t.persons || []),
+    ]));
+    const orgNames = Array.from(new Set([
+        ...orgsForLLM.map(o => o.name).filter(n => n && !n.startsWith('(')),
+        ...timelineForLLM.flatMap(t => t.orgs || []),
+    ]));
 
     return { statsForLLM, personNames, orgNames };
 }

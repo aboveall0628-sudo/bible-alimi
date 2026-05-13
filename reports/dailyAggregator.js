@@ -50,9 +50,109 @@ export async function aggregateDailyStats(dek, userId, date) {
         labelFrequency:           computeLabelFrequency(dots),
         connections:              computeConnections(dots),
         meditationMeta:           computeMeditationMeta(dots),
+        // STEP A — 17·1 흡수: 다관점 매트릭스 + 시간순 도트 배열 (산문 자연 인용 + UI 펼침)
+        dotsTimeline:             computeDotsTimeline(dots),
+        timeBandMatrix:           computeTimeBandMatrix(dots),
+        categorySatisfactionMatrix: computeCategorySatisfactionMatrix(dots),
         // Phase F: 거래 통계 — bucket 평문/category 평문만 LLM 에 노출. exactAmount 는 자물쇠 안.
         transactionStats:         computeTransactionStats(txs),
     };
+}
+
+// ─── STEP A-1: 시간순 도트 배열 (17·1 — 다관점 + reason 인용) ───
+// LLM 산문 자연 인용 + UI "시간순 도트 펼치기" 토글이 함께 사용.
+// linkedPersonIds·linkedOrgIds 는 enrichStatsForLLM 에서 이름으로 치환됨.
+function computeDotsTimeline(dots) {
+    return [...dots]
+        .filter(d => typeof d.timeSlot === 'number')
+        .sort((a, b) => a.timeSlot - b.timeSlot)
+        .map(d => {
+            const startMin = d.timeSlot * MIN_PER_SLOT;
+            const durMin   = (d.durationSlots || 1) * MIN_PER_SLOT;
+            const endMin   = startMin + durMin;
+            return {
+                time:                 fmtSlotRange(startMin, endMin),
+                title:                d.title || d.label || '(제목 없음)',
+                reason:               d.reason || null,
+                labels:               d.labelIds || [],
+                executionSatisfaction: d.executionSatisfaction ?? null,
+                outcomeSatisfaction:   d.outcomeSatisfaction ?? null,
+                executed:              d.executed ?? null,
+                personIds:             d.linkedPersonIds || [],
+                orgIds:                d.linkedOrgIds || [],
+                durationMinutes:       durMin,
+            };
+        });
+}
+
+function fmtSlotRange(startMin, endMin) {
+    const fmt = (m) => {
+        const h = Math.floor(m / 60);
+        const mm = m % 60;
+        return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    };
+    return `${fmt(startMin)}~${fmt(endMin)}`;
+}
+
+// ─── STEP A-1: 시간대 6구간 매트릭스 (17 — 시간대 다관점) ───
+// 새벽(0~6), 아침(6~9), 오전(9~12), 오후(12~18), 저녁(18~22), 밤(22~24)
+// 도트의 timeSlot 은 15분 단위(0~95). 6시는 slot 24, 9시는 36, 12시는 48, 18시는 72, 22시는 88.
+function computeTimeBandMatrix(dots) {
+    const bands = [
+        { id: 'dawn',    label: '새벽 (0~6시)',  startSlot: 0,  endSlot: 24 },
+        { id: 'morning', label: '아침 (6~9시)',  startSlot: 24, endSlot: 36 },
+        { id: 'late-morning', label: '오전 (9~12시)', startSlot: 36, endSlot: 48 },
+        { id: 'afternoon', label: '오후 (12~18시)', startSlot: 48, endSlot: 72 },
+        { id: 'evening', label: '저녁 (18~22시)', startSlot: 72, endSlot: 88 },
+        { id: 'night',   label: '밤 (22~24시)',  startSlot: 88, endSlot: 96 },
+    ];
+    return bands.map(b => {
+        const inBand = dots.filter(d =>
+            typeof d.timeSlot === 'number' && d.timeSlot >= b.startSlot && d.timeSlot < b.endSlot
+        );
+        const sats = inBand
+            .map(d => d.executionSatisfaction)
+            .filter(v => typeof v === 'number');
+        const avgSat = sats.length > 0 ? round2(sats.reduce((a, b) => a + b, 0) / sats.length) : null;
+        const totalMinutes = inBand.reduce((sum, d) => sum + (d.durationSlots || 1) * MIN_PER_SLOT, 0);
+        return {
+            id:           b.id,
+            label:        b.label,
+            dotCount:     inBand.length,
+            avgSatisfaction: avgSat,
+            totalMinutes,
+        };
+    });
+}
+
+// ─── STEP A-1: 라벨×만족도 매트릭스 (17 — 카테고리 다관점) ───
+// timeAllocation.byLabel 은 시간 합계만 있어 만족도 분리 안 됨.
+// 산문이 "카테고리 X 에서 만족도가 낮게 관찰" 같은 흐름을 자연스럽게 쓸 수 있게 별도 매트릭스.
+function computeCategorySatisfactionMatrix(dots) {
+    const byLabel = {};
+    for (const dot of dots) {
+        const minutes = (dot.durationSlots || 1) * MIN_PER_SLOT;
+        const sat = typeof dot.executionSatisfaction === 'number' ? dot.executionSatisfaction : null;
+        for (const labelId of (dot.labelIds || [])) {
+            if (!byLabel[labelId]) {
+                byLabel[labelId] = { labelId, dotCount: 0, satSum: 0, satN: 0, totalMinutes: 0 };
+            }
+            byLabel[labelId].dotCount++;
+            byLabel[labelId].totalMinutes += minutes;
+            if (sat !== null) {
+                byLabel[labelId].satSum += sat;
+                byLabel[labelId].satN++;
+            }
+        }
+    }
+    return Object.values(byLabel)
+        .map(b => ({
+            labelId:         b.labelId,
+            dotCount:        b.dotCount,
+            totalMinutes:    b.totalMinutes,
+            avgSatisfaction: b.satN > 0 ? round2(b.satSum / b.satN) : null,
+        }))
+        .sort((a, b) => b.dotCount - a.dotCount);
 }
 
 // ─── 1) 도트 카운트 (완료/부분/건너뜀/대체) ───

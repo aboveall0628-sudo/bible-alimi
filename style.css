@@ -1337,6 +1337,60 @@ button .btn-icon { vertical-align: text-bottom; }
     border-top: 1px dashed var(--border);
 }
 
+/* STEP A-6 (17 흡수): 시간순 도트 펼치기 — 산문 아래 raw 투명성 */
+.report-timeline {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bg-quiet, rgba(0,0,0,0.025));
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(0,0,0,0.06));
+}
+.report-timeline > summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    list-style: none;
+    user-select: none;
+}
+.report-timeline > summary::-webkit-details-marker { display: none; }
+.report-timeline > summary::before {
+    content: "▸ ";
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+.report-timeline[open] > summary::before { content: "▾ "; }
+.report-timeline .dot-timeline-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+.report-timeline .dot-row {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px dashed var(--border, rgba(0,0,0,0.05));
+    font-size: 12px;
+    line-height: 1.5;
+}
+.report-timeline .dot-row:first-child { border-top: 0; }
+.report-timeline .dot-row-time {
+    flex: 0 0 96px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.report-timeline .dot-row-body { flex: 1; min-width: 0; }
+.report-timeline .dot-row-title { color: var(--text-primary); }
+.report-timeline .dot-row-reason {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 2px;
+}
+.report-timeline .dot-row-meta {
+    color: var(--text-secondary);
+    font-size: 11px;
+    margin-top: 2px;
+}
+
 /* ═══ Drill-down (Phase E-9/R-DD) — 리포트 카드 2층 ═══ */
 .drill-section { /* 본문 섹션 한 묶음 */ }
 .drill-group { margin-top: var(--sp-3); }

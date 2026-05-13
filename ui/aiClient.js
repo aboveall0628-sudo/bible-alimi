@@ -883,7 +883,19 @@ function parseReportQuestionResponse(text) {
     const NOT_WHY_LINE   = "이것은 \"왜\"의 답이 아닙니다. 데이터가 그린 흐름일 뿐입니다.";
     const MEDITATION_LINE = "이 흐름을 가지고 내일 아침 묵상에서 말씀과 기도 안에서 하나님을 먼저 만나세요.";
 
-    const raw = String(text || '').trim();
+    // STEP A-5: LLM 이 본문에 P_001/O_001 토큰을 그대로 인용한 경우 줄 단위로 제거.
+    //   원칙적으로는 enrichStatsAndContext 에서 막아야 하지만, LLM 이 stats 의 다른 자리에서
+    //   잔재 ID 를 보고 추출했을 경우의 안전망. 토큰이 들어간 줄은 응답에서 빼고 safetyPatched.
+    const TOKEN_PATTERN = /\b[PO]_\d{3,}\b/;
+    let sanitized = String(text || '')
+        .split(/\r?\n/)
+        .filter(line => !TOKEN_PATTERN.test(line))
+        .join('\n');
+    if (sanitized.length < String(text || '').length * 0.5) {
+        // 50% 이상 잘리면 위험 — 원본 유지하고 safetyPatched 신호만
+        sanitized = String(text || '');
+    }
+    const raw = sanitized.trim();
     // 가벼운 정규화 — 따옴표 종류, 공백, 줄바꿈
     const looksLike = (line, candidate) => {
         const norm = (s) => String(s).replace(/['""'']/g, '"').replace(/\s+/g, ' ').trim();
