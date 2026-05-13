@@ -104,6 +104,10 @@ function renderSetupScreen() {
                     <input type="checkbox" id="setup-confirm-chk" />
                     <span>네, 안전한 곳에 적어뒀어요</span>
                 </label>
+                <p style="font-size:12px; color:var(--text-secondary); margin-top:12px; text-align:left; line-height:1.6;">
+                    💡 24단어를 잃어버리는 비상 상황을 대비해, 가입 후 [설정 → 이메일 복구]에서
+                    <strong>두 번째 안전망</strong>을 등록해 둘 수 있어요. (서버측 인증 시스템 도입 후 활성화)
+                </p>
                 <button id="setup-finish-btn" class="primary-btn" style="width:100%" disabled>다음으로</button>
             </div>
 
@@ -290,7 +294,7 @@ function bindEvents() {
             try {
                 // 키마스터로 DEK 및 복구코드 생성
                 const vaultData = await setupNewVault(p1);
-                
+
                 // Firestore에 키 메타데이터 저장 (dek와 recoveryWords 제외)
                 await setDoc(doc(db, 'users', _currentUserId), {
                     masterKeySalt: vaultData.salt,
@@ -302,6 +306,18 @@ function bindEvents() {
                     passwordPolicyVersion: POLICY_VERSION,
                     createdAt: serverTimestamp()
                 });
+
+                // ─────────────────────────────────────────────────────────────
+                // 트랙 2 / Phase 3 활성화 자리:
+                //   const { createEmailSlot } = await import('../crypto/emailRecoverySlot.js');
+                //   const slot = await createEmailSlot(vaultData.dek);
+                //   const userEmail = (auth.currentUser && auth.currentUser.email) || null;
+                //   // Cloud Function 호출: emailRecoveryRegister(slot.emailSlotKeyRaw, userEmail)
+                //   //   → 응답으로 wrappedEmailSlotKey 받음
+                //   // users 문서에 wrappedDEK_email, wrappedDEK_email_iv, wrappedEmailSlotKey, recoveryEmail 저장
+                //   // slot.emailSlotKeyRaw 변수는 즉시 폐기 (null 할당 + GC 의존)
+                // Phase 2 (현재)에서는 가입 후 [설정 → 이메일 복구]에서 사용자 선택으로 등록.
+                // ─────────────────────────────────────────────────────────────
 
                 // 복구 단어 표시
                 document.getElementById('setup-step-1').classList.add('hidden');
