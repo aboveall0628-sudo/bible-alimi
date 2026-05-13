@@ -152,6 +152,16 @@
 
             <!-- ── 오늘 뷰 — 2026-05-13: 첫 진입 화면 ── -->
             <div id="view-today" class="view">
+                <!-- 묵상 Phase B (2026-05-13): 18시 이후·오늘 날짜에서만 노출.
+                     "오늘을 마무리 호흡으로 닫아보세요" 권유 — 강제·종교적 강요 X. -->
+                <div id="evening-banner" class="evening-banner hidden">
+                    <i class="evening-banner-icon" data-lucide="sunset"></i>
+                    <span id="evening-banner-text" class="evening-banner-text">이제 마무리 호흡 한 번 어떠세요?</span>
+                    <button id="evening-banner-dismiss" class="evening-banner-dismiss" type="button" aria-label="배너 닫기">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <!-- 2026-05-13: 오늘의 시작 영역 — 대시보드에서 옮겨옴 (관제탑 정체성 정리).
                      시간대 인사 + 핀 원칙 + 어제 묵상 질문 + 미열람 Q&A 한자리. -->
                 <section class="dash-section" id="dash-section-today-start">
@@ -191,7 +201,19 @@
                         <span id="meditation-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
                         <button class="collapsible-toggle" data-target="meditation-note">접기</button>
                     </div>
-                    <div id="meditation-note" class="note-editor collapsible-body" contenteditable="true" data-placeholder="말씀을 곱씹다 떠오른 생각을 한 줄씩 적어 보세요"></div>
+                    <div id="meditation-note" class="note-editor collapsible-body" contenteditable="true" data-placeholder="한 호흡 머무는 자리. 말씀을 곱씹다 떠오른 생각을 적어 보세요."></div>
+                </section>
+
+                <!-- 기도 — 묵상 Phase B (2026-05-13): "말씀 → 묵상 → 기도" 흐름의 종착.
+                     prayer 필드는 기존 meditations 정책에 박혀있음 (encryptionPolicy.js).
+                     content와 함께 한 블롭으로 저장 (todayView.js). -->
+                <section id="section-prayer" class="card-section">
+                    <div class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="hand-heart"></i> 기도</h2>
+                        <span id="prayer-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
+                        <button class="collapsible-toggle" data-target="prayer-note">접기</button>
+                    </div>
+                    <div id="prayer-note" class="note-editor collapsible-body" contenteditable="true" data-placeholder="오늘 떠오른 기도를 자유롭게 적어 보세요. 비워둬도 괜찮아요."></div>
                 </section>
 
                 <!-- 등산로(워크플로우) — 워크플로우 트랙 STEP 2 (2026-05-13) -->

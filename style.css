@@ -343,6 +343,33 @@ button .btn-icon { vertical-align: text-bottom; }
     color: var(--brand-primary); flex-shrink: 0;
 }
 
+/* 저녁 배너 (묵상 Phase B 2026-05-13) — 18시 이후 권유형. 닫기 버튼 1개. */
+.evening-banner {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    font-size: var(--fs-small); color: var(--text-primary);
+    margin-bottom: var(--sp-4);
+    box-shadow: var(--shadow-sm);
+}
+.evening-banner-icon {
+    width: 18px; height: 18px; stroke-width: 1.75;
+    color: var(--accent); flex-shrink: 0;
+}
+.evening-banner-text { flex: 1; }
+.evening-banner-dismiss {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    background: transparent; border: none; border-radius: var(--radius);
+    color: var(--ink-secondary); cursor: pointer;
+    transition: background var(--ease), color var(--ease);
+}
+.evening-banner-dismiss:hover { background: var(--surface-soft, var(--hover)); color: var(--text-primary); }
+.evening-banner-dismiss i { width: 16px; height: 16px; stroke-width: 1.75; }
+
 /* ── Card section ── */
 .card-section {
     background: var(--surface-card);

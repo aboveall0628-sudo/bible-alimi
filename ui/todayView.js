@@ -57,6 +57,7 @@ export function initTodayView({ userId, date }) {
     bindMeditationAutosave();
     bindDecisionsPanel();
     bindNextDayButton();
+    bindEveningBannerDismiss();
 }
 
 /**
@@ -65,10 +66,11 @@ export function initTodayView({ userId, date }) {
 export async function refreshTodayView({ userId, date }) {
     _userId = userId;
     _date = date;
+    renderEveningBanner();
     const dek = getDEK();
     if (!dek) return;
     await loadPinnedPrinciple(dek);
-    await loadMeditationNote(dek);
+    await loadMeditationDoc(dek);
     await loadDecisions(dek);
     await loadTodayReport(dek);
 }
@@ -1012,20 +1014,31 @@ async function loadPinnedPrinciple(dek) {
     }
 }
 
-// ─── 묵상 노트 자동 저장 (디바운스 1초) ───
+// ─── 묵상 노트 + 기도 통합 자동 저장 (디바운스 1초) ───
+// 정책: meditations.encrypted = ['content', 'decisions', 'prayer'] (encryptionPolicy.js)
+// prepareDocument 는 encryptedPayload 를 통째로 새 블롭으로 덮어쓴다.
+// → content / prayer 를 따로 저장하면 서로 덮어써서 데이터 손실.
+// → 항상 한 묶음으로 저장 (인메모리 캐시 _meditationCache).
 let _saveTimer = null;
+let _meditationCache = { content: '', prayer: '' };
 
 function bindMeditationAutosave() {
-    const editor = document.getElementById('meditation-note');
+    bindNoteEditor('meditation-note', 'content');
+    bindNoteEditor('prayer-note', 'prayer');
+}
+
+function bindNoteEditor(editorId, field) {
+    const editor = document.getElementById(editorId);
     if (!editor) return;
 
     editor.addEventListener('input', () => {
+        _meditationCache[field] = editor.innerText;
         clearTimeout(_saveTimer);
-        _saveTimer = setTimeout(() => saveMeditationNote(editor.innerText), 1000);
+        _saveTimer = setTimeout(saveMeditationDoc, 1000);
     });
 
     // 외부에서 복사해 온 텍스트는 폰트/배경/색상 인라인 스타일을 모두 떼고
-    // 순수 텍스트만 받아 옴 → 묵상 노트 폰트(프리텐다드)와 테마 색상이 그대로 적용됨
+    // 순수 텍스트만 받아 옴 → 노트 폰트(프리텐다드)와 테마 색상이 그대로 적용됨
     editor.addEventListener('paste', (e) => {
         e.preventDefault();
         const cd = e.clipboardData || window.clipboardData;
@@ -1045,47 +1058,93 @@ function bindMeditationAutosave() {
     });
 }
 
-async function saveMeditationNote(content) {
+async function saveMeditationDoc() {
     const dek = getDEK();
     if (!dek || !_userId || !_date) return;
 
-    const status = document.getElementById('meditation-save-status');
-    if (status) status.textContent = '저장하는 중...';
+    const noteStatus   = document.getElementById('meditation-save-status');
+    const prayerStatus = document.getElementById('prayer-save-status');
+    if (noteStatus)   noteStatus.textContent   = '저장하는 중...';
+    if (prayerStatus) prayerStatus.textContent = '저장하는 중...';
 
     try {
         const id = `meditation_${_userId}_${_date}`;
         const meta = { id, userId: _userId, date: _date, createdAt: serverTimestamp() };
-        const sensitive = { content };
+        const sensitive = {
+            content: _meditationCache.content || '',
+            prayer:  _meditationCache.prayer  || ''
+        };
         const document_ = await prepareDocument(dek, meta, sensitive);
         await setDoc(doc(db, 'meditations', id), document_, { merge: true });
 
-        if (status) {
-            status.textContent = '🔐 안전하게 보관됐어요';
-            setTimeout(() => { if (status) status.textContent = ''; }, 1500);
-        }
+        const ok = '🔐 안전하게 보관됐어요';
+        if (noteStatus)   noteStatus.textContent   = ok;
+        if (prayerStatus) prayerStatus.textContent = ok;
+        setTimeout(() => {
+            if (noteStatus)   noteStatus.textContent   = '';
+            if (prayerStatus) prayerStatus.textContent = '';
+        }, 1500);
     } catch (e) {
         console.error('meditation save failed:', e);
-        if (status) status.textContent = '저장이 잘 안 됐어요';
+        if (noteStatus)   noteStatus.textContent   = '저장이 잘 안 됐어요';
+        if (prayerStatus) prayerStatus.textContent = '저장이 잘 안 됐어요';
     }
 }
 
-async function loadMeditationNote(dek) {
-    const editor = document.getElementById('meditation-note');
-    if (!editor) return;
+async function loadMeditationDoc(dek) {
+    const noteEditor   = document.getElementById('meditation-note');
+    const prayerEditor = document.getElementById('prayer-note');
 
     try {
         const id = `meditation_${_userId}_${_date}`;
         const snap = await getDoc(doc(db, 'meditations', id));
         if (snap.exists()) {
             const data = await readDocument(dek, snap.data());
-            editor.innerText = data.content || '';
+            _meditationCache.content = data.content || '';
+            _meditationCache.prayer  = data.prayer  || '';
         } else {
-            editor.innerText = '';
+            _meditationCache = { content: '', prayer: '' };
         }
     } catch (e) {
         console.warn('meditation load failed:', e);
-        editor.innerText = '';
+        _meditationCache = { content: '', prayer: '' };
     }
+
+    if (noteEditor)   noteEditor.innerText   = _meditationCache.content;
+    if (prayerEditor) prayerEditor.innerText = _meditationCache.prayer;
+}
+
+// ─── 저녁 배너 (묵상 Phase B 2026-05-13) ───
+// 18시 이후 + 오늘 날짜에서만 노출. 그날 한정 닫힘 (localStorage), 다음날 자동 재노출.
+const EVENING_BANNER_DISMISS_KEY = 'sanctum_evening_banner_dismissed_';
+const EVENING_BANNER_HOUR = 18;
+
+function todayLocalISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function renderEveningBanner() {
+    const banner = document.getElementById('evening-banner');
+    if (!banner) return;
+
+    const today = todayLocalISO();
+    if (_date !== today) { banner.classList.add('hidden'); return; }
+    if (new Date().getHours() < EVENING_BANNER_HOUR) { banner.classList.add('hidden'); return; }
+    if (localStorage.getItem(EVENING_BANNER_DISMISS_KEY + today) === '1') { banner.classList.add('hidden'); return; }
+
+    banner.classList.remove('hidden');
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+}
+
+function bindEveningBannerDismiss() {
+    const btn = document.getElementById('evening-banner-dismiss');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        localStorage.setItem(EVENING_BANNER_DISMISS_KEY + todayLocalISO(), '1');
+        const banner = document.getElementById('evening-banner');
+        if (banner) banner.classList.add('hidden');
+    });
 }
 
 // ─── 결단 패널 ───
