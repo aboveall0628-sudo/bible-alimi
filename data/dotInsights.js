@@ -23,11 +23,17 @@ function normalizeTask(s) {
  * @param {number} limit 기본 3
  * @returns Array<{task, minutes, count}>
  */
-export function computeTopTasks(dots, limit = 3) {
+// STEP C-1 (#40 흡수): 수면·취침 등 정적인 회복 시간은 "시간 많이 쓴 일"에서
+//   대시보드 의미상 제외 (8시간 잡혀 항상 1위 — 정작 의미 있는 활동이 묻힘).
+const SLEEP_TASK_PATTERN = /수면|취침|기상|낮잠|선잠|졸음|잠시 ?잠/;
+
+export function computeTopTasks(dots, limit = 3, opts = {}) {
+    const excludeSleep = opts.excludeSleep === true;
     const bucket = new Map();
     (dots || []).forEach(d => {
         const t = normalizeTask(d.actualTask);
         if (!t) return;
+        if (excludeSleep && SLEEP_TASK_PATTERN.test(t)) return;
         const minutes = (d.durationSlots || 1) * SLOT_MINUTES;
         const cur = bucket.get(t) || { task: t, minutes: 0, count: 0 };
         cur.minutes += minutes;

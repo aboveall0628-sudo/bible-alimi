@@ -36,6 +36,8 @@ import { getActivePlan } from './scriptureSettings.js';
 import { listUnseenReportQuestions, markQuestionSeen } from '../reports/reportQuestionsRepo.js';
 import { computeTopTasks, computeTopLabels, computeTopCategories, formatMinutesShort } from '../data/dotInsights.js';
 import { findCategory } from '../data/dotCategories.js';
+// STEP C-3 (#49): 대시보드 숫자 카드 워크플로우 기반 — 이번 주 주간 목표 완료율
+import { getActiveGoalsByPeriod } from '../data/goalsRepo.js';
 
 export async function renderDashboardView(userId) {
     // R-QA 3세 게이트 헬퍼에서 사용 — module-private이 아니라 lazy fetch에서 안전하게 읽으려고
@@ -54,13 +56,30 @@ export async function renderDashboardView(userId) {
     past7.setDate(today.getDate() - 6);
     const startDate = fmt(past7);
 
-    const [dots, meditationCount, persons, orgs, workflows] = await Promise.all([
+    const [dots, meditationCount, persons, orgs, workflows, weeklyGoals] = await Promise.all([
         getDotsByDateRange(dek, userId, startDate, endDate).catch(() => []),
         countMeditations(userId, startDate, endDate).catch(() => 0),
         getAllPersons(dek, userId).catch(() => []),
         getAllOrganizations(dek, userId).catch(() => []),
         // 워크플로우 트랙 STEP 2 활용 — 활성 등산로 진척
         import('../data/workflowsRepo.js').then(m => m.getActiveWorkflows(dek, userId)).catch(() => []),
+        // STEP C-3 (#49): 이번 주 주간 목표 완료율 — 활성 + 완료 weekly 목표 모두 fetch
+        Promise.all([
+            getActiveGoalsByPeriod(dek, userId, 'weekly').catch(() => []),
+            // status 'completed' weekly goals — getActiveGoalsByPeriod 가 status==='active' 만 가져오므로 따로 보강
+            (async () => {
+                try {
+                    const q = query(
+                        collection(db, 'goals'),
+                        where('userId', '==', userId),
+                        where('period', '==', 'weekly'),
+                        where('status', '==', 'completed'),
+                    );
+                    const snap = await getDocs(q);
+                    return snap.docs.length;
+                } catch { return 0; }
+            })(),
+        ]).then(([active, completedCount]) => ({ active: active.length, completed: completedCount })),
     ]);
     // 핀 원칙은 S6 묵상의 결에 살짝 비춰주려고만 — view-today의 오늘의 시작이 메인 책임
     const pinned = await getPinnedPrinciple(dek, userId).catch(() => null);
@@ -79,7 +98,7 @@ export async function renderDashboardView(userId) {
     renderNextReviewsCard(dots);                         // S5 — 다음 회고 안내 (신규)
     renderMeditationRhythmCard(meditationCount);         // S6 — 묵상의 결 (신규)
     renderPeopleSection(dots, persons, orgs);            // 이번 주 관계의 결
-    renderNumberCards(dots, bibleProgressView, meditationCount);
+    renderNumberCards(dots, bibleProgressView, meditationCount, weeklyGoals);
     bindNumbersToggle();
     bindDashboardQuickNav();                             // 카드 헤더 chevron 바로가기
 
@@ -285,7 +304,9 @@ function renderProseLine(dots, pinned, persons, orgs) {
  * 도트가 1개라도 있어야 부르는 자리.
  */
 function renderInsightsBlock(dots) {
-    const topTasks = computeTopTasks(dots, 3);
+    // STEP C-1 (#40): 대시보드 "시간 많이 쓴 일"은 수면 제외 — 8시간 잠 때문에
+    //   정작 의미 있는 일이 묻히지 않게.
+    const topTasks = computeTopTasks(dots, 3, { excludeSleep: true });
     const topCats = computeTopCategories(dots, 3);
     const topLabels = computeTopLabels(dots, 3);
 
@@ -557,19 +578,33 @@ function avatarColor(id) {
 function escapeAttr(s) { return escapeHtml(s); }
 
 // ─── 4) 숫자로 보기 — 디폴트 접힘 ─────────────────────────
-function renderNumberCards(dots, bible, meditationCount) {
+// STEP C (2026-05-13): 카드 4개 제거(#47·#48) + 신규 카드 1개(#49 워크플로우 기반).
+//   제거: 이번 주 발자국 / 계획 일치율 / 평균 만족도 / 이번 주 흐름
+//   유지: 통독 진도 / 묵상 한 줄
+//   신규: 이번 주 주간 목표 완료 — weekly 활성+완료 goals 기반
+function renderNumberCards(dots, bible, meditationCount, weeklyGoals = { active: 0, completed: 0 }) {
     const container = document.getElementById('dashboard-cards');
     if (!container) return;
 
-    const stats = computeDotStats(dots);
     const meditationRate = Math.round((meditationCount / 7) * 100);
 
+    // 주간 목표 카드 — active + completed = 분모, completed = 분자
+    const wgTotal     = (weeklyGoals.active || 0) + (weeklyGoals.completed || 0);
+    const wgCompleted = weeklyGoals.completed || 0;
+    const wgRate      = wgTotal > 0 ? Math.round((wgCompleted / wgTotal) * 100) : null;
+    const weeklyGoalsCard = wgTotal > 0
+        ? `<div class="dash-card">
+               <h3><i class="dash-icon" data-lucide="target"></i> 이번 주 주간 목표</h3>
+               <div class="dash-value">${wgCompleted}<span style="font-size:14px;color:var(--ink-secondary)"> / ${wgTotal}</span></div>
+               <p class="dash-desc">${wgRate}% — 완료한 주간 목표</p>
+           </div>`
+        : `<div class="dash-card">
+               <h3><i class="dash-icon" data-lucide="target"></i> 이번 주 주간 목표</h3>
+               <p class="dash-desc" style="margin-top:0">아직 잡힌 주간 목표가 없어요. <a data-go="goals" style="cursor:pointer; text-decoration:underline">목표 화면</a>에서 한 칸 적어 보세요.</p>
+           </div>`;
+
     container.innerHTML = `
-        <div class="dash-card">
-            <h3><i class="dash-icon" data-lucide="footprints"></i> 이번 주 발자국</h3>
-            <div class="dash-value">${stats.doneCount + stats.partialCount}<span style="font-size:14px;color:var(--ink-secondary)"> / ${stats.totalSlots}</span></div>
-            <p class="dash-desc">지난 7일 동안 남긴 시간 흔적</p>
-        </div>
+        ${weeklyGoalsCard}
 
         <div class="dash-card" style="grid-column: 1/-1">
             <h3><i class="dash-icon" data-lucide="book-open"></i> 통독 진도</h3>
@@ -583,24 +618,6 @@ function renderNumberCards(dots, bible, meditationCount) {
             <h3><i class="dash-icon" data-lucide="hand"></i> 묵상 한 줄</h3>
             <div class="dash-value">${meditationCount}<span style="font-size:14px;color:var(--ink-secondary)"> / 7일</span></div>
             <p class="dash-desc">${meditationRate}% — 천천히 한 줄씩 이어가요</p>
-        </div>
-
-        <div class="dash-card">
-            <h3>계획 일치율</h3>
-            <div class="dash-value">${stats.matchRate}%</div>
-            <p class="dash-desc">계획대로 살아낸 비율</p>
-        </div>
-        <div class="dash-card">
-            <h3>평균 만족도</h3>
-            <div class="dash-value">${stats.avgSatisfaction} <span style="font-size:14px;color:var(--text-secondary)">/ 5</span></div>
-            <p class="dash-desc">${stats.totalSlots}개 시간</p>
-        </div>
-        <div class="dash-card">
-            <h3>이번 주 흐름</h3>
-            <p class="dash-desc" style="margin-top:0; font-size: 13px">
-                완료 ${stats.doneCount} · 조금 ${stats.partialCount}<br>
-                다른 일 ${stats.replacedCount} · 못함 ${stats.skippedCount}
-            </p>
         </div>
     `;
     // 카드 안의 data-go 진입점 (통독 카드의 [오늘의 말씀으로] 등)
