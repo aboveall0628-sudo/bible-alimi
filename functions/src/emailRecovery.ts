@@ -41,9 +41,13 @@ const GMAIL_USER = defineSecret("GMAIL_USER");
 const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
 const SLOT_KMS_KEY = defineSecret("SLOT_KMS_KEY");
 
-// ─── Firebase Admin (싱글톤) ────────────────────────────────────
+// ─── Firebase Admin (모듈 로드 시 1회 초기화) ────────────────────
+// v2 functions cold start 시 1회만 실행. 이미 다른 함수가 초기화했으면 skip.
+if (admin.apps.length === 0) {
+    admin.initializeApp();
+}
+
 function getDb(): admin.firestore.Firestore {
-    if (!admin.apps.length) admin.initializeApp();
     return admin.firestore();
 }
 
