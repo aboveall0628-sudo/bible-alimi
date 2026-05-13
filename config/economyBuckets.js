@@ -97,6 +97,9 @@ export const INCOME_CATEGORIES = [
 
 export const EXPENSE_CATEGORIES = [
     { id: 'food',           label: '음식',       icon: 'utensils' },
+    // (2026-05-13 묶음 A 버그) 사교·모임 비용 — 1·2·3차(밥·카페·술·노래방) 한 묶음.
+    // 혼자 카페·취미는 'leisure' 로. 누구와 함께 쓴 돈을 모아 보기 위한 축.
+    { id: 'social',         label: '사교·모임',  icon: 'users' },
     { id: 'transport',      label: '교통',       icon: 'car' },
     { id: 'housing',        label: '주거',       icon: 'home' },
     { id: 'utility',        label: '공과금',     icon: 'plug' },

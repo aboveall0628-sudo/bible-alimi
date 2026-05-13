@@ -63,10 +63,12 @@ const ROLE_OPTIONS = [
 const ROLE_META = Object.fromEntries(ROLE_OPTIONS.map(([k, l, icon]) => [k, { label: l, icon }]));
 
 // 사람 모임(people 역할)일 때만 쓰는 세부 분류 — '공적/사적' 축까지 흡수
+// (2026-05-13 묶음 A 버그) 'school' 에서 학원 분리 — 운영·수강 맥락이 달라 별도 항목.
 const SUB_TYPE_OPTIONS = [
     // 공적 출발
     ['company',   '회사',          '🏢'],
-    ['school',    '학교/학원',     '🏫'],
+    ['school',    '학교',          '🏫'],
+    ['academy',   '학원',          '📚'],
     ['church',    '교회',          '⛪'],
     ['team',      '팀',            '👥'],
     // 사적 출발 / 관계 기반
