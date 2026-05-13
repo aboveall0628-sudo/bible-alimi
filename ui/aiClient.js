@@ -1170,6 +1170,63 @@ function buildYearlyReportFallback(yearStats) {
     };
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  B-2 트랙 (2026-05-13) — 분별의 자리 소크라테스 호출
+//  llmProxy.ts task 'socratic' 과 1:1 대응.
+//  세 모드: 'question'(다음 질문) | 'opinion'(의견 요청) | 'summary'(대화 정리)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * 분별의 자리 소크라테스 흐름 호출.
+ *
+ * @param {Object} args
+ *   @param {'question'|'opinion'|'summary'} args.mode
+ *   @param {number}  args.questionNumber          1~5 (대화 차례. opinion·summary 일 땐 마지막 차례 값 그대로)
+ *   @param {string}  args.situation               사용자가 적은 상황 한두 줄
+ *   @param {Array}   args.principles              [{title, body, strength, category}] 사용자가 고른 원칙들 (가명화 X)
+ *   @param {Array}   args.precedents              [{situation, decision, decidedAt, contextNote}] 관련 판례 (가명화됨)
+ *   @param {Array}   args.history                 [{role:'ai'|'user', text}] 지금까지 대화
+ *   @param {Object?} args.goalContext             null | { title, description } goal-edit 모드 시
+ *   @param {Object}  args.context                 { persons: ['이름'...] } 가명화 매핑
+ * @returns {Promise<{text: string, fallback: boolean}>}
+ */
+export async function callDecisionSocratic({
+    mode,
+    questionNumber,
+    situation,
+    principles = [],
+    precedents = [],
+    history = [],
+    goalContext = null,
+    context = {},
+}) {
+    const plain = {
+        mode,
+        questionNumber,
+        situation,
+        principles,
+        precedents,
+        history,
+        goalContext,
+        context: {
+            persons: context.persons || [],
+            orgs:    context.orgs    || [],
+            places:  context.places  || [],
+            amounts: context.amounts || [],
+        },
+    };
+
+    const result = await callLLM('socratic', plain, {
+        deep:        false,   // flash — 대화형이라 가벼움 + 비용 낮춤
+        bypassCache: true,    // 매번 fresh (대화 흐름이라 동일 캐시 의미 없음)
+    });
+
+    if (result.fallback) {
+        return { text: '', fallback: true };
+    }
+    return { text: String(result.text || '').trim(), fallback: false };
+}
+
 function buildDailyReportFallback(stats) {
     const ds    = stats.dotStats || {};
     const sat   = stats.satisfactionDistribution || {};

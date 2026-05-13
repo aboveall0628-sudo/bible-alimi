@@ -91,7 +91,12 @@ export const POLICY = {
             'linkedGoalId',              // 이 결정으로 만들거나 수정한 목표
             'linkedGoalVersionId',       // 그 시점 GoalVersion id (R2 — 도피 행동화 추적 직결)
             'linkedScriptureId',         // 묵상 훅 — 함께 본 말씀
-            'revisionLog'                // 판례 본문 수정 시
+            'revisionLog',               // 판례 본문 수정 시
+            // (B-2 트랙 2026-05-13) 소크라테스 대화 — [{ q, a, askedAt, mode }] 시퀀스.
+            //   mode: 'question'(AI 질문) | 'opinion'(AI 의견 모드 응답) | 'summary'(정리 단락)
+            //   a: 사용자 답변 (mode==='opinion'·'summary' 일 땐 null).
+            //   몇 달 뒤 같은 판례 다시 열어보면 당시 사고도 함께 보임 — 자기 인식 자산.
+            'socraticDialogue'
         ]
     },
     goals: {

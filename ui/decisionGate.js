@@ -29,6 +29,11 @@ import {
     strengthLabel,
     categoryLabel
 } from '../config/principleEnums.js';
+// (B-2 트랙 2026-05-13) 소크라테스 흐름 — AI는 답을 주지 않고 질문만 던짐
+import { callDecisionSocratic } from './aiClient.js';
+
+const SOCRATIC_INTRO_KEY = 'dg-socratic-intro-shown';
+const SOCRATIC_MAX_QUESTIONS = 5;
 
 let _state = {
     mode: 'free',
@@ -42,6 +47,11 @@ let _state = {
     selectedPrincipleIds: [],
     relatedPrecedents: [],      // 선택한 원칙들과 연결된 과거 판례 합집합
     attachedPrecedentIds: [],   // 사용자가 첨부한 판례 ids
+    // (B-2 트랙 2026-05-13) 소크라테스 흐름 상태
+    socraticHistory: [],        // [{ role:'ai'|'user', text, mode, askedAt }]
+    socraticQuestionNumber: 0,  // 마지막으로 받은 AI 질문 차례 (1~5)
+    socraticLoading: false,
+    socraticEnded: false,       // opinion·summary 받은 뒤 또는 사용자가 "이제 결정하기" 누른 뒤
 };
 
 let _initialized = false;
@@ -99,6 +109,10 @@ export async function openDecisionGate(params) {
     _state.selectedPrincipleIds = [];
     _state.attachedPrecedentIds = [];
     _state.relatedPrecedents = [];
+    _state.socraticHistory = [];
+    _state.socraticQuestionNumber = 0;
+    _state.socraticLoading = false;
+    _state.socraticEnded = false;
 
     const overlay = document.getElementById('dg-overlay');
     if (!overlay) return;
@@ -123,6 +137,9 @@ export async function openDecisionGate(params) {
     document.getElementById('dg-decision').value = '';
     document.getElementById('dg-context-note').value = '';
     document.getElementById('dg-prayer-logged').checked = false;
+
+    // 소크라테스 섹션 초기화
+    _renderSocraticSection();
 
     overlay.classList.remove('hidden');
     document.body.classList.add('dg-open');
@@ -306,6 +323,222 @@ function bindGateEvents() {
             document.getElementById('nav-principles')?.click();
         }
     });
+
+    // (B-2 트랙) 소크라테스 흐름 — 버튼 핸들러
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#dg-socratic-start'))       { _socraticAsk('question'); return; }
+        if (e.target.closest('#dg-socratic-next'))        { _socraticAdvance(); return; }
+        if (e.target.closest('#dg-socratic-opinion'))     { _socraticAdvance('opinion'); return; }
+        if (e.target.closest('#dg-socratic-summary'))     { _socraticAdvance('summary'); return; }
+        if (e.target.closest('#dg-socratic-end'))         { _socraticEnd(); return; }
+        if (e.target.id === 'dg-socratic-intro-close') {
+            e.target.closest('.dg-socratic-intro')?.classList.add('hidden');
+            try { localStorage.setItem(SOCRATIC_INTRO_KEY, '1'); } catch {}
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  (B-2 트랙 2026-05-13) 소크라테스 흐름
+//
+//  세 모드: 'question' / 'opinion' / 'summary'
+//  최대 5개 질문. opinion·summary 받으면 종료 상태.
+//  대화는 _state.socraticHistory에 누적되고, 저장 시 precedent.socraticDialogue로 박힘.
+//
+//  핵심 정책 (시스템 프롬프트와 일치):
+//    - AI는 답을 내리지 않습니다. 사용자가 직접 내립니다.
+//    - 원칙 1개 이상 골라야 시작 가능 (인용 거리가 있어야 의미 있음).
+//    - 첫 호출 시 가명화 안내 한 줄 (그날 1회).
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * 소크라테스 섹션 렌더 — _state.socraticHistory + 현재 상태 기반.
+ *
+ * 컨트롤 버튼 노출 규칙:
+ *   - 시작 전:                 [함께 분별해보기]
+ *   - 질문 1~4 받은 후:        [다음 질문] [의견 줘] [정리해 줘] [이제 결정하기]
+ *   - 질문 5 받은 후:          [의견 줘] [정리해 줘] [이제 결정하기]  (다음 질문 X)
+ *   - opinion/summary 받은 후: [이제 결정하기]
+ *   - 로딩 중:                 모든 버튼 비활성
+ */
+function _renderSocraticSection() {
+    const historyEl = document.getElementById('dg-socratic-history');
+    if (!historyEl) return;
+
+    historyEl.innerHTML = _state.socraticHistory.map(turn => {
+        const cls = turn.role === 'ai' ? 'dg-socratic-turn-ai' : 'dg-socratic-turn-user';
+        const label = turn.role === 'ai'
+            ? (turn.mode === 'opinion' ? '✍️ 의견' : turn.mode === 'summary' ? '📜 정리' : `질문 ${turn.questionNumber || ''}`)
+            : '답';
+        return `
+            <div class="dg-socratic-turn ${cls}">
+                <span class="dg-socratic-turn-label">${_escHtml(label)}</span>
+                <div class="dg-socratic-turn-text">${_escHtml(turn.text).replace(/\n/g, '<br>')}</div>
+            </div>
+        `;
+    }).join('');
+
+    // 컨트롤 노출
+    const startBtn   = document.getElementById('dg-socratic-start');
+    const nextBtn    = document.getElementById('dg-socratic-next');
+    const opinionBtn = document.getElementById('dg-socratic-opinion');
+    const summaryBtn = document.getElementById('dg-socratic-summary');
+    const endBtn     = document.getElementById('dg-socratic-end');
+    const inputWrap  = document.getElementById('dg-socratic-input-wrap');
+    const loading    = document.getElementById('dg-socratic-loading');
+
+    if (!startBtn) return;
+
+    const started = _state.socraticHistory.length > 0;
+    const ended = _state.socraticEnded;
+    const lastAiTurn = [..._state.socraticHistory].reverse().find(t => t.role === 'ai');
+    const lastWasQuestion = lastAiTurn && lastAiTurn.mode === 'question';
+
+    startBtn.classList.toggle('hidden', started);
+    nextBtn.classList.toggle('hidden', !lastWasQuestion || ended || _state.socraticQuestionNumber >= SOCRATIC_MAX_QUESTIONS);
+    opinionBtn.classList.toggle('hidden', !started || ended);
+    summaryBtn.classList.toggle('hidden', !started || ended);
+    endBtn.classList.toggle('hidden', !started);
+    inputWrap.classList.toggle('hidden', !lastWasQuestion || ended);
+    loading.classList.toggle('hidden', !_state.socraticLoading);
+
+    // 버튼 비활성 (로딩 중)
+    [startBtn, nextBtn, opinionBtn, summaryBtn, endBtn].forEach(b => {
+        if (b) b.disabled = _state.socraticLoading;
+    });
+}
+
+/**
+ * 사용자가 "다음 질문" / "의견 줘" / "정리해 줘" 누름 — 현재 답변 capture 후 다음 모드 호출.
+ */
+function _socraticAdvance(mode = 'question') {
+    if (_state.socraticLoading || _state.socraticEnded) return;
+    const ans = (document.getElementById('dg-socratic-answer')?.value || '').trim();
+    if (mode === 'question' && !ans) {
+        _toast('한 줄이라도 답을 적어 주세요.');
+        document.getElementById('dg-socratic-answer')?.focus();
+        return;
+    }
+    if (ans) {
+        _state.socraticHistory.push({ role: 'user', text: ans, askedAt: Date.now() });
+        document.getElementById('dg-socratic-answer').value = '';
+    }
+    _socraticAsk(mode);
+}
+
+/**
+ * AI 호출 — mode별 callDecisionSocratic.
+ * 응답을 history에 push 하고 섹션 다시 렌더.
+ */
+async function _socraticAsk(mode) {
+    if (_state.socraticLoading) return;
+
+    // 원칙 한 개 이상 선택돼야 의미 있음 (인용 거리)
+    if (_state.selectedPrincipleIds.length === 0) {
+        _toast('먼저 관련된 약속을 한 개라도 골라 주세요.');
+        return;
+    }
+
+    // 첫 호출 시 안내 한 줄 (그날 한정 localStorage)
+    if (mode === 'question' && _state.socraticHistory.length === 0) {
+        let shown = '0';
+        try { shown = localStorage.getItem(SOCRATIC_INTRO_KEY) || '0'; } catch {}
+        if (shown !== '1') {
+            document.getElementById('dg-socratic-intro')?.classList.remove('hidden');
+        }
+    }
+
+    _state.socraticLoading = true;
+    _renderSocraticSection();
+
+    // 호출 페이로드 구성
+    const selectedPrinciples = _state.principles
+        .filter(p => _state.selectedPrincipleIds.includes(p.id))
+        .map(p => ({
+            title:    p.title || '',
+            body:     p.body || '',
+            strength: p.strength || 'primary',
+            category: p.category || 'daily'
+        }));
+
+    const attachedPrecedents = _state.relatedPrecedents
+        .filter(pr => _state.attachedPrecedentIds.includes(pr.id))
+        .map(pr => ({
+            situation:   pr.situation || '',
+            decision:    pr.decision || '',
+            decidedAt:   pr.decidedAt || null,
+            contextNote: pr.contextNote || ''
+        }));
+
+    const situation = (document.getElementById('dg-situation')?.value || '').trim();
+    const goalContext = (_state.mode === 'goal-edit' && _state.presetGoal)
+        ? {
+            title:       _state.presetGoal.title || '',
+            description: _state.presetGoal.description || ''
+          }
+        : null;
+
+    // 다음 질문 차례 계산
+    const nextQuestionNumber = mode === 'question'
+        ? Math.min(_state.socraticQuestionNumber + 1, SOCRATIC_MAX_QUESTIONS)
+        : _state.socraticQuestionNumber;
+
+    try {
+        const { text, fallback } = await callDecisionSocratic({
+            mode,
+            questionNumber: nextQuestionNumber,
+            situation,
+            principles: selectedPrinciples,
+            precedents: attachedPrecedents,
+            history: _state.socraticHistory.map(t => ({ role: t.role, text: t.text })),
+            goalContext,
+            context: { persons: [], orgs: [], places: [], amounts: [] }
+        });
+
+        if (fallback || !text) {
+            _state.socraticLoading = false;
+            _renderSocraticSection();
+            _toast('AI를 지금 부를 수 없는 상태예요. 잠시 후 다시 시도해 주세요.');
+            return;
+        }
+
+        _state.socraticHistory.push({
+            role: 'ai',
+            text,
+            mode,
+            questionNumber: mode === 'question' ? nextQuestionNumber : null,
+            askedAt: Date.now()
+        });
+
+        if (mode === 'question') {
+            _state.socraticQuestionNumber = nextQuestionNumber;
+        } else {
+            // opinion / summary 받으면 대화 종료
+            _state.socraticEnded = true;
+        }
+
+        _state.socraticLoading = false;
+        _renderSocraticSection();
+
+        // 답변 textarea로 포커스 (질문 모드일 때만)
+        if (mode === 'question' && !_state.socraticEnded) {
+            setTimeout(() => document.getElementById('dg-socratic-answer')?.focus(), 50);
+        }
+    } catch (e) {
+        console.error('[decisionGate] socratic call failed:', e);
+        _state.socraticLoading = false;
+        _renderSocraticSection();
+        _toast('잠시 막혔어요. 한 번만 더 시도해 주실래요?');
+    }
+}
+
+/**
+ * "이제 결정하기" — 대화 종료 표시 후 결정 textarea로 포커스 이동.
+ */
+function _socraticEnd() {
+    _state.socraticEnded = true;
+    _renderSocraticSection();
+    document.getElementById('dg-decision')?.focus();
 }
 
 async function handleGateSave() {
@@ -342,7 +575,9 @@ async function handleGateSave() {
             linkedGoalVersionId: null,    // 아래에서 채움 (목표 변경 직전 활성 버전)
             prayerLogged,
             decidedAt: Date.now(),
-            source: 'user'
+            source: 'user',
+            // (B-2 트랙 2026-05-13) 소크라테스 대화 — 몇 달 뒤 같은 판례 다시 열어보면 사고 흐름도 함께 보임
+            socraticDialogue: _state.socraticHistory.slice()
         };
 
         // 목표가 연결돼 있으면 현재 활성 GoalVersion id 박기 (R2 추적용)
@@ -428,6 +663,40 @@ function renderGateDom() {
             <section class="dg-section">
                 <h3 class="dg-section-title">지난 비슷한 결정</h3>
                 <div id="dg-precedents-list" class="dg-precedents-list"></div>
+            </section>
+
+            <!-- (B-2 트랙 2026-05-13) 소크라테스 흐름 — AI는 답을 주지 않고 질문만 -->
+            <section class="dg-section dg-socratic-section">
+                <h3 class="dg-section-title">함께 분별해보기</h3>
+                <p class="dg-section-desc">결정 앞에 호흡 한 번. AI가 답을 주지 않고, 사용자가 적은 약속과 지난 결정을 곁에 두고 질문 하나만 던집니다.</p>
+
+                <div id="dg-socratic-intro" class="dg-socratic-intro hidden">
+                    <span>적으신 글은 가명으로 바뀌어 AI에게 갑니다. 결정은 사용자께서 직접 내리세요.</span>
+                    <button type="button" id="dg-socratic-intro-close" aria-label="안내 닫기">×</button>
+                </div>
+
+                <div id="dg-socratic-history" class="dg-socratic-history"></div>
+
+                <div id="dg-socratic-loading" class="dg-socratic-loading hidden">
+                    <span class="dg-socratic-dots"><span></span><span></span><span></span></span>
+                    <span class="dg-socratic-loading-text">호흡 한 번 함께 들이쉬는 중...</span>
+                </div>
+
+                <div id="dg-socratic-input-wrap" class="dg-socratic-input-wrap hidden">
+                    <textarea id="dg-socratic-answer" class="dg-textarea dg-socratic-answer" rows="2"
+                        placeholder="떠오르는 결을 한 줄로 적어 주세요. 정답 아니어도 괜찮아요."></textarea>
+                </div>
+
+                <div id="dg-socratic-controls" class="dg-socratic-controls">
+                    <button type="button" id="dg-socratic-start" class="dg-soft-btn">
+                        <span class="dg-soft-btn-icon">🤔</span>
+                        <span>함께 분별해보기</span>
+                    </button>
+                    <button type="button" id="dg-socratic-next" class="dg-soft-btn hidden">다음 질문</button>
+                    <button type="button" id="dg-socratic-opinion" class="dg-soft-btn dg-soft-btn-quiet hidden">의견 줘</button>
+                    <button type="button" id="dg-socratic-summary" class="dg-soft-btn dg-soft-btn-quiet hidden">정리해 줘</button>
+                    <button type="button" id="dg-socratic-end" class="dg-text-btn hidden">이제 결정하기</button>
+                </div>
             </section>
 
             <section class="dg-section">
