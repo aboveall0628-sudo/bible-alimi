@@ -510,55 +510,9 @@ function renderPeopleSection(dots, persons, orgs) {
     });
 }
 
-// ─── D-4) 토요일 회고 CTA + 빈 상태 가이드 ──────────────────
-function renderCallSection(dots) {
-    const section = document.getElementById('dash-section-call');
-    const root    = document.getElementById('dashboard-call');
-    if (!section || !root) return;
-
-    // 빈 상태: 지난 7일 도트가 0개 — 시작 가이드
-    if (!dots || dots.length === 0) {
-        section.removeAttribute('hidden');
-        root.innerHTML = `
-            <div class="dash-call-card dash-call-empty">
-                <i class="dash-call-icon" data-lucide="footprints"></i>
-                <div class="dash-call-body">
-                    <h3>아직 도트가 없어요</h3>
-                    <p>오늘 화면의 시간표에서 빈 칸을 누르면 첫 도트를 적을 수 있어요.</p>
-                </div>
-                <button class="primary-btn dash-call-btn" data-go="today">오늘로 가기</button>
-            </div>
-        `;
-        bindCallActions(root);
-        return;
-    }
-
-    // 토요일이면 주간 회고 CTA — eveningLoop의 layer 감지와 같은 규칙 (요일==6)
-    const isSaturday = new Date().getDay() === 6;
-    if (isSaturday) {
-        section.removeAttribute('hidden');
-        root.innerHTML = `
-            <div class="dash-call-card dash-call-saturday">
-                <i class="dash-call-icon" data-lucide="moon"></i>
-                <div class="dash-call-body">
-                    <h3>이번 주를 닫는 토요일이에요</h3>
-                    <p>오늘 화면 아래에 주간 회고 단계가 펼쳐져 있어요. 한 호흡으로 정리해 볼까요?</p>
-                </div>
-                <button class="primary-btn dash-call-btn" data-go="today">주간 회고로 가기</button>
-            </div>
-        `;
-        bindCallActions(root);
-        return;
-    }
-
-    // 평일 + 도트 있음 — 섹션 자체 숨김
-    section.setAttribute('hidden', '');
-    root.innerHTML = '';
-}
-
-function bindCallActions(root) {
-    bindDeepLinks(root);
-}
+// (2026-05-13 HC#1) renderCallSection / bindCallActions 제거 —
+// dash-section-call / dashboard-call DOM 자체가 index.html 에서 사라져 호출 경로 0건.
+// bindDeepLinks / handleDeepLink 는 카드 헤더 quicknav 에서 계속 사용되므로 유지.
 
 /**
  * Phase E-4: data-go 속성 기반 deep link 핸들러.

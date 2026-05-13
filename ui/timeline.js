@@ -248,9 +248,10 @@ function renderMobile() {
             item.dotClass || 'dot-gray',
             item.fromWorkflow ? 'from-workflow' : ''
         ].join(' ').trim();
-        const dataAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
+        // (2026-05-13 HC#1 A-1 종결) plan 카드도 data-slot 으로 클릭 → quickReview 진입.
+        const dotAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
         return `
-            <div class="${cls}" ${dataAttr}>
+            <div class="${cls}" ${dotAttr} data-slot="${item.slot}">
                 <span class="utl-mobile-time">${timeLabel}</span>
                 <div class="utl-mobile-body">
                     <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
@@ -283,11 +284,15 @@ function renderMobile() {
         });
     });
 
-    // 실제 탭의 도트 카드 클릭 → quickReview 모달 (재평가)
-    if (_mobileTab === 'actual') {
-        list.querySelectorAll('.utl-mobile-card[data-dot-id]').forEach(card => {
-            card.addEventListener('click', () => {
-                const dotId = card.dataset.dotId;
+    // (2026-05-13 HC#1 A-1 종결) plan/actual 두 탭 다 카드 클릭 → quickReview 모달.
+    // actual 카드는 data-dot-id 기반 재평가, plan 카드는 data-slot 기반 — 같은 slot 의
+    // 도트가 이미 있으면 그 도트 재평가, 없으면 신규 평가 (plannedTask 는 결단·캘린더 제목 prefill).
+    // 안내 문구 "계획 탭의 슬롯을 톡 눌러 평가"와 실제 동작이 이제 일치.
+    list.querySelectorAll('.utl-mobile-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const dotId = card.dataset.dotId;
+            const slot = parseInt(card.dataset.slot ?? '', 10);
+            if (dotId) {
                 const dot = _dots.find(d => d.id === dotId);
                 if (!dot) return;
                 openQuickReview({
@@ -298,9 +303,20 @@ function renderMobile() {
                     plannedTask: dot.plannedTask || '',
                     existingDot: dot,
                 });
-            });
+            } else if (!Number.isNaN(slot)) {
+                const existing = _dots.find(d => d.timeSlot === slot);
+                const decision = _decisions.find(d => d.timeSlot === slot);
+                openQuickReview({
+                    timeSlot: slot,
+                    cells: [],
+                    userId: _userId,
+                    date: _date,
+                    plannedTask: existing?.plannedTask || decision?.title || decision?.text || '',
+                    existingDot: existing || null,
+                });
+            }
         });
-    }
+    });
 
     // 좌우 스와이프 — 사용자 결정 (2026-05-13)
     bindMobileSwipe(list);
