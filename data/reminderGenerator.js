@@ -20,6 +20,7 @@ import { getPrinciples } from './principlesRepo.js';
 import { getAllPersons } from './personRepo.js';
 import { getAllOrganizations } from './orgRepo.js';
 import { getWeekReport } from '../reports/weekReportRepo.js';
+import { db, doc, getDoc } from './firebase.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STALE_GOAL_DAYS_THRESHOLD = 3;   // daily 목표 미배치 N일+ 이면 알람
@@ -34,7 +35,7 @@ const EMPTY_CARD_DAYS_THRESHOLD = 3;    // 인물/조직 카드 생성 후 N일+
  * @returns {Promise<{ generated: { weekly:number, yesterday:number, stale:number, principle:number } }>}
  */
 export async function generateAllAutoReminders(dek, userId, today) {
-    const result = { weekly: 0, yesterday: 0, stale: 0, principle: 0, emptyCard: 0 };
+    const result = { weekly: 0, yesterday: 0, stale: 0, principle: 0, emptyCard: 0, dailyMed: 0 };
 
     try {
         if (await generateWeeklyReviewReminder(dek, userId, today)) result.weekly = 1;
@@ -56,7 +57,51 @@ export async function generateAllAutoReminders(dek, userId, today) {
         result.emptyCard = await generateEmptyCardReminders(dek, userId, today);
     } catch (e) { console.warn('[reminderGen] empty-card failed:', e); }
 
+    // (2026-05-13 HC#1 N7) 매일 묵상 알람 — 사용자 설정 시각 이후 1회 발화.
+    try {
+        if (await generateDailyMeditationReminder(dek, userId, today)) result.dailyMed = 1;
+    } catch (e) { console.warn('[reminderGen] daily-meditation failed:', e); }
+
     return { generated: result };
+}
+
+/**
+ * (HC#1 N7) 매일 묵상 알람.
+ *
+ * 발화 조건:
+ *   1) spiritualLock 도큐먼트에 dailyAlarmEnabled === true
+ *   2) dailyAlarmTime 이 'HH:MM' 형식
+ *   3) 현재 시각 ≥ today + dailyAlarmTime
+ *   4) 같은 날짜 컨텍스트에 이미 알람 없음 (idempotent)
+ *
+ * 컨텍스트 ID: today (하루 한 번).
+ */
+export async function generateDailyMeditationReminder(dek, userId, today) {
+    const snap = await getDoc(doc(db, 'users', userId, 'settings', 'spiritualLock')).catch(() => null);
+    if (!snap || !snap.exists()) return false;
+    const cfg = snap.data();
+    if (cfg.dailyAlarmEnabled !== true) return false;
+
+    const alarmTime = cfg.dailyAlarmTime;
+    if (!/^\d{2}:\d{2}$/.test(alarmTime || '')) return false;
+
+    // 알람 시각이 현재 시각보다 미래면 아직 X.
+    const now = new Date();
+    const [hh, mm] = alarmTime.split(':').map(Number);
+    const todayAlarmMs = new Date(today + 'T00:00:00').getTime() + hh * 3600000 + mm * 60000;
+    if (now.getTime() < todayAlarmMs) return false;
+
+    const id = makeReminderId(userId, 'daily-meditation', today);
+    const res = await saveReminderIfAbsent(dek, {
+        id,
+        userId,
+        type:       'daily-meditation',
+        title:      `🌿 ${alarmTime} 묵상 시간이에요`,
+        body:       '잠깐 호흡을 고르고 말씀 앞에 앉아 보실래요?',
+        targetView: 'today',
+        dueDate:    today,
+    });
+    return res.created;
 }
 
 /**

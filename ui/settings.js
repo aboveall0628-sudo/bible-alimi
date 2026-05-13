@@ -35,6 +35,25 @@ let _userId = null;
 let _userEmail = null;
 let _diagnosticData = null;
 
+// ─── (2026-05-13 HC#1 N7) 매일 묵상 알람 설정 read/write ───
+// settings 컬렉션의 spiritualLock 도큐먼트. 평문 필드라 baseRepo 거치지 않고 직접 R/W.
+// 사용자별 분리는 users/{uid}/settings/spiritualLock 패턴 (다른 settings 도큐먼트와 일관).
+function spiritualLockRef() {
+    if (!_userId) throw new Error('userId not set');
+    return doc(db, 'users', _userId, 'settings', 'spiritualLock');
+}
+async function loadDailyAlarmSettings() {
+    const snap = await getDoc(spiritualLockRef());
+    return snap.exists() ? snap.data() : null;
+}
+async function saveDailyAlarmSettings({ dailyAlarmEnabled, dailyAlarmTime }) {
+    await setDoc(spiritualLockRef(), {
+        dailyAlarmEnabled,
+        dailyAlarmTime,
+        updatedAt: serverTimestamp(),
+    }, { merge: true });
+}
+
 export function renderSettingsView(userId, userEmail) {
     _userId = userId;
     _userEmail = userEmail || null;
@@ -165,6 +184,30 @@ function injectExtraSections() {
     scriptureCard.className = 'card-section';
     scriptureCard.innerHTML = renderScriptureSettingsHTML();
     container.appendChild(scriptureCard);
+
+    // (2026-05-13 HC#1 N7) 매일 묵상 알람 카드 — 1개 시각, 인앱 종 빨간 점.
+    // spiritualLock 도큐먼트의 dailyAlarmEnabled + dailyAlarmTime 사용.
+    const dailyAlarmCard = document.createElement('div');
+    dailyAlarmCard.id = 'settings-daily-alarm-card';
+    dailyAlarmCard.className = 'card-section';
+    dailyAlarmCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="bell-ring"></i> 매일 묵상 알람</h3>
+        <p class="section-desc">
+            매일 정해진 시각에 우측 상단 종에 빨간 점이 켜져요. 묵상하기로 약속한 시간에 시스템이 살짝 알려줘요.
+            (브라우저 푸시 알림 X — 앱을 열어두셨을 때만 보여요.)
+        </p>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="daily-alarm-toggle" />
+                <span>매일 알람 켜기</span>
+            </label>
+            <input type="time" id="daily-alarm-time" value="20:00"
+                   style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-primary);font-size:14px;" />
+            <button id="btn-save-daily-alarm" class="text-btn">저장</button>
+            <span id="daily-alarm-status" style="font-size:12px;color:var(--text-secondary);"></span>
+        </div>
+    `;
+    container.appendChild(dailyAlarmCard);
 
     // 비밀번호 변경 카드
     const pwCard = document.createElement('div');
@@ -455,6 +498,44 @@ function bindEvents() {
     const btnEmailRecovery = document.getElementById('btn-email-recovery-register');
     if (btnEmailRecovery) {
         btnEmailRecovery.addEventListener('click', () => handleEmailRecoveryRegister());
+    }
+
+    // (2026-05-13 HC#1 N7) 매일 묵상 알람 — 현재 값 로드 + 저장 버튼.
+    const dailyAlarmToggle = document.getElementById('daily-alarm-toggle');
+    const dailyAlarmTime = document.getElementById('daily-alarm-time');
+    const dailyAlarmStatus = document.getElementById('daily-alarm-status');
+    const btnSaveDailyAlarm = document.getElementById('btn-save-daily-alarm');
+    if (dailyAlarmToggle && dailyAlarmTime && btnSaveDailyAlarm) {
+        // 진입 시 현재 값 prefill
+        loadDailyAlarmSettings().then(s => {
+            if (s) {
+                dailyAlarmToggle.checked = s.dailyAlarmEnabled === true;
+                if (s.dailyAlarmTime) dailyAlarmTime.value = s.dailyAlarmTime;
+            }
+        }).catch(e => console.warn('[settings] daily alarm load failed:', e));
+
+        btnSaveDailyAlarm.addEventListener('click', async () => {
+            const enabled = dailyAlarmToggle.checked;
+            const time = dailyAlarmTime.value || '20:00';
+            if (!/^\d{2}:\d{2}$/.test(time)) {
+                if (dailyAlarmStatus) dailyAlarmStatus.textContent = '시각 형식이 어색해요 (예: 20:00).';
+                return;
+            }
+            try {
+                await saveDailyAlarmSettings({
+                    dailyAlarmEnabled: enabled,
+                    dailyAlarmTime: time,
+                });
+                if (dailyAlarmStatus) {
+                    dailyAlarmStatus.textContent = enabled
+                        ? `✓ 매일 ${time} 에 알람이 떠요.`
+                        : '✓ 알람을 껐어요.';
+                }
+            } catch (e) {
+                console.error('[settings] daily alarm save failed:', e);
+                if (dailyAlarmStatus) dailyAlarmStatus.textContent = '저장이 잠깐 막혔어요.';
+            }
+        });
     }
 
     if (btnDiagnose) btnDiagnose.onclick = async () => {

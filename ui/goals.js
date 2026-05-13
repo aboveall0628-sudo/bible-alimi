@@ -111,7 +111,10 @@ function renderActivePanel(container) {
     if (!panel) return;
 
     const meta = PERIOD_LABELS[_activeTab];
-    const periodGoals = _goals.filter(g => g.period === _activeTab);
+    // (2026-05-13 HC#1 추모비) archived 상태 목표는 active 목록에서 숨김.
+    // 폐기된 목표는 "지나간 목표" 진입점으로만 노출.
+    const periodGoals = _goals.filter(g => g.period === _activeTab && g.status !== 'archived');
+    const archivedCount = _goals.filter(g => g.status === 'archived').length;
 
     let html = `
         <div class="goal-panel-header">
@@ -119,7 +122,10 @@ function renderActivePanel(container) {
                 <h2 class="goal-panel-title"><i class="goal-panel-icon" data-lucide="${meta.icon}"></i> ${meta.label}</h2>
                 <p class="goal-panel-desc">${meta.desc}</p>
             </div>
-            <button id="add-goal-btn" class="primary-btn">+ 새 목표 적기</button>
+            <div class="goal-panel-actions">
+                ${archivedCount > 0 ? `<button id="open-memorials-btn" class="text-btn" title="지나간 목표 추모비">🪦 지나간 목표 ${archivedCount}개</button>` : ''}
+                <button id="add-goal-btn" class="primary-btn">+ 새 목표 적기</button>
+            </div>
         </div>
     `;
 
@@ -167,7 +173,10 @@ function renderGoalCard(g) {
                       placeholder="(선택) 더 구체적으로 풀어 적어 보세요">${escapeHtml(g.description || '')}</textarea>
             <div class="goal-card-footer">
                 <span class="goal-card-meta">${g.progress != null ? `진행 ${g.progress}%` : '진행률은 곧 자동으로 보여요'}</span>
-                <button class="icon-btn delete-btn" title="삭제">🗑</button>
+                <div class="goal-card-actions">
+                    <button class="icon-btn extinguish-btn" title="이 목표 그만두기 (추모비로 보존)">🪦</button>
+                    <button class="icon-btn delete-btn" title="완전 삭제 (흔적 없음)">🗑</button>
+                </div>
             </div>
         </div>
     `;
@@ -177,6 +186,20 @@ function bindPanelEvents(panel) {
     const addBtn = panel.querySelector('#add-goal-btn');
     if (addBtn) {
         addBtn.addEventListener('click', addNewGoal);
+    }
+
+    // (2026-05-13 HC#1 추모비) "지나간 목표 N개" 진입점 — 추모비 목록 모달.
+    const memorialsBtn = panel.querySelector('#open-memorials-btn');
+    if (memorialsBtn) {
+        memorialsBtn.addEventListener('click', async () => {
+            try {
+                const mod = await import('./memorials.js');
+                mod.openMemorialsModal(_userId);
+            } catch (e) {
+                console.error('memorials open failed:', e);
+                showToast('추모비를 펴는 게 잠깐 막혔어요.');
+            }
+        });
     }
 
     panel.querySelectorAll('.goal-card-v2').forEach(card => {
@@ -207,7 +230,7 @@ function bindPanelEvents(panel) {
         descInput?.addEventListener('input', triggerSave);
 
         deleteBtn?.addEventListener('click', async () => {
-            if (!confirm('이 목표를 지워도 괜찮을까요?')) return;
+            if (!confirm('이 목표를 완전히 지워도 괜찮을까요?\n흔적이 남지 않아요. 보존하고 싶다면 옆 🪦 그만두기를 눌러 주세요.')) return;
             try {
                 await deleteGoal(id);
                 _goals = _goals.filter(g => g.id !== id);
@@ -216,6 +239,34 @@ function bindPanelEvents(panel) {
             } catch (e) {
                 console.error('goal delete failed:', e);
                 showToast('지우기가 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
+            }
+        });
+
+        // (2026-05-13 HC#1 추모비) 🪦 그만두기 — 추모비로 보존 + 목표 archived.
+        const extinguishBtn = card.querySelector('.extinguish-btn');
+        extinguishBtn?.addEventListener('click', async () => {
+            const goal = _goals.find(g => g.id === id);
+            if (!goal) return;
+            const note = prompt(
+                `"${goal.title || '(이름 없는 목표)'}" 를 그만두시겠어요?\n` +
+                `남기고 싶은 한 줄이 있다면 적어 주세요 (생략 가능).\n\n` +
+                `이 목표의 흔적은 추모비로 보존돼요. [지나간 목표]에서 다시 볼 수 있어요.`,
+                ''
+            );
+            if (note === null) return; // 취소
+            const dek = getDEK();
+            if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
+            try {
+                const { extinguishGoalToMemorial } = await import('../data/memorialsRepo.js');
+                await extinguishGoalToMemorial(dek, _userId, goal, { userNote: note });
+                // 화면 갱신 — 로컬 캐시도 archived 표시
+                const g2 = _goals.find(x => x.id === id);
+                if (g2) g2.status = 'archived';
+                renderActivePanel(document.getElementById('goals-container'));
+                showToast('🪦 추모비에 보관했어요. [지나간 목표]에서 다시 볼 수 있어요.');
+            } catch (e) {
+                console.error('extinguish failed:', e);
+                showToast('지금은 추모비에 보관이 잠깐 막혔어요.');
             }
         });
     });

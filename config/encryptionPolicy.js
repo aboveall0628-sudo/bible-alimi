@@ -296,6 +296,9 @@ export const POLICY = {
             'eveningSlotTime', 'eveningSlotDuration', 'eveningCutoffHour',
             'skipQuotaPerDay', 'sabbathDates', 'sabbathQuotaPerMonth',
             'alarmEnabled', 'minimumMeditationLength', 'streakVisible',
+            // (2026-05-13 HC#1 N7) 매일 묵상 알람 시각 — "HH:MM" 형식.
+            // dailyAlarmEnabled 가 true 일 때만 reminderGenerator 가 발화.
+            'dailyAlarmEnabled', 'dailyAlarmTime',
             'updatedAt'
         ],
         encrypted: []
@@ -308,6 +311,27 @@ export const POLICY = {
             'updatedAt'
         ],
         encrypted: []
+    },
+    // (2026-05-13 HC#1 추모비) 폐기된 목표의 추모비 — 목표·도트·기간·기여·내러티브 보존.
+    // 1차: 도트 삭제 X, 목표 status='archived'. contributions·representativeDots·
+    // aiNarrativeSummary 는 다음 트랙(B-4·B-1·AI 진단) 후 채움.
+    extinguishedGoalMemorials: {
+        plaintext: [
+            'id', 'userId', 'goalId',
+            'extinguishedAt',  // 'YYYY-MM-DD'
+            'createdAt',
+            'duration',        // { startDate, endDate, daysElapsed }
+            'dotStats',        // { total, completed, partial, skipped, replaced, ... }
+            'source'           // self_report(X 버튼) | ai_inferred(미래 B-1 게이트)
+        ],
+        encrypted: [
+            'goalSnapshot',
+            'representativeDots',
+            'contributions',
+            'aiNarrativeSummary',
+            'triggeredByPrecedentId',
+            'userNote'
+        ]
     },
 };
 
