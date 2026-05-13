@@ -13,14 +13,26 @@ export const POLICY = {
             'outcomeSatisfaction', 'executed', 'labelIds',
             'amountBucket', 'sentimentBucket', 'createdAt',
             // 활동 카테고리 (2026-05-12) — 시간 분석용 큰 분류. id만 평문, 라벨/아이콘은 클라이언트에서 메타 매핑.
-            'category'
+            'category',
+            // (워크플로우 트랙 2026-05-13) 실행자 3구분 — self|helper|external.
+            // 평문: 통계·집계용 (예: "이번 주 self가 직접 처리한 비율"). 인물 식별은 helperPersonId(암호화).
+            'executor',
+            // (워크플로우 트랙 2026-05-13) 도트의 출처 메타. 우선순위 2 정직성 인프라의 새 필드 적용.
+            // self_report|calendar_sync|device|helper_input|ai_inferred
+            'source'
         ],
         encrypted: [
             'plannedTask', 'actualTask', 'reason', 'notes',
             'linkedScriptureId', 'linkedPrincipleIds', 'linkedGoalId',
             'linkedTransactionIds', 'linkedPersonIds', 'linkedOrgIds',
             // 도트별 인물/조직 만족도 ({ personId: 1-5 }, { orgId: 1-5 })
-            'personRatings', 'orgRatings'
+            'personRatings', 'orgRatings',
+            // (워크플로우 트랙 2026-05-13) 어느 워크플로우 스텝에서 분배됐는가
+            'linkedWorkflowStepId',
+            // (워크플로우 트랙 2026-05-13) 그 시점 목표 스냅샷 참조 — goalsRepo와 직결
+            'goalVersionId',
+            // (워크플로우 트랙 2026-05-13) executor=helper 때 인물 카드 ID
+            'helperPersonId'
         ]
     },
     meditations: {
@@ -42,9 +54,46 @@ export const POLICY = {
             'startDate', 'endDate', 'progress', 'status', 'createdAt',
             // daily 목표를 시간표(오늘 화면)에 박을 수 있도록 시간 슬롯 필드 추가.
             // 기존 decisions 모델을 그대로 흡수 — daily 외 period 에선 항상 null.
-            'timeSlot', 'durationSlots', 'placedAt', 'gcalEventId', 'order'
+            'timeSlot', 'durationSlots', 'placedAt', 'gcalEventId', 'order',
+            // (워크플로우 트랙 2026-05-13) 자동 버전 트래킹. 변경 감지될 때 ++ 되고 새 GoalVersion 생성.
+            // 도트는 자신이 분배될 때의 currentVersion 을 goalVersionId 로 박는다.
+            'currentVersion',
+            // (워크플로우 트랙 2026-05-13) 출처 메타
+            'source'
         ],
         encrypted: ['title', 'description', 'notes', 'scriptureRef']
+    },
+    // (워크플로우 트랙 2026-05-13) 목표의 시점 스냅샷 — 방법 A (별도 컬렉션 v1/v2/v3)
+    // docId = `${goalId}_v${versionNumber}`. 도트의 goalVersionId 가 여길 가리킨다.
+    // snapshotData 는 그 시점 목표 객체 전체를 그대로 보존 (압축은 v1 단계에선 안 함).
+    goalVersions: {
+        plaintext: [
+            'id', 'userId', 'goalId', 'versionNumber',
+            'validFrom', 'validTo',  // validTo=null 이면 현재 활성 버전
+            'source', 'createdAt'
+        ],
+        encrypted: [
+            'snapshotData',          // 그 시점 목표 전체 (title/description/parentGoalId/...)
+            'revisionReason'         // 의사결정 게이트가 채울 자리 (B1 트랙 대기). 자동 감지 시엔 빈 값.
+        ]
+    },
+    // (워크플로우 트랙 2026-05-13) 워크플로우 — 목표를 도트로 분해하는 다리
+    // steps 는 객체 배열이라 통째로 encrypted (linkedDotIds 도 안에 들어감 — 도트 ID 노출 차단)
+    workflows: {
+        plaintext: [
+            'id', 'userId', 'parentGoalId',
+            'goalVersionAtCreate',   // 어떤 버전의 목표에서 만든 워크플로우인가
+            'status',                // active | archived
+            'source',                // self_report|ai_inferred (합작이라 어느 쪽 초안인지)
+            'createdAt', 'updatedAt'
+        ],
+        encrypted: [
+            'title',
+            'steps',                 // [{ id, order, title, estimatedDots, executor, status, linkedDotIds }]
+            'generatedByDecision',   // 합작 시 AI 초안의 출처 판례
+            'revisionLog',           // [{ at, summary, by }]
+            'notes'
+        ]
     },
     // ───────── v3 Reports 모듈 (5계층 진단 전용) ─────────
     // docs/reports-spec.md + docs/reports-tone-guide.md 기준

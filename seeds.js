@@ -11,6 +11,7 @@
 
 import { db, doc, setDoc, getDoc, serverTimestamp } from './data/firebase.js';
 import { prepareDocument } from './crypto/cryptoService.js';
+import { saveGoal } from './data/goalsRepo.js';
 
 /**
  * 기본 라벨 체계 (5축) — 영적·중립적 단어 위주
@@ -116,12 +117,13 @@ export async function initializeSeedData(dek, userId, opts = {}) {
     }
 
     // 3) 샘플 목표 (사용자가 원할 때만)
+    // saveGoal 경유 — 자동 v1 GoalVersion 박힘 (워크플로우 트랙 2026-05-13).
     if (includeSampleGoals) {
         for (const goal of buildSampleGoals(userId)) {
             const goalRef = doc(db, 'goals', goal.id);
             const goalSnap = await getDoc(goalRef);
             if (!goalSnap.exists()) {
-                const meta = {
+                await saveGoal(dek, {
                     id: goal.id,
                     userId,
                     period: goal.period,
@@ -130,14 +132,10 @@ export async function initializeSeedData(dek, userId, opts = {}) {
                     endDate: '',
                     status: 'active',
                     progress: 0,
-                    createdAt: serverTimestamp(),
-                };
-                const sensitive = {
                     title: goal.title,
                     description: goal.description,
-                };
-                const document = await prepareDocument(dek, meta, sensitive);
-                await setDoc(goalRef, document);
+                    source: 'self_report'
+                });
             }
         }
     }

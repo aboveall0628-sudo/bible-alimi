@@ -5,14 +5,66 @@
  */
 
 import { db, doc, deleteDoc, collection, query, where } from './firebase.js';
-import { saveRecord, queryRecords } from './baseRepo.js';
+import { saveRecord, getRecord, queryRecords } from './baseRepo.js';
+import {
+    createNextVersion as createNextGoalVersion,
+    isSameVersion as isSameGoalVersion
+} from './goalVersionsRepo.js';
 
 const PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', '5year', '10year'];
 
 /**
- * 목표 저장
+ * 목표 저장.
+ *
+ * 자동 버전 감지 (워크플로우 트랙 2026-05-13):
+ * - 신규 목표 → v1 GoalVersion 자동 생성
+ * - 기존 목표의 핵심 필드(title/description/parentGoalId/period/startDate/endDate/status)
+ *   변경 → currentVersion ++ + 새 GoalVersion 생성, 이전 활성 버전의 validTo 박힘.
+ * - 배치 상태(timeSlot/placedAt/order/progress/...)만 바뀌면 버전 변경 없음.
+ *
+ * opts.skipVersioning=true 로 자동 버전 우회 가능 (마이그레이션·시드 등 특수 케이스).
+ *
+ * @param {CryptoKey} dek
+ * @param {Object} goalData
+ * @param {Object} [opts]
+ *   - skipVersioning: 자동 버전 감지 끔
+ *   - revisionReason: 의사결정 게이트가 채울 자리 (B1 트랙)
+ *   - source: 'self_report' | 'ai_inferred' | 'system_auto'
  */
-export async function saveGoal(dek, goalData) {
+export async function saveGoal(dek, goalData, opts = {}) {
+    const { skipVersioning = false, revisionReason = '', source } = opts;
+
+    if (!skipVersioning && dek && goalData?.id && goalData?.userId) {
+        try {
+            const prev = await getRecord(dek, 'goals', goalData.id);
+            if (!prev) {
+                // 신규 — currentVersion=1 박고 v1 스냅샷 생성
+                goalData.currentVersion = 1;
+                await createNextGoalVersion(dek, goalData, {
+                    revisionReason,
+                    source: source || 'self_report'
+                });
+            } else if (!isSameGoalVersion(prev, goalData)) {
+                // 핵심 필드 변경 감지 — 새 버전
+                const next = (prev.currentVersion ?? 1) + 1;
+                goalData.currentVersion = next;
+                await createNextGoalVersion(dek, goalData, {
+                    revisionReason,
+                    source: source || 'system_auto'
+                });
+            } else {
+                // 배치 상태 변경 등 — 버전 그대로 유지
+                if (goalData.currentVersion == null) {
+                    goalData.currentVersion = prev.currentVersion ?? 1;
+                }
+            }
+        } catch (e) {
+            // 버전 감지 실패는 저장 자체를 막지 않음 — 잘못된 의존으로 사용자 흐름이
+            // 끊기는 게 더 위험. 콘솔에만 흔적 남기고 진행.
+            console.warn('[saveGoal] version detection failed:', e?.message || e);
+        }
+    }
+
     return await saveRecord(dek, 'goals', goalData, goalData.id);
 }
 
@@ -149,6 +201,27 @@ export function buildGoalTree(goals) {
  */
 export async function deleteGoal(goalId) {
     await deleteDoc(doc(db, 'goals', goalId));
+}
+
+/**
+ * (워크플로우 트랙 2026-05-13) 목표 → 도트 역참조 + 워크플로우 묶음 조회.
+ *
+ * dotsRepo.getDotsByGoalId + workflowsRepo.getWorkflowsByGoal 를 한 번에 묶어
+ * 일일 의식 화면이 "이 목표의 워크플로우 + 분배된 도트"를 한 번에 받게 함.
+ *
+ * @param {CryptoKey} dek
+ * @param {string} userId
+ * @param {string} goalId
+ * @returns {Promise<{ dots: Object[], workflows: Object[] }>}
+ */
+export async function getGoalContext(dek, userId, goalId) {
+    const { getDotsByGoalId } = await import('./dotsRepo.js');
+    const { getWorkflowsByGoal } = await import('./workflowsRepo.js');
+    const [dots, workflows] = await Promise.all([
+        getDotsByGoalId(dek, userId, goalId),
+        getWorkflowsByGoal(dek, userId, goalId)
+    ]);
+    return { dots, workflows };
 }
 
 export { PERIODS };

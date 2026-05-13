@@ -9,14 +9,69 @@ import { db, doc, deleteDoc, collection, query, where } from './firebase.js';
 import { saveRecord, getRecord, queryRecords } from './baseRepo.js';
 
 /**
- * 도트 저장 (신규/수정)
- * @param {CryptoKey} dek
- * @param {Object} dotData - 전체 도트 데이터
+ * 도트 저장 (신규/수정).
+ *
+ * 워크플로우 트랙 보강 (2026-05-13):
+ * - 신규 도트의 executor 기본값 'self'. 옛 도트는 그대로(null 허용).
+ * - source 가 명시되지 않으면 'self_report' 기본 (정직성 인프라).
+ * - linkedWorkflowStepId/goalVersionId/helperPersonId 는 호출측이 박지 않으면 null.
+ *
+ * 옛 도트 마이그레이션은 하지 않음 (사용자 결정 2026-05-13 옵션 A).
+ * 읽기 측에서 null 가드만 추가.
  */
 export async function saveDot(dek, dotData) {
     const docId = `${dotData.userId}_${dotData.date}_${dotData.timeSlot}`;
     dotData.id = docId;
+    // 신규 저장 케이스에만 기본값 박기 — 기존 도큐먼트는 baseRepo.saveRecord 가
+    // 정책에 없는 필드를 자동으로 떨어뜨리지 않으니 명시적으로 박혀야 함.
+    if (dotData.executor == null) dotData.executor = 'self';
+    if (dotData.source == null) dotData.source = 'self_report';
     return await saveRecord(dek, 'dots', dotData, docId);
+}
+
+/**
+ * (워크플로우 트랙 2026-05-13) 특정 목표에 분배된 도트 모두 조회 — 역참조.
+ *
+ * linkedGoalId 가 encrypted 라 Firestore 직접 쿼리 불가.
+ * getAllDots 패턴 그대로 — userId 단일 쿼리 후 클라이언트 필터 (composite index 회피).
+ *
+ * @param {CryptoKey} dek
+ * @param {string} userId
+ * @param {string} goalId
+ * @returns {Object[]} date asc, timeSlot asc
+ */
+export async function getDotsByGoalId(dek, userId, goalId) {
+    const q = query(
+        collection(db, 'dots'),
+        where('userId', '==', userId)
+    );
+    const all = await queryRecords(dek, q);
+    return all
+        .filter(d => d.linkedGoalId === goalId)
+        .sort((a, b) => {
+            const dc = (a.date || '').localeCompare(b.date || '');
+            if (dc) return dc;
+            return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
+        });
+}
+
+/**
+ * (워크플로우 트랙 2026-05-13) 특정 워크플로우 스텝에 분배된 도트 조회.
+ * linkedWorkflowStepId 도 encrypted — 동일 패턴.
+ */
+export async function getDotsByWorkflowStepId(dek, userId, stepId) {
+    const q = query(
+        collection(db, 'dots'),
+        where('userId', '==', userId)
+    );
+    const all = await queryRecords(dek, q);
+    return all
+        .filter(d => d.linkedWorkflowStepId === stepId)
+        .sort((a, b) => {
+            const dc = (a.date || '').localeCompare(b.date || '');
+            if (dc) return dc;
+            return (a.timeSlot ?? 0) - (b.timeSlot ?? 0);
+        });
 }
 
 /**
