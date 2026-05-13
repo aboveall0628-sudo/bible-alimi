@@ -226,23 +226,27 @@ export const SHORTCUTS = [
       action: actions.writingSubmit, preventDefault: true },
 
     // ─── 2층 — 영역 이동 (Alt+숫자) ─────────────────────────
-    { id: 'nav.dashboard.num', keys: 'Alt+1', context: 'global', category: '영역 이동',
-      label: '대시보드', description: '대시보드로 이동.', action: navTo('dashboard'), preventDefault: true },
+    // (2026-05-13 v2) 사용자 명시 사이드바 순서와 동기화:
+    //   1 내 프로필 / 2 오늘 / 3 대시보드 / 4 나의 원칙 / 5 인물 / 6 조직 / 7 경제 / 8 지난 묵상 / 9 리포트 / 0 설정
+    { id: 'nav.selfProfile.num', keys: 'Alt+1', context: 'global', category: '영역 이동',
+      label: '내 프로필', description: '내 프로필로 이동.', action: navTo('self-profile'), preventDefault: true },
     { id: 'nav.today.num',     keys: 'Alt+2', context: 'global', category: '영역 이동',
       label: '오늘',     description: '오늘 화면으로 이동.', action: navTo('today'), preventDefault: true },
-    { id: 'nav.past.num',      keys: 'Alt+3', context: 'global', category: '영역 이동',
-      label: '지난 묵상', description: '지난 묵상 게시판으로 이동.', action: navTo('past'), preventDefault: true },
+    { id: 'nav.dashboard.num', keys: 'Alt+3', context: 'global', category: '영역 이동',
+      label: '대시보드', description: '대시보드로 이동.', action: navTo('dashboard'), preventDefault: true },
     { id: 'nav.principles.num',keys: 'Alt+4', context: 'global', category: '영역 이동',
       label: '나의 원칙', description: '원칙 화면으로 이동.', action: navTo('principles'), preventDefault: true },
-    { id: 'nav.reports.num',   keys: 'Alt+5', context: 'global', category: '영역 이동',
-      label: '리포트',   description: '리포트 화면으로 이동.', action: navTo('reports'), preventDefault: true },
-    { id: 'nav.persons.num',   keys: 'Alt+6', context: 'global', category: '영역 이동',
+    { id: 'nav.persons.num',   keys: 'Alt+5', context: 'global', category: '영역 이동',
       label: '인물',     description: '인물 화면으로 이동.', action: navTo('persons'), preventDefault: true },
-    { id: 'nav.orgs.num',      keys: 'Alt+7', context: 'global', category: '영역 이동',
+    { id: 'nav.orgs.num',      keys: 'Alt+6', context: 'global', category: '영역 이동',
       label: '조직',     description: '조직 화면으로 이동.', action: navTo('organizations'), preventDefault: true },
-    { id: 'nav.economy.num',   keys: 'Alt+8', context: 'global', category: '영역 이동',
+    { id: 'nav.economy.num',   keys: 'Alt+7', context: 'global', category: '영역 이동',
       label: '경제',     description: '경제 화면으로 이동.', action: navTo('economy'), preventDefault: true },
-    { id: 'nav.settings.num',  keys: 'Alt+9', context: 'global', category: '영역 이동',
+    { id: 'nav.past.num',      keys: 'Alt+8', context: 'global', category: '영역 이동',
+      label: '지난 묵상', description: '지난 묵상 게시판으로 이동.', action: navTo('past'), preventDefault: true },
+    { id: 'nav.reports.num',   keys: 'Alt+9', context: 'global', category: '영역 이동',
+      label: '리포트',   description: '리포트 화면으로 이동.', action: navTo('reports'), preventDefault: true },
+    { id: 'nav.settings.num',  keys: 'Alt+0', context: 'global', category: '영역 이동',
       label: '설정',     description: '설정 화면으로 이동.', action: navTo('settings'), preventDefault: true },
 
     // 2층 — 의미 기반 문자 별칭 (숫자와 동일 동작, 별도 표시는 X)

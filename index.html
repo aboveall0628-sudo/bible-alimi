@@ -100,19 +100,19 @@
                 <span id="user-name" style="font-size:14px">로그인</span>
             </div>
             <nav class="sidebar-nav">
-                <!-- 2026-05-13: 첫 진입 = 오늘 (걸어다니는 성경 정체성 — 말씀부터). 대시보드는 두 번째. -->
+                <!-- 2026-05-13 v2: 사용자 명시 메뉴 순서 (HC#1 후 검증 피드백 #11).
+                     Alt+1~9 단축키도 이 순서대로 매핑됨 (shortcuts/registry.js). -->
+                <button class="sidebar-item" id="nav-self-profile"><i class="icon" data-lucide="user-circle"></i> 내 프로필</button>
                 <button class="sidebar-item active" id="nav-today"><i class="icon" data-lucide="calendar"></i> 오늘</button>
                 <button class="sidebar-item" id="nav-dashboard"><i class="icon" data-lucide="layout-dashboard"></i> 관제탑</button>
                 <hr class="nav-divider">
-                <button class="sidebar-item" id="nav-past"><i class="icon" data-lucide="scroll-text"></i> 지난 묵상</button>
                 <button class="sidebar-item" id="nav-principles"><i class="icon" data-lucide="book-open"></i> 나의 원칙</button>
-                <button class="sidebar-item" id="nav-reports"><i class="icon" data-lucide="trending-up"></i> 리포트</button>
-                <hr class="nav-divider">
-                <!-- B-4 본인 프로필 트랙 (2026-05-13): 사람 차원 묶음 첫 자리. 5y/10y 리포트 base case. -->
-                <button class="sidebar-item" id="nav-self-profile"><i class="icon" data-lucide="user-circle"></i> 내 프로필</button>
                 <button class="sidebar-item" id="nav-persons"><i class="icon" data-lucide="users"></i> 인물</button>
                 <button class="sidebar-item" id="nav-organizations"><i class="icon" data-lucide="building-2"></i> 조직</button>
                 <button class="sidebar-item" id="nav-economy"><i class="icon" data-lucide="wallet"></i> 경제</button>
+                <hr class="nav-divider">
+                <button class="sidebar-item" id="nav-past"><i class="icon" data-lucide="scroll-text"></i> 지난 묵상</button>
+                <button class="sidebar-item" id="nav-reports"><i class="icon" data-lucide="trending-up"></i> 리포트</button>
             </nav>
             <!-- 하단 고정: 설정 (디자인 시스템 점검 시 Support 추가 검토) -->
             <div class="sidebar-bottom">
