@@ -495,6 +495,12 @@ async function saveDraft(container) {
     const dek = getDEK();
     if (!dek) { showToast('🔒 잠금이 걸려 있어요'); return; }
 
+    // 2026-05-14 safety: 이전 버그로 _draft 가 string 으로 깨졌을 수 있어 객체 복구.
+    if (!_draft || typeof _draft !== 'object') {
+        try { _draft = await ensureSelfCard(dek, _userId); }
+        catch (e) { console.error('[selfProfile] _draft 복구 실패:', e); _draft = {}; }
+    }
+
     // 입력값 수집
     _draft.name = container.querySelector('#sf-name')?.value.trim() || '';
     _draft.nicknames = splitCsv(container.querySelector('#sf-nicknames')?.value);

@@ -207,6 +207,11 @@ export async function ensureSelfCard(dek, userId) {
 /**
  * 본인 카드 저장 — isSelf=true 강제, lastSelfUpdatedAt 자동 갱신.
  *   사용자가 "내 프로필" 화면에서 저장 누르면 호출.
+ *
+ *   반환: **저장된 카드 객체 전체** (id·lastSelfUpdatedAt 등 박힘 후 상태).
+ *   ⚠️ 2026-05-14 버그 수정: 이전엔 savePerson(→saveRecord) 의 id 문자열을 그대로
+ *   반환했음. 호출 측이 `_draft = saved` 패턴을 쓰면 _draft 가 string 으로 덮여
+ *   다음 저장부터 spread/property 박기가 silent fail 됐음.
  */
 export async function saveSelfCard(dek, userId, data) {
     const now = new Date().toISOString();
@@ -219,7 +224,8 @@ export async function saveSelfCard(dek, userId, data) {
     if (!payload.id) {
         payload.id = `${SELF_CARD_ID_PREFIX}${Date.now()}`;
     }
-    return savePerson(dek, userId, payload);
+    await savePerson(dek, userId, payload);
+    return payload;
 }
 
 /**
