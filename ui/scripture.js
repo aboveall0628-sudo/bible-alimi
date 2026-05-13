@@ -180,6 +180,43 @@ function flattenPartChapters(part) {
 }
 
 /**
+ * (2026-05-13) "이사야 20" / "요한복음 2" / "사 20" / "요 2" 등 자유 입력 파싱.
+ * @returns {{book:string, chapter:number}|null}
+ */
+function parseBookChapter(raw) {
+    if (!raw) return null;
+    // 마지막 숫자 = 장 번호, 그 앞 텍스트 = 책 이름
+    const m = raw.match(/^(.+?)[\s]*(\d+)\s*(?:장)?$/);
+    if (!m) return null;
+    const book = m[1].trim();
+    const chapter = parseInt(m[2], 10);
+    if (!book || isNaN(chapter) || chapter < 1) return null;
+    return { book, chapter };
+}
+
+/**
+ * (2026-05-13) 4파트 전체에서 책 이름 + 장 매칭 — abbr/full 둘 다 검색.
+ * @returns {{partId:number, idx:number}|null}
+ */
+function findChapterAcrossParts({ book, chapter }) {
+    const bookKey = book.replace(/\s+/g, '');
+    for (const part of BIBLE_METADATA.parts) {
+        const chapters = flattenPartChapters(part);
+        for (let i = 0; i < chapters.length; i++) {
+            const c = chapters[i];
+            const abbrMatch = c.abbr === bookKey;
+            const fullMatch = c.full === bookKey;
+            // full 이름 일부 매칭 — "요한복음" 입력 시 "요한복음" full 매칭 OK,
+            // "이사야" 입력 시 "이사야" full 매칭 OK.
+            if ((abbrMatch || fullMatch) && c.chapter === chapter) {
+                return { partId: part.id, idx: i };
+            }
+        }
+    }
+    return null;
+}
+
+/**
  * 특정 날짜에 보일 (책, 장) 인덱스 계산.
  * - override가 없으면: ANCHOR_DATE / ANCHOR_INDICES 기반 (기본 4파트 통독)
  * - override가 있으면: override.anchorDate에 override.{abbr,chapter}이 보이고
@@ -319,10 +356,11 @@ export async function renderScriptureForDate(date) {
             : '';
 
         // (2026-05-13 즉효 fix) manual 모드에서 자동 롤오버가 어긋났을 때를 위한 수동 진입 버튼.
-        //   본문 헤더 우측에 작은 "→ 다음 장" 버튼 노출. 클릭 시 즉시 다음 장으로 이동.
+        //   본문 헤더 우측에 작은 "→ 다음 장" + "📖 어디로?" 버튼 노출.
         //   본격 롤오버 로직 디버그는 별도 매듭.
         const manualJumpHtml = mode === 'manual'
-            ? `<button type="button" class="passage-jump-next" data-part="${part.id}" title="다음 장으로 이동">다음 장 →</button>`
+            ? `<button type="button" class="passage-jump-pick" data-part="${part.id}" title="책·장 직접 입력">📖</button>
+               <button type="button" class="passage-jump-next" data-part="${part.id}" title="다음 장으로 이동">다음 장 →</button>`
             : '';
 
         passageContainer.innerHTML = `
@@ -361,6 +399,30 @@ export async function renderScriptureForDate(date) {
                 const nextPos = Math.min(baseline + 1, max - 1);
                 setPartPosition(plan.id, part.id, nextPos);
                 clearPartLastRead(plan.id, part.id);
+                renderScriptureForDate(date).catch(() => {});
+            });
+        }
+
+        // (2026-05-13) "📖 어디로?" — 책·장 직접 입력으로 즉시 점프.
+        //   사용자가 어느 파트 헤더에서든 입력 가능. 4파트 전체에서 책 매칭 → 해당 파트로 점프.
+        const pickBtn = passageContainer.querySelector('.passage-jump-pick');
+        if (pickBtn) {
+            pickBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const answer = window.prompt('어디로 갈까요? 예: "이사야 20", "여호수아 24", "요한복음 2"');
+                if (!answer || !answer.trim()) return;
+                const target = parseBookChapter(answer.trim());
+                if (!target) {
+                    alert('"이사야 20" 같은 형식으로 입력해 주세요.');
+                    return;
+                }
+                const found = findChapterAcrossParts(target);
+                if (!found) {
+                    alert(`"${answer}"을(를) 4파트에서 찾지 못했어요. 책 이름이나 장 번호를 다시 확인해 주세요.`);
+                    return;
+                }
+                setPartPosition(plan.id, found.partId, found.idx);
+                clearPartLastRead(plan.id, found.partId);
                 renderScriptureForDate(date).catch(() => {});
             });
         }
