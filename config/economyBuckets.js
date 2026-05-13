@@ -100,6 +100,9 @@ export const EXPENSE_CATEGORIES = [
     // (2026-05-13 묶음 A 버그) 사교·모임 비용 — 1·2·3차(밥·카페·술·노래방) 한 묶음.
     // 혼자 카페·취미는 'leisure' 로. 누구와 함께 쓴 돈을 모아 보기 위한 축.
     { id: 'social',         label: '사교·모임',  icon: 'users' },
+    // (2026-05-13 HC#1) 경조사 — 결혼식 축의·장례식 조의·돌잔치 등 의례적 지출.
+    // social(자발적 사교)과 의미 분리: 의례성은 "안 가면 관계가 끊김" 무게의 지출.
+    { id: 'ceremony',       label: '경조사',     icon: 'flower-2' },
     { id: 'transport',      label: '교통',       icon: 'car' },
     { id: 'housing',        label: '주거',       icon: 'home' },
     { id: 'utility',        label: '공과금',     icon: 'plug' },
