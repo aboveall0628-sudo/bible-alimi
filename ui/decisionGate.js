@@ -31,9 +31,27 @@ import {
 } from '../config/principleEnums.js';
 // (B-2 트랙 2026-05-13) 소크라테스 흐름 — AI는 답을 주지 않고 질문만 던짐
 import { callDecisionSocratic } from './aiClient.js';
+// (B-2 v2) 27 자동 추천 + 탓 톤 데이터 근거용 repo
+import { db, collection, query, where, getDocs } from '../data/firebase.js';
+import { readDocument } from '../crypto/cryptoService.js';
+import { getAllPersons } from '../data/personRepo.js';
+import { getAllOrganizations } from '../data/orgRepo.js';
+import { getDotsByDateRange } from '../data/dotsRepo.js';
 
 const SOCRATIC_INTRO_KEY = 'dg-socratic-intro-shown';
 const SOCRATIC_MAX_QUESTIONS = 5;
+// 27번 자동 추천 — 상황 키워드와 매칭할 기도 후보 개수 상한
+const RELATED_PRAYERS_LIMIT = 3;
+// 탓 톤 감지 후 데이터 근거 — 도트 조회 기간 (일)
+const RECENT_DOTS_DAYS = 30;
+// 키워드 추출 — 불용어 (한글 흔한 조사·대명사·동사 어미)
+const STOPWORDS = new Set([
+    '그', '이', '저', '거', '것', '수', '때', '곳', '말', '일', '점', '중',
+    '나', '너', '내', '네', '우리', '저희', '자기', '제가', '저는',
+    '입니다', '있습니다', '없습니다', '하고', '해서', '되는', '되어',
+    '같은', '같이', '많은', '많이', '좀', '더', '덜', '안', '못', '잘',
+    '어떤', '어떻게', '어디', '언제', '왜', '뭐', '무엇', '아무'
+]);
 
 let _state = {
     mode: 'free',
@@ -48,10 +66,14 @@ let _state = {
     relatedPrecedents: [],      // 선택한 원칙들과 연결된 과거 판례 합집합
     attachedPrecedentIds: [],   // 사용자가 첨부한 판례 ids
     // (B-2 트랙 2026-05-13) 소크라테스 흐름 상태
-    socraticHistory: [],        // [{ role:'ai'|'user', text, mode, askedAt }]
+    socraticHistory: [],        // [{ role:'ai'|'user', text, mode, askedAt, questionType }]
     socraticQuestionNumber: 0,  // 마지막으로 받은 AI 질문 차례 (1~5)
     socraticLoading: false,
     socraticEnded: false,       // opinion·summary 받은 뒤 또는 사용자가 "이제 결정하기" 누른 뒤
+    // (B-2 v2 2026-05-13) 재설계 추가 상태
+    previousQuestionTypes: [],  // 누적 — 같은 유형 재사용 차단 (반복의 주범 1)
+    pendingContextNeeds: [],    // AI 마커가 박은 다음 호출에 추가할 데이터 종류 (persons|orgs|dots|prayers)
+    relatedPrayersCache: null,  // 27번 자동 추천 — 한 번 로딩 후 캐시 (null=아직, []=로드됨 빈 결과)
 };
 
 let _initialized = false;
@@ -113,6 +135,9 @@ export async function openDecisionGate(params) {
     _state.socraticQuestionNumber = 0;
     _state.socraticLoading = false;
     _state.socraticEnded = false;
+    _state.previousQuestionTypes = [];
+    _state.pendingContextNeeds = [];
+    _state.relatedPrayersCache = null;
 
     const overlay = document.getElementById('dg-overlay');
     if (!overlay) return;
@@ -427,8 +452,11 @@ function _socraticAdvance(mode = 'question') {
 }
 
 /**
- * AI 호출 — mode별 callDecisionSocratic.
- * 응답을 history에 push 하고 섹션 다시 렌더.
+ * AI 호출 — mode별 callDecisionSocratic. v2 재설계:
+ *   - 첫 호출 시 27번 자동 추천 (meditations 키워드 매칭)
+ *   - pendingContextNeeds 있으면 인물·조직·도트 데이터 로드해서 페이로드에 포함
+ *   - previousQuestionTypes 누적 전달 (같은 유형 차단)
+ *   - 응답 마커(TYPE/NEED) 파싱 → _state 반영
  */
 async function _socraticAsk(mode) {
     if (_state.socraticLoading) return;
@@ -483,13 +511,54 @@ async function _socraticAsk(mode) {
         ? Math.min(_state.socraticQuestionNumber + 1, SOCRATIC_MAX_QUESTIONS)
         : _state.socraticQuestionNumber;
 
+    // (v2) 27번 자동 추천 — 첫 호출이면 meditations 검색해서 캐시. 이후 같은 캐시 재사용.
+    if (_state.relatedPrayersCache === null) {
+        try {
+            _state.relatedPrayersCache = await _loadRelatedPrayers(
+                _state.userId, getDEK(), situation
+            );
+        } catch (e) {
+            console.warn('[decisionGate] related prayers load failed:', e?.message || e);
+            _state.relatedPrayersCache = [];
+        }
+    }
+
+    // (v2) 탓 톤 감지 후 — pendingContextNeeds 따라 데이터 로드 + 페이로드 포함
+    let relatedPersons = [];
+    let relatedOrgs = [];
+    let recentDots = [];
+    if (_state.pendingContextNeeds.length > 0) {
+        const dek = getDEK();
+        const userId = _state.userId;
+        try {
+            if (_state.pendingContextNeeds.includes('persons')) {
+                relatedPersons = await _loadActivePersonsSummary(userId, dek);
+            }
+            if (_state.pendingContextNeeds.includes('orgs')) {
+                relatedOrgs = await _loadActiveOrgsSummary(userId, dek);
+            }
+            if (_state.pendingContextNeeds.includes('dots')) {
+                recentDots = await _loadRecentDotsSummary(userId, dek);
+            }
+        } catch (e) {
+            console.warn('[decisionGate] context data load failed:', e?.message || e);
+        }
+        // 한 번 쓰고 비움 (다음 호출에는 또 새로 필요할 때만 채워짐)
+        _state.pendingContextNeeds = [];
+    }
+
     try {
-        const { text, fallback } = await callDecisionSocratic({
+        const { text, questionType, contextNeeded, fallback } = await callDecisionSocratic({
             mode,
             questionNumber: nextQuestionNumber,
+            previousQuestionTypes: _state.previousQuestionTypes.slice(),
             situation,
             principles: selectedPrinciples,
             precedents: attachedPrecedents,
+            relatedPrayers: _state.relatedPrayersCache,
+            relatedPersons,
+            relatedOrgs,
+            recentDots,
             history: _state.socraticHistory.map(t => ({ role: t.role, text: t.text })),
             goalContext,
             context: { persons: [], orgs: [], places: [], amounts: [] }
@@ -507,11 +576,18 @@ async function _socraticAsk(mode) {
             text,
             mode,
             questionNumber: mode === 'question' ? nextQuestionNumber : null,
+            questionType: questionType || null,
             askedAt: Date.now()
         });
 
         if (mode === 'question') {
             _state.socraticQuestionNumber = nextQuestionNumber;
+            // 이전 질문 유형 누적 — 다음 호출에서 같은 유형 차단
+            if (questionType) _state.previousQuestionTypes.push(questionType);
+            // 다음 호출에 필요한 데이터 종류 박아두기
+            if (contextNeeded && contextNeeded.length > 0) {
+                _state.pendingContextNeeds = contextNeeded.slice();
+            }
         } else {
             // opinion / summary 받으면 대화 종료
             _state.socraticEnded = true;
@@ -530,6 +606,103 @@ async function _socraticAsk(mode) {
         _renderSocraticSection();
         _toast('잠시 막혔어요. 한 번만 더 시도해 주실래요?');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  (B-2 v2 2026-05-13) 페이로드 자동 채움 헬퍼
+//
+//  - _extractKeywords    상황 텍스트에서 2글자 이상 한글 단어 추출 (불용어 제외)
+//  - _loadRelatedPrayers 27번 자동 추천 — meditations.prayer 키워드 매칭
+//  - _loadActivePersonsSummary/_loadActiveOrgsSummary/_loadRecentDotsSummary
+//    탓 톤 감지 후 다음 호출 페이로드용 요약 데이터
+// ═══════════════════════════════════════════════════════════════════
+
+function _extractKeywords(text) {
+    if (!text || typeof text !== 'string') return [];
+    // 한글 2글자 이상 토큰 추출 (공백·문장부호 분리)
+    const tokens = text
+        .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length >= 2 && !STOPWORDS.has(t));
+    // 중복 제거 + 첫 5개
+    return [...new Set(tokens)].slice(0, 5);
+}
+
+/**
+ * 27번 자동 추천 — meditations 컬렉션의 prayer 필드에서 키워드 매칭.
+ * composite index 회피: userId 단일 쿼리 후 클라이언트 정렬·필터.
+ * 매칭된 기도 최대 3개 (최근순) — date + 본문 발췌 (앞 60자).
+ */
+async function _loadRelatedPrayers(userId, dek, situation) {
+    if (!dek || !situation || situation.trim().length < 2) return [];
+    const keywords = _extractKeywords(situation);
+    if (keywords.length === 0) return [];
+
+    const q = query(collection(db, 'meditations'), where('userId', '==', userId));
+    const snap = await getDocs(q);
+
+    const matched = [];
+    for (const d of snap.docs) {
+        try {
+            const data = await readDocument(dek, d.data());
+            const prayer = String(data.prayer || '').trim();
+            if (!prayer) continue;
+            // 키워드 하나라도 포함되면 매칭
+            if (keywords.some(k => prayer.includes(k))) {
+                matched.push({
+                    date: data.date || '',
+                    excerpt: prayer.slice(0, 60) + (prayer.length > 60 ? '...' : '')
+                });
+            }
+        } catch { /* 복호화 실패 한 건은 조용히 스킵 */ }
+    }
+    // 최근순 정렬 후 상한
+    return matched
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .slice(0, RELATED_PRAYERS_LIMIT);
+}
+
+/**
+ * 활성 인물 카드 요약 — 본인(isSelf), fallback 제외. stance/relationship/note 메모만.
+ * 페이로드 크기 절제 위해 상위 20명까지 + 핵심 필드만.
+ */
+async function _loadActivePersonsSummary(userId, dek) {
+    if (!dek) return [];
+    const list = await getAllPersons(dek, userId, {});
+    return list
+        .filter(p => !p.isSelf && !p.isFallback)
+        .slice(0, 20)
+        .map(p => ({
+            name: p.name || '',
+            stance: p.stance || 'neutral',
+            relationship: p.relationship || null,
+            note: (p.notes || p.tendencies || '').toString().slice(0, 120)
+        }));
+}
+
+async function _loadActiveOrgsSummary(userId, dek) {
+    if (!dek) return [];
+    const list = await getAllOrganizations(dek, userId);
+    return list.slice(0, 15).map(o => ({
+        name: o.name || '',
+        stance: o.stance || 'neutral',
+        note: (o.notes || '').toString().slice(0, 120)
+    }));
+}
+
+async function _loadRecentDotsSummary(userId, dek) {
+    if (!dek) return [];
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - RECENT_DOTS_DAYS);
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    const dots = await getDotsByDateRange(dek, userId, fmt(start), fmt(end));
+    return dots.slice(0, 30).map(d => ({
+        date: d.date || '',
+        label: (d.actualTask || d.plannedTask || '').toString().slice(0, 40),
+        satisfaction: d.executionSatisfaction || null,
+        note: (d.notes || '').toString().slice(0, 80)
+    }));
 }
 
 /**

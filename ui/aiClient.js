@@ -1183,31 +1183,55 @@ function buildYearlyReportFallback(yearStats) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  B-2 트랙 (2026-05-13) — 분별의 자리 소크라테스 호출
-//  llmProxy.ts task 'socratic' 과 1:1 대응.
-//  세 모드: 'question'(다음 질문) | 'opinion'(의견 요청) | 'summary'(대화 정리)
+//  B-2 트랙 v2 (2026-05-13) — 분별의 자리 소크라테스 호출 재설계
+//  llmProxy.ts task 'socratic' v2 와 1:1 대응.
+//
+//  v1 → v2 변화 (실사용 피드백):
+//   - previousQuestionTypes 누적 — 같은 유형 반복 차단 (반복의 주범 1)
+//   - relatedPrayers 페이로드 — 27번 자동 추천 흐름
+//   - relatedPersons/Orgs/recentDots — 탓 톤 감지 후 다음 호출에만 채움
+//   - 응답 마커 ---META--- TYPE:<유형> NEED:<데이터타입> 파싱
+//     → 사용자에게 보일 본문은 마커 제거, 메타는 별도 반환
 // ═══════════════════════════════════════════════════════════════════
+
+const SOCRATIC_META_REGEX = /^\s*-{2,}\s*META\s*-{2,}\s*(.+?)\s*$/im;
 
 /**
  * 분별의 자리 소크라테스 흐름 호출.
  *
  * @param {Object} args
  *   @param {'question'|'opinion'|'summary'} args.mode
- *   @param {number}  args.questionNumber          1~5 (대화 차례. opinion·summary 일 땐 마지막 차례 값 그대로)
- *   @param {string}  args.situation               사용자가 적은 상황 한두 줄
- *   @param {Array}   args.principles              [{title, body, strength, category}] 사용자가 고른 원칙들 (가명화 X)
- *   @param {Array}   args.precedents              [{situation, decision, decidedAt, contextNote}] 관련 판례 (가명화됨)
- *   @param {Array}   args.history                 [{role:'ai'|'user', text}] 지금까지 대화
- *   @param {Object?} args.goalContext             null | { title, description } goal-edit 모드 시
- *   @param {Object}  args.context                 { persons: ['이름'...] } 가명화 매핑
- * @returns {Promise<{text: string, fallback: boolean}>}
+ *   @param {number}  args.questionNumber           1~5
+ *   @param {string[]} args.previousQuestionTypes   이미 던진 질문 유형 ["명료화","근거",...] — 같은 유형 금지
+ *   @param {string}  args.situation
+ *   @param {Array}   args.principles               [{title, body, strength, category}]
+ *   @param {Array}   args.precedents               [{situation, decision, decidedAt, contextNote}]
+ *   @param {Array}   args.relatedPrayers           [{date, excerpt}] — 27번 자동 추천. 0~3개
+ *   @param {Array}   args.relatedPersons           [{name, stance, relationship, note}] — 탓 톤 후만
+ *   @param {Array}   args.relatedOrgs              [{name, stance, note}] — 탓 톤 후만
+ *   @param {Array}   args.recentDots               [{date, label, satisfaction, note}] — 탓 톤 후만
+ *   @param {Array}   args.history                  [{role:'ai'|'user', text}]
+ *   @param {Object?} args.goalContext              null | { title, description }
+ *   @param {Object}  args.context                  { persons:[], orgs:[], ... } 가명화 매핑
+ *
+ * @returns {Promise<{
+ *   text: string,                 // 사용자에게 보일 본문 (마커 제거됨)
+ *   questionType: string|null,    // AI가 박은 질문 유형 (명료화/전제/근거/관점/결과/본질)
+ *   contextNeeded: string[],      // 다음 호출에 추가해야 할 데이터 종류 (persons/orgs/dots/prayers)
+ *   fallback: boolean
+ * }>}
  */
 export async function callDecisionSocratic({
     mode,
     questionNumber,
+    previousQuestionTypes = [],
     situation,
     principles = [],
     precedents = [],
+    relatedPrayers = [],
+    relatedPersons = [],
+    relatedOrgs = [],
+    recentDots = [],
     history = [],
     goalContext = null,
     context = {},
@@ -1215,9 +1239,14 @@ export async function callDecisionSocratic({
     const plain = {
         mode,
         questionNumber,
+        previousQuestionTypes,
         situation,
         principles,
         precedents,
+        relatedPrayers,
+        relatedPersons,
+        relatedOrgs,
+        recentDots,
         history,
         goalContext,
         context: {
@@ -1229,14 +1258,56 @@ export async function callDecisionSocratic({
     };
 
     const result = await callLLM('socratic', plain, {
-        deep:        false,   // flash — 대화형이라 가벼움 + 비용 낮춤
-        bypassCache: true,    // 매번 fresh (대화 흐름이라 동일 캐시 의미 없음)
+        deep:        false,
+        bypassCache: true,
     });
 
     if (result.fallback) {
-        return { text: '', fallback: true };
+        return { text: '', questionType: null, contextNeeded: [], fallback: true };
     }
-    return { text: String(result.text || '').trim(), fallback: false };
+
+    const parsed = _parseSocraticResponse(String(result.text || ''));
+    return { ...parsed, fallback: false };
+}
+
+/**
+ * 응답에서 ---META--- TYPE:<유형> NEED:<list> 라인 떼어내 본문/메타 분리.
+ *
+ * 정상 응답 예:
+ *   일주일 뒤에도 같은 결로 느껴지실까요?
+ *   ---META--- TYPE:결과 NEED:none
+ *
+ * 마커 누락 시 본문 그대로, 메타는 null/[].
+ *
+ * NEED 값:
+ *   none  — 추가 데이터 불필요
+ *   persons,orgs,dots,prayers (콤마/공백 구분) — 다음 호출에 추가
+ */
+function _parseSocraticResponse(raw) {
+    const text = raw.trim();
+    const m = text.match(SOCRATIC_META_REGEX);
+
+    if (!m) {
+        return { text, questionType: null, contextNeeded: [] };
+    }
+
+    const metaLine = m[1];
+    const cleanText = text.replace(SOCRATIC_META_REGEX, '').trim();
+
+    let questionType = null;
+    const typeMatch = metaLine.match(/TYPE\s*:\s*([^\s,]+)/i);
+    if (typeMatch) questionType = typeMatch[1].trim();
+
+    let contextNeeded = [];
+    const needMatch = metaLine.match(/NEED\s*:\s*([^\n]+)/i);
+    if (needMatch) {
+        const raw = needMatch[1].trim().toLowerCase();
+        if (raw && raw !== 'none') {
+            contextNeeded = raw.split(/[\s,]+/).filter(s => s && s !== 'none');
+        }
+    }
+
+    return { text: cleanText, questionType, contextNeeded };
 }
 
 function buildDailyReportFallback(stats) {
