@@ -2553,11 +2553,41 @@ button .btn-icon { vertical-align: text-bottom; }
     .utl-mobile-list {
         display: flex; flex-direction: column; gap: var(--sp-2);
     }
+    /* 워크플로우 트랙 STEP 2 (2026-05-13) — 모바일 계획/실제 탭 + 스와이프 */
+    .utl-mobile-tabs {
+        display: flex; gap: var(--sp-2); padding-bottom: var(--sp-2);
+        border-bottom: 1px solid var(--border);
+        margin-bottom: var(--sp-2);
+    }
+    .utl-mobile-tab {
+        flex: 1; padding: var(--sp-2) var(--sp-3);
+        border: none; background: var(--bg-quiet, rgba(0,0,0,0.03));
+        border-radius: var(--radius);
+        font-size: 13px; color: var(--ink-secondary, var(--text-secondary));
+        cursor: pointer;
+        transition: all var(--ease);
+    }
+    .utl-mobile-tab.active {
+        background: var(--brand-soft, rgba(91, 141, 239, 0.1));
+        color: var(--brand-primary, var(--accent-primary));
+        font-weight: 600;
+    }
+    .utl-mobile-body-wrap {
+        display: flex; flex-direction: column; gap: var(--sp-2);
+        touch-action: pan-y;  /* 가로 스와이프 방해 안 받게 */
+    }
     .utl-mobile-card {
         background: var(--bg-card); border: 1px solid var(--border);
         border-left: 4px solid var(--dot-gray);
         border-radius: var(--radius); padding: var(--sp-3);
         display: flex; gap: var(--sp-3); align-items: center;
+    }
+    /* 워크플로우-발 도트는 모바일에서도 시각 구별 */
+    .utl-mobile-card.from-workflow {
+        border-left-color: var(--brand-primary, var(--accent-primary));
+    }
+    .utl-mobile-card.from-workflow .utl-mobile-plan::before {
+        content: '🪜 '; font-size: 11px; opacity: 0.7;
     }
     .utl-mobile-card.dot-gray { border-left-color: var(--dot-gray); }
     .utl-mobile-card.dot-yellow { border-left-color: var(--dot-yellow); }
@@ -5241,5 +5271,149 @@ svg.person-radar { display: block; }
     .econ-asset-cards { grid-template-columns: 1fr; }
     .today-tx-row { grid-template-columns: auto 1fr auto auto; }
     .today-tx-cat { display: none; }
+}
+
+/* ═══════════════════════════════════════
+   워크플로우 트랙 STEP 2 — 등산로 카드 (2026-05-13)
+   디자인 디테일은 디자인 시스템 점검 세션에서 일괄 정리 예정. 여기선 기본만.
+   ═══════════════════════════════════════ */
+
+.section-desc-foot {
+    font-size: 12px; color: var(--ink-secondary, var(--text-secondary));
+    margin-top: var(--sp-3); padding-top: var(--sp-2);
+    border-top: 1px dashed var(--border);
+}
+
+.workflows-list {
+    display: flex; flex-direction: column; gap: var(--sp-3);
+}
+
+.wf-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--sp-3);
+}
+
+.wf-card-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: var(--sp-2); margin-bottom: var(--sp-2);
+}
+.wf-card-title-row { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.wf-card-goal {
+    font-size: 11px; color: var(--ink-secondary, var(--text-secondary));
+    text-transform: uppercase; letter-spacing: 0.04em;
+}
+.wf-card-title {
+    font-size: 15px; font-weight: 600; margin: 0;
+    color: var(--ink-primary, var(--text-primary));
+}
+.wf-progress-chip {
+    flex-shrink: 0;
+    font-size: 11px; font-weight: 600;
+    background: var(--brand-soft, rgba(91, 141, 239, 0.1));
+    color: var(--brand-primary, var(--accent-primary));
+    padding: 2px 8px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+
+.wf-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.wf-step {
+    display: flex; align-items: center; gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-2);
+    border-radius: var(--radius);
+    font-size: 13px;
+    transition: background var(--ease);
+}
+.wf-step:hover { background: var(--hover); }
+.wf-step-status {
+    width: 16px; height: 16px; display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 13px; color: var(--ink-secondary, var(--text-secondary));
+    flex-shrink: 0;
+}
+.wf-step-order {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-secondary, var(--text-secondary));
+    font-size: 12px;
+    min-width: 18px;
+}
+.wf-step-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-step-executor {
+    font-size: 10px; color: var(--ink-secondary, var(--text-secondary));
+    background: var(--bg-quiet, rgba(0,0,0,0.03));
+    padding: 1px 6px; border-radius: 999px;
+}
+.wf-step-dot-count {
+    font-size: 11px; color: var(--ink-secondary, var(--text-secondary));
+    font-variant-numeric: tabular-nums;
+}
+
+/* 완료 스텝 — 옅게 + 가로줄 */
+.wf-step-done .wf-step-title { color: var(--ink-secondary, var(--text-secondary)); text-decoration: line-through; }
+.wf-step-done .wf-step-status { color: var(--dot-green, #5fa572); }
+
+/* 진행 중 — 미세 accent 보더 */
+.wf-step-in-progress { background: var(--brand-soft, rgba(91, 141, 239, 0.06)); }
+.wf-step-in-progress .wf-step-status { color: var(--brand-primary, var(--accent-primary)); }
+
+/* 폐기 스텝 — 옅게 + 취소선 (강한 X 표시 X) */
+.wf-step-abandoned .wf-step-title { color: var(--ink-tertiary, var(--text-tertiary)); text-decoration: line-through; opacity: 0.6; }
+
+/* 데스크탑 드래그 핸들 — 결단 카드 패턴 그대로 */
+.wf-step-handle {
+    cursor: grab; user-select: none;
+    color: var(--ink-tertiary, var(--text-tertiary));
+    font-size: 14px; line-height: 1;
+    padding: 0 var(--sp-1);
+    flex-shrink: 0;
+}
+.wf-step-handle:hover { color: var(--brand-primary, var(--accent-primary)); }
+.wf-step-handle.dragging { cursor: grabbing; opacity: 0.5; }
+
+/* 모바일 [+ 박기] 버튼 */
+.wf-step-mobile-add {
+    flex-shrink: 0;
+    font-size: 11px;
+    background: var(--bg-quiet, rgba(0,0,0,0.03));
+    color: var(--brand-primary, var(--accent-primary));
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background var(--ease);
+}
+.wf-step-mobile-add:hover { background: var(--hover); }
+
+/* 빈 상태 */
+.wf-empty-card {
+    text-align: center;
+    padding: var(--sp-4);
+    background: var(--bg-quiet, rgba(0,0,0,0.02));
+    border-radius: var(--radius);
+}
+.wf-empty-title { font-size: 14px; font-weight: 600; margin: 0 0 var(--sp-2); }
+.wf-empty-body {
+    font-size: 12px; color: var(--ink-secondary, var(--text-secondary));
+    line-height: 1.6; margin: 0;
+}
+.wf-empty-step { color: var(--ink-tertiary, var(--text-tertiary)); font-size: 12px; padding: var(--sp-2); }
+
+/* 데스크탑/모바일 분기 — 결단 카드와 동일 breakpoint */
+.desktop-only { display: inline-block; }
+.mobile-only { display: none; }
+@media (max-width: 768px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: inline-block; }
+}
+
+/* 시간표 슬롯에서 워크플로우-발 도트 시각 구별 — 좌측 얇은 accent 보더 */
+.utl-slot.from-workflow {
+    border-left: 3px solid var(--brand-primary, var(--accent-primary));
+}
+.utl-slot.from-workflow .slot-title::before {
+    content: '🪜 ';
+    font-size: 10px;
+    opacity: 0.7;
 }
 

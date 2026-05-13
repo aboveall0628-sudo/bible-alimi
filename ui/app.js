@@ -21,6 +21,8 @@ import { renderScriptureForDate, loadBibleData as loadBibleDataModule, bindScrip
 import { applyFontSizeToCSS as applyScriptureFontSize } from './scriptureSettings.js';
 import { initTodayView, refreshTodayView } from './todayView.js';
 import { initTimeline, refreshTimeline, scrollTimelineToNow } from './timeline.js';
+// 워크플로우 트랙 STEP 2 (2026-05-13) — 등산로 카드
+import { initWorkflowsCard, refreshWorkflows } from './workflows.js';
 // 기존 v2 자동 리포트 생성은 사용자 버튼 트리거로 대체 (reports/dailyReportFlow.js)
 import { initializeSeedData } from '../seeds.js';
 
@@ -369,6 +371,16 @@ async function onVaultUnlocked(dek) {
     });
     // 첫 마운트엔 현재 시간이 상단에 오게 자동 스크롤
     await refreshTimeline({ userId: currentUserId, date: currentDate, scrollToNow: true });
+
+    // 워크플로우 카드 마운트 + 로드 (워크플로우 트랙 STEP 2)
+    // 스텝 드롭으로 도트 박히면 timeline 갱신 + 결단 패널 갱신.
+    initWorkflowsCard({
+        userId: currentUserId,
+        date: currentDate,
+        onDotCreated: () => refreshTodayData(),
+    });
+    refreshWorkflows({ userId: currentUserId, date: currentDate })
+        .catch(e => console.warn('workflows initial load failed:', e));
 
     // 대시보드(첫 화면)에 표시될 목표·지표 카드 렌더 — 부팅 직후 빈 화면 방지
     try {
@@ -750,6 +762,8 @@ export async function setCurrentDate(dateStr) {
         await refreshTimeline({ userId: currentUserId, date: currentDate, scrollToNow: true });
         // Phase F: 오늘의 현금흐름 카드도 새 날짜의 거래로 갱신
         await refreshTodayEconomyCard();
+        // 워크플로우 트랙 STEP 2: 워크플로우 진척도 새 날짜 기준으로 다시
+        refreshWorkflows({ userId: currentUserId, date: currentDate }).catch(() => {});
     }
     renderScriptureForDate(new Date(currentDate + 'T00:00:00')).catch(() => {});
 }

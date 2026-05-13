@@ -198,45 +198,129 @@ function renderDesktop() {
     bindCellEvents(actualCol, 'actual');
 }
 
+// 모바일 탭 상태 (워크플로우 트랙 STEP 2 — 사용자 결정: 계획/실제 분리 스와이프)
+let _mobileTab = 'plan'; // 'plan' | 'actual'
+
 function renderMobile() {
     const list = document.getElementById('utl-mobile-list');
     if (!list) return;
 
-    // 시간 슬롯 단위로 묶은 카드 리스트 (있는 슬롯만)
-    // Phase E-6 C-2: GCal 이벤트는 동기화 후 _decisions 에 포함됨. 별도 합산 불필요.
-    const slotMap = new Map();
-    _decisions.forEach(d => {
-        if (d.timeSlot == null) return;
-        const titleText = d.title ?? d.text ?? '';
-        const planLabel = d.gcalEventId ? `📅 ${titleText}` : titleText;
-        slotMap.set(d.timeSlot, { ...slotMap.get(d.timeSlot), plan: planLabel });
-    });
-    _dots.forEach(dot => {
-        if (dot.timeSlot == null) return;
-        const existing = slotMap.get(dot.timeSlot) || {};
-        slotMap.set(dot.timeSlot, { ...existing, actual: dot.actualTask || dot.plannedTask, dotClass: dotColorClass(dot) });
-    });
+    const planSlots = _decisions.filter(d => d.timeSlot != null).map(d => ({
+        slot: d.timeSlot,
+        duration: d.durationSlots || 4,
+        label: (d.gcalEventId ? '📅 ' : '') + (d.title ?? d.text ?? '(이름 없음)'),
+        kind: 'decision'
+    })).sort((a, b) => a.slot - b.slot);
 
-    if (slotMap.size === 0) {
-        list.innerHTML = `
-            <div class="utl-empty-card" style="border:none">
-                <h4>아직 비어있어요</h4>
-                <p>오늘의 목표를 한 줄 적거나, 빈 시간을 톡 눌러 채워 보세요.</p>
+    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => ({
+        slot: d.timeSlot,
+        duration: d.durationSlots || 1,
+        label: d.actualTask || d.plannedTask || '(아직 평가 전)',
+        dotClass: dotColorClass(d),
+        fromWorkflow: !!d.linkedWorkflowStepId,
+        kind: 'dot',
+        id: d.id
+    })).sort((a, b) => a.slot - b.slot);
+
+    const planEmpty = planSlots.length === 0;
+    const actualEmpty = actualSlots.length === 0;
+
+    const tabsHtml = `
+        <div class="utl-mobile-tabs" role="tablist">
+            <button class="utl-mobile-tab ${_mobileTab === 'plan' ? 'active' : ''}"
+                    data-tab="plan" role="tab" aria-selected="${_mobileTab === 'plan'}">
+                계획 ${planSlots.length ? `(${planSlots.length})` : ''}
+            </button>
+            <button class="utl-mobile-tab ${_mobileTab === 'actual' ? 'active' : ''}"
+                    data-tab="actual" role="tab" aria-selected="${_mobileTab === 'actual'}">
+                실제 ${actualSlots.length ? `(${actualSlots.length})` : ''}
+            </button>
+        </div>
+    `;
+
+    const renderRow = (item) => {
+        const endSlot = item.slot + (item.duration || 1);
+        const timeLabel = (item.duration || 1) > 1
+            ? `${slotToTime(item.slot)}~${slotToTime(endSlot)}`
+            : slotToTime(item.slot);
+        const cls = [
+            'utl-mobile-card',
+            item.dotClass || 'dot-gray',
+            item.fromWorkflow ? 'from-workflow' : ''
+        ].join(' ').trim();
+        const dataAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
+        return `
+            <div class="${cls}" ${dataAttr}>
+                <span class="utl-mobile-time">${timeLabel}</span>
+                <div class="utl-mobile-body">
+                    <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
+                </div>
             </div>
         `;
-        return;
+    };
+
+    const emptyHtml = (msg) => `
+        <div class="utl-empty-card" style="border:none">
+            <p>${escapeHtml(msg)}</p>
+        </div>
+    `;
+
+    const bodyHtml = _mobileTab === 'plan'
+        ? (planEmpty
+            ? emptyHtml('아직 계획이 비어있어요. 오늘의 목표를 적거나, 등산로에서 한 걸음을 박아 보세요.')
+            : planSlots.map(renderRow).join(''))
+        : (actualEmpty
+            ? emptyHtml('아직 기록이 없어요. 계획 탭의 슬롯을 톡 눌러 평가하거나, 빈 시간을 채워 보세요.')
+            : actualSlots.map(renderRow).join(''));
+
+    list.innerHTML = `${tabsHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>`;
+
+    // 탭 클릭
+    list.querySelectorAll('.utl-mobile-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _mobileTab = btn.dataset.tab;
+            renderMobile();
+        });
+    });
+
+    // 실제 탭의 도트 카드 클릭 → quickReview 모달 (재평가)
+    if (_mobileTab === 'actual') {
+        list.querySelectorAll('.utl-mobile-card[data-dot-id]').forEach(card => {
+            card.addEventListener('click', () => {
+                const dotId = card.dataset.dotId;
+                const dot = _dots.find(d => d.id === dotId);
+                if (!dot) return;
+                openQuickReview({
+                    timeSlot: dot.timeSlot,
+                    cells: [],
+                    userId: _userId,
+                    date: _date,
+                    plannedTask: dot.plannedTask || '',
+                    existingDot: dot,
+                });
+            });
+        });
     }
 
-    const slots = Array.from(slotMap.entries()).sort((a, b) => a[0] - b[0]);
-    list.innerHTML = slots.map(([slot, info]) => `
-        <div class="utl-mobile-card ${info.dotClass || 'dot-gray'}">
-            <span class="utl-mobile-time">${slotToTime(slot)}</span>
-            <div class="utl-mobile-body">
-                ${info.plan ? `<div class="utl-mobile-plan">${escapeHtml(info.plan)}</div>` : ''}
-                ${info.actual ? `<div class="utl-mobile-actual">실제: ${escapeHtml(info.actual)}</div>` : ''}
-            </div>
-        </div>
-    `).join('');
+    // 좌우 스와이프 — 사용자 결정 (2026-05-13)
+    bindMobileSwipe(list);
+}
+
+let _swipeStartX = null;
+function bindMobileSwipe(el) {
+    el.addEventListener('touchstart', (e) => {
+        _swipeStartX = e.touches[0]?.clientX ?? null;
+    }, { passive: true });
+    el.addEventListener('touchend', (e) => {
+        if (_swipeStartX == null) return;
+        const endX = e.changedTouches[0]?.clientX ?? _swipeStartX;
+        const dx = endX - _swipeStartX;
+        _swipeStartX = null;
+        // 50px 이상 좌우 스와이프 시 탭 전환
+        if (Math.abs(dx) < 50) return;
+        if (dx < 0 && _mobileTab === 'plan')  { _mobileTab = 'actual'; renderMobile(); }
+        if (dx > 0 && _mobileTab === 'actual') { _mobileTab = 'plan';   renderMobile(); }
+    });
 }
 
 // ─── 슬롯 컴포넌트 ───
@@ -277,7 +361,9 @@ function createGcalSlot(ev) {
 
 function createActualSlot(dot) {
     const el = document.createElement('div');
-    el.className = `utl-slot ${dotColorClass(dot)}`;
+    // 워크플로우-발 도트는 시각 구별 (워크플로우 트랙 STEP 2)
+    const fromWf = dot.linkedWorkflowStepId ? ' from-workflow' : '';
+    el.className = `utl-slot ${dotColorClass(dot)}${fromWf}`;
     el.dataset.dotId = dot.id;
     const dur = dot.durationSlots || 1;
     const endSlot = dot.timeSlot + dur;
@@ -383,11 +469,13 @@ function gcalEventToSlotRange(ev) {
 // ─── 셀 이벤트 (drop, mousedown-drag, click) ───
 function bindCellEvents(col, lane) {
     col.querySelectorAll('.utl-cell').forEach(cell => {
-        // 드래그 인 - 결단 카드를 받기 (plan 레인만)
+        // 드래그 인 - 결단 카드 / 워크플로우 스텝을 받기 (plan 레인만)
         cell.addEventListener('dragover', (e) => {
             if (lane !== 'plan') return;
-            if (!e.dataTransfer.types.includes('application/x-sanctum-decision') &&
-                !e.dataTransfer.types.includes('application/x-sanctum-slot')) return;
+            const types = e.dataTransfer.types;
+            if (!types.includes('application/x-sanctum-decision') &&
+                !types.includes('application/x-sanctum-slot') &&
+                !types.includes('application/x-sanctum-workflow-step')) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             cell.classList.add('drop-target');
@@ -400,11 +488,32 @@ function bindCellEvents(col, lane) {
             const slot = parseInt(cell.dataset.slot);
             const decisionId = e.dataTransfer.getData('application/x-sanctum-decision');
             const slotMoveId = e.dataTransfer.getData('application/x-sanctum-slot');
+            const workflowStepRaw = e.dataTransfer.getData('application/x-sanctum-workflow-step');
 
             const dek = getDEK();
             if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
 
             try {
+                if (workflowStepRaw) {
+                    // 워크플로우 스텝 드롭 — 도트 즉시 생성 (워크플로우 트랙 STEP 2)
+                    let payload = null;
+                    try { payload = JSON.parse(workflowStepRaw); } catch {}
+                    if (payload?.workflowId && payload?.stepId) {
+                        const { createDotFromStep } = await import('./workflows.js');
+                        await createDotFromStep({
+                            workflowId: payload.workflowId,
+                            stepId: payload.stepId,
+                            parentGoalId: payload.parentGoalId || null,
+                            slot,
+                            date: _date
+                        });
+                        // createDotFromStep 내부에서 onDotCreated 콜백으로 timeline 갱신됨.
+                        // 추가로 refresh 한 번 더 → 동기화 안정성.
+                        await refreshTimeline({ userId: _userId, date: _date });
+                        if (_onChange) await _onChange({ type: 'refresh' });
+                        return;
+                    }
+                }
                 if (decisionId) {
                     let d = _decisions.find(x => x.id === decisionId);
                     if (!d) {
