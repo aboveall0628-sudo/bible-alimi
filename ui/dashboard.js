@@ -286,7 +286,6 @@ function renderProseLine(dots, pinned, persons, orgs) {
             평균 <strong>${avg}점</strong>${patternNote ? '.' + patternNote : '.'}
         </p>
         ${renderInsightsBlock(dots)}
-        <p class="dash-prose-quiet">여기까지가 데이터예요. 다음은 묵상 안에서.</p>
 
         <div class="dash-ai-row">
             <button class="dash-ai-toggle" id="dash-ai-toggle" type="button" aria-expanded="false">
@@ -398,7 +397,6 @@ function renderAiPanel(panel, result) {
     panel.innerHTML = `
         ${tag}
         <p class="dash-ai-text">${escapeHtml(result.text || '')}</p>
-        <p class="dash-prose-quiet">이 한 단락도 진단일 뿐이에요. 다음은 묵상 안에서.</p>
     `;
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
@@ -830,7 +828,6 @@ async function renderMeditationRhythmCard(meditationCount) {
             <span class="dash-medit-line">이번 주 묵상 <strong>${filled}일</strong></span>
             <div class="dash-medit-dots" aria-hidden="true">${dotsHtml}</div>
         </div>
-        <p class="dash-medit-quiet">오늘의 말씀이 펼쳐져 있어요.</p>
     `;
 }
 

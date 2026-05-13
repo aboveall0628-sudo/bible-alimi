@@ -14,7 +14,7 @@ import { openDecisionGate } from './decisionGate.js';
 
 // icon 필드는 Lucide name (디자인 시스템 정합)
 const PERIOD_LABELS = {
-    'daily':     { label: '오늘',         icon: 'sun',            desc: '오늘 옮길 한 걸음' },
+    'daily':     { label: '오늘',         icon: 'sun',            desc: '오늘 한 걸음' },
     'weekly':    { label: '이번 주',       icon: 'calendar',       desc: '이번 주 안에 자라야 할 것' },
     'monthly':   { label: '이번 달',       icon: 'calendar-days',  desc: '이번 달의 흐름' },
     'quarterly': { label: '이번 분기',      icon: 'bar-chart-3',    desc: '3개월 안에 도달할 곳' },
@@ -152,7 +152,7 @@ function emptyStateForPeriod(period) {
         'quarterly': '이번 분기에 도달하고 싶은 곳을 적어 보세요.',
         'monthly':   '이번 달의 흐름을 한 줄로 정리해 봐요.',
         'weekly':    '이번 주 안에 자라야 할 것을 적어 보세요.',
-        'daily':     '오늘 옮길 한 걸음을 적어 보세요.',
+        'daily':     '오늘 한 걸음을 적어 보세요.',
     };
     return `
         <div class="empty-state" style="padding: var(--sp-5)">
