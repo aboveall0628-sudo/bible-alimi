@@ -11,6 +11,7 @@ import {
     getActivePlan, getPartOverride,
     getProgressMode, getPartPosition, setPartPosition,
     getPartLastRead, setPartLastRead, clearPartLastRead,
+    getLastAutoAdvanceDate, setLastAutoAdvanceDate,
 } from './scriptureSettings.js';
 import { renderDailyBibleLink } from './suDaily.js';
 // (2026-05-14 #23 후속) 절 → 마크다운 변환 + 사용자 템플릿 적용
@@ -318,11 +319,15 @@ export async function renderScriptureForDate(date) {
 
     // Phase E-8/E-2: manual 모드 롤오버 — 어제 "다 읽었어요" 도장이 찍힌 파트는
     // 오늘 들어오는 순간 자동으로 다음 장으로 한 칸 이동.
+    // (2026-05-14) 추가 자동 진행: lastAutoAdvanceDate 가 오늘 이전이면 모든 visibleParts +1.
+    //   사용자 멘탈모델("매일 자동 +1") 과 "다 읽었어요" 도장 의존이 어긋난 회귀 해소.
+    //   매일 한 번만 발화 (lastAutoAdvanceDate=today 박음). 휴식 후 N일 만에 진입해도 +1 만.
     if (mode === 'manual') {
+        // 1) 도장 기반 즉시 롤오버 (기존)
         visibleParts.forEach(part => {
             const lastRead = getPartLastRead(plan.id, part.id);
             if (!lastRead) return;
-            if (lastRead >= todayStr) return; // 오늘이거나 미래(말도 안되지만) 도장은 유지
+            if (lastRead >= todayStr) return;
             const partChapters = flattenPartChapters(part);
             const total = partChapters.length;
             const curPos = getPartPosition(plan.id, part.id);
@@ -333,6 +338,22 @@ export async function renderScriptureForDate(date) {
             setPartPosition(plan.id, part.id, nextPos);
             clearPartLastRead(plan.id, part.id);
         });
+        // 2) 매일 1회 자동 진행 — 도장 없어도 진행
+        const lastAdv = getLastAutoAdvanceDate();
+        if (lastAdv !== todayStr) {
+            visibleParts.forEach(part => {
+                const partChapters = flattenPartChapters(part);
+                const total = partChapters.length;
+                const curPos = getPartPosition(plan.id, part.id);
+                // partPosition 없으면 시드 안 함 (getChapterForPart 가 첫 진입 시 시드)
+                if (typeof curPos !== 'number') return;
+                const nextPos = Math.min(curPos + 1, total - 1);
+                if (nextPos !== curPos) {
+                    setPartPosition(plan.id, part.id, nextPos);
+                }
+            });
+            setLastAutoAdvanceDate(todayStr);
+        }
     }
     visibleParts.forEach(part => {
         const override = getPartOverride(plan.id, part.id);

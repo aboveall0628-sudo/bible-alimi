@@ -86,6 +86,10 @@ const DEFAULTS = {
     partReads: {},
     // Phase E-8/E-2: 일회성 복구 마이그레이션 플래그 (E-8/E 첫 버전의 잘못된 누적 정정)
     _e8e2ResetDone: false,
+    // (2026-05-14) manual 모드 자동 진행 — 매일 한 번씩 모든 visibleParts +1.
+    //   사용자 멘탈모델 "매일 자동 +1" 과 "다 읽었어요" 도장 의존이 어긋남 회귀 fix.
+    //   값 = 'YYYY-MM-DD' (마지막 자동 진행 날짜). 오늘과 다르면 +1 적용.
+    lastAutoAdvanceDate: null,
 };
 
 const PRESET_IDS = new Set(PRESETS.map(p => p.id));
@@ -124,6 +128,8 @@ function read() {
         let partReads = (parsed.partReads && typeof parsed.partReads === 'object')
             ? parsed.partReads : {};
         let _e8e2ResetDone = parsed._e8e2ResetDone === true;
+        const lastAutoAdvanceDate = typeof parsed.lastAutoAdvanceDate === 'string'
+            ? parsed.lastAutoAdvanceDate : null;
         // Phase E-8/E-2 일회성 복구: 첫 manual 모드 구현이 즉시 position을 올려버려
         // 잘못 누적된 진도를 한 번 정정. 다음에 표시될 때 calendar로 재시드됨.
         if (!_e8e2ResetDone) {
@@ -134,6 +140,7 @@ function read() {
         _cache = {
             fontSize, activePlanId, partOverrides, showDailyBibleLink,
             progressMode, partPositions, partReads, _e8e2ResetDone,
+            lastAutoAdvanceDate,
         };
         // 복구 후 즉시 영속화 — 다음 부팅엔 안 함
         if (_e8e2ResetDone && parsed._e8e2ResetDone !== true) {
@@ -325,6 +332,16 @@ export function setPartLastRead(planId, partId, dateStr) {
     };
     // (2026-05-13 #21) 도장만 박는 변경 — 본문 재렌더 트리거 X (선택 verse 보존)
     write(next, { silent: true });
+}
+
+// (2026-05-14) 매일 한 번씩 자동 +1 진행 — 멱등성 보장용 마지막 자동 진행 날짜
+export function getLastAutoAdvanceDate() {
+    return read().lastAutoAdvanceDate || null;
+}
+export function setLastAutoAdvanceDate(dateStr) {
+    if (!dateStr) return;
+    // silent 옵션 — 자동 진행은 본문 재렌더 트리거 X (호출자가 알아서 렌더)
+    write({ ...read(), lastAutoAdvanceDate: dateStr }, { silent: true });
 }
 
 export function clearPartLastRead(planId, partId) {

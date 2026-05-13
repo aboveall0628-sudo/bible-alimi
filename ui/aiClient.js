@@ -1310,6 +1310,115 @@ function _parseSocraticResponse(raw) {
     return { text: cleanText, questionType, contextNeeded };
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  53번 본인 프로필 AI 부트스트랩 (2026-05-14)
+//  llmProxy.ts task 'profileBootstrap' 과 1:1 대응.
+//  두 모드: 'ask'(다음 질문 plain text) | 'extract'(필드 매핑 JSON)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * 본인 프로필 부트스트랩 호출.
+ *
+ * @param {Object} args
+ *   @param {'ask'|'extract'} args.mode
+ *   @param {string} args.currentGroup       'id'|'faith'|'calling'|'selfAwareness'|'strengths'
+ *   @param {string} args.groupLabel         "신분증" 등 한국어 라벨
+ *   @param {Array}  args.groupFields        [{key, label, type:'text'|'csv', hint}]
+ *   @param {number} args.groupQuestionNumber 1~3 (그 묶음 안 차례)
+ *   @param {boolean} args.isLastInGroup
+ *   @param {Array}  args.previousAnswers    [{q, a}] 이번 묶음 누적
+ *   @param {Object} args.currentValues      {field: 기존값} 사용자가 이미 적은 값
+ *   @param {string} args.userName           이름 (호명용, 없으면 '')
+ *
+ * @returns {Promise<{
+ *   text?: string,         // mode='ask' 응답
+ *   extractions?: Array<{field, value, confidence, evidence}>,   // mode='extract'
+ *   fallback: boolean
+ * }>}
+ */
+export async function callProfileBootstrap({
+    mode,
+    currentGroup,
+    groupLabel,
+    groupFields,
+    groupQuestionNumber = 1,
+    isLastInGroup = false,
+    previousAnswers = [],
+    currentValues = {},
+    userName = '',
+}) {
+    const plain = {
+        mode,
+        currentGroup,
+        groupLabel,
+        groupFields,
+        groupQuestionNumber,
+        isLastInGroup,
+        previousAnswers,
+        currentValues,
+        userName,
+        // 본인 정보라 가명화 context 비움 (이미 본인 데이터)
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+
+    const result = await callLLM('profileBootstrap', plain, {
+        deep:        false,    // flash — 가벼움
+        bypassCache: true,     // 대화형
+    });
+
+    if (result.fallback) {
+        return { fallback: true, text: '', extractions: [] };
+    }
+
+    if (mode === 'ask') {
+        return { text: String(result.text || '').trim(), fallback: false };
+    }
+
+    // mode === 'extract' — JSON 파싱
+    const parsed = _parseExtractResponse(result.text);
+    return { extractions: parsed.extractions, fallback: false };
+}
+
+/**
+ * extract 응답 파서 — 시스템 프롬프트가 raw JSON 강제했지만 안전망 필요.
+ * 코드블록(```json) 또는 앞뒤 텍스트가 섞여 들어와도 JSON 본체 추출.
+ */
+function _parseExtractResponse(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return { extractions: [] };
+
+    // 1) 코드블록 안 JSON 추출 시도
+    const fenced = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+    const candidate = fenced ? fenced[1] : text;
+
+    // 2) { ... } 첫 매치 추출
+    const braceStart = candidate.indexOf('{');
+    const braceEnd   = candidate.lastIndexOf('}');
+    if (braceStart < 0 || braceEnd < 0 || braceEnd < braceStart) {
+        console.warn('[profileBootstrap] extract — no JSON braces:', text.slice(0, 100));
+        return { extractions: [] };
+    }
+    const jsonStr = candidate.slice(braceStart, braceEnd + 1);
+
+    try {
+        const obj = JSON.parse(jsonStr);
+        const arr = Array.isArray(obj?.extractions) ? obj.extractions : [];
+        // 정합성 필터 — field 와 value 둘 다 있는 항목만
+        const clean = arr
+            .filter(e => e && typeof e.field === 'string' && e.value !== undefined && e.value !== null)
+            .map(e => ({
+                field:      e.field,
+                value:      e.value,
+                confidence: e.confidence || 'medium',
+                evidence:   e.evidence || ''
+            }));
+        return { extractions: clean };
+    } catch (e) {
+        console.warn('[profileBootstrap] extract JSON parse failed:', e.message, jsonStr.slice(0, 100));
+        return { extractions: [] };
+    }
+}
+
 function buildDailyReportFallback(stats) {
     const ds    = stats.dotStats || {};
     const sat   = stats.satisfactionDistribution || {};

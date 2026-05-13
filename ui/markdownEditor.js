@@ -364,6 +364,11 @@ function walkNode(node) {
         }
         if (child.nodeType !== 1) continue;
         const tag = child.tagName;
+        // (2026-05-14 #23 후속) 마커 칩 역변환 — data-marker="scripture" 인 span → {{scripture}}
+        if (tag === 'SPAN' && child.dataset && child.dataset.marker === 'scripture') {
+            out += '{{scripture}}';
+            continue;
+        }
         const inner = walkNode(child);
         switch (tag) {
             case 'STRONG': case 'B': out += '**' + inner + '**'; break;
@@ -387,6 +392,7 @@ function walkNode(node) {
 /**
  * Markdown string → HTML.
  * 1차 범위 그대로. 기존 plain text 도 안 깨짐 (마크다운 패턴 없으면 줄바꿈만 div 로).
+ * (2026-05-14) {{scripture}} 마커는 시각 칩 "📖 말씀 본문" 으로 렌더.
  */
 export function markdownToHtml(md) {
     if (!md) return '';
@@ -414,8 +420,11 @@ export function markdownToHtml(md) {
 }
 
 function inlineMd(text) {
-    // 인라인 마크다운 → HTML (긴 마커 먼저)
+    // (2026-05-14 #23 후속) 마커 칩 — {{scripture}} 패턴을 styled span 으로 (contenteditable=false 라 한 묶음 단위 선택·삭제)
     let s = text;
+    s = s.replace(/\{\{scripture\}\}/g,
+        '<span class="md-marker-scripture" contenteditable="false" data-marker="scripture" title="이 자리에 말씀 본문이 들어가요">📖 말씀 본문</span>');
+    // 인라인 마크다운 → HTML (긴 마커 먼저)
     s = s.replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
     s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');

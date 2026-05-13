@@ -25,6 +25,72 @@
 import { getDEK } from './lockScreen.js';
 import { ensureSelfCard, saveSelfCard } from '../data/personRepo.js';
 import { showToast } from './quickReview.js';
+// (53번 본인 프로필 AI 부트스트랩 — 2026-05-14) 묶음당 2~3 짧은 질문 + 일괄 제안
+import { callProfileBootstrap } from './aiClient.js';
+
+const BOOTSTRAP_INTRO_KEY = 'sf-bootstrap-intro-shown';
+
+// 5묶음 정의 — 각 묶음에 속한 본인 카드 필드 + 묶음 안 질문 차례 상한.
+//   질문 차례는 LLM 시스템 프롬프트와 클라이언트 카운팅 동시 가드.
+//   sfId 는 본문 폼 input id — 추출 후 메인 화면 입력값으로 반영할 때 사용.
+const BOOTSTRAP_GROUPS = [
+    {
+        key: 'id',
+        label: '🪪 신분증',
+        intro: '먼저 인생 자리 가볍게.',
+        fields: [
+            { key: 'lifeStage',   label: '인생 단계',    type: 'text', sfId: 'sf-lifestage', hint: '학생/직장인/결혼/부모 등' },
+            { key: 'currentCity', label: '현재 도시',    type: 'text', sfId: 'sf-city',      hint: '예: 서울' },
+        ],
+        maxQuestions: 2,
+    },
+    {
+        key: 'faith',
+        label: '⛪ 신앙',
+        intro: '신앙 자리 짧게.',
+        fields: [
+            { key: 'homeChurch',     label: '소속 교회',       type: 'text', sfId: 'sf-church',      hint: '교회 이름' },
+            { key: 'faithStartDate', label: '신앙 시작 시점',  type: 'text', sfId: 'sf-faith-start', hint: 'YYYY 또는 자유 텍스트' },
+            { key: 'faithTone',      label: '신앙 톤',         type: 'text', sfId: 'sf-faith-tone',  hint: '묵상형/전도형/섬김형 등' },
+        ],
+        maxQuestions: 3,
+    },
+    {
+        key: 'calling',
+        label: '🎯 소명',
+        intro: '가치관과 관심사 잠시.',
+        fields: [
+            { key: 'valueKeywords', label: '가치관 키워드', type: 'csv',  sfId: 'sf-values',    hint: '정직, 사랑 ...' },
+            { key: 'lifeMission',   label: '인생 미션',     type: 'text', sfId: 'sf-mission',   hint: '한 줄로' },
+            { key: 'interests',     label: '관심사',        type: 'csv',  sfId: 'sf-interests', hint: '독서, 음악 ...' },
+        ],
+        maxQuestions: 3,
+    },
+    {
+        key: 'selfAwareness',
+        label: '🧠 자기 인식',
+        intro: '자기 자신을 어떻게 보고 계신지.',
+        fields: [
+            { key: 'identitySentence',  label: '정체성 한 줄',       type: 'text', sfId: 'sf-identity',   hint: '"나는 ~한 사람"' },
+            { key: 'currentChallenges', label: '현재 도전 중인 것',  type: 'csv',  sfId: 'sf-challenges', hint: '도전 1, 도전 2 ...' },
+            { key: 'mbti',              label: 'MBTI',               type: 'text', sfId: 'sf-mbti',       hint: '선택 (모르면 패스)' },
+        ],
+        maxQuestions: 3,
+    },
+    {
+        key: 'strengths',
+        label: '✨ 강점·경향',
+        intro: '잘하는 자리와 걸리는 자리.',
+        fields: [
+            { key: 'strengths',  label: '강점',                type: 'text', sfId: 'sf-strengths',  hint: '잘하는 것·은혜받은 부분' },
+            { key: 'tendencies', label: '경향 (약점·패턴)',    type: 'text', sfId: 'sf-tendencies', hint: '자주 걸려 넘어지는 패턴' },
+        ],
+        maxQuestions: 2,
+    },
+];
+
+// ─── 부트스트랩 상태 ───
+let _bootstrapState = null; // null = 닫힘. 객체 = 열림
 
 // ─── 상수: 본인 전용 visibility 디폴트 ───
 // 사용자가 카드 안에서 칩 클릭으로 바꿀 수 있고, 변경 결과만 profileVisibility 객체에 저장됨.
@@ -157,6 +223,16 @@ function pageTemplate(d) {
             </p>
             <p class="self-profile-snapshot-note">📷 마지막 저장: <strong>${lastUpdated}</strong></p>
         </div>
+
+        <!-- (53번 본인 프로필 AI 부트스트랩 — 2026-05-14) 빈 폼 막막함 해소 -->
+        <button type="button" id="sf-bootstrap-launch" class="sf-bootstrap-card">
+            <span class="sf-bootstrap-icon">🪄</span>
+            <span class="sf-bootstrap-text">
+                <strong>AI와 함께 채우기</strong>
+                <span class="sf-bootstrap-sub">5묶음 · 묶음당 2~3 짧은 질문 · 5분이면 충분해요</span>
+            </span>
+            <span class="sf-bootstrap-arrow">→</span>
+        </button>
 
         <!-- 정체성 1층 -->
         <section class="card-section self-section">
@@ -387,6 +463,12 @@ function bindEvents(container) {
         saveBtn.addEventListener('click', () => saveDraft(container));
     }
 
+    // (53번) AI 부트스트랩 진입
+    const bootstrapBtn = container.querySelector('#sf-bootstrap-launch');
+    if (bootstrapBtn) {
+        bootstrapBtn.addEventListener('click', () => openBootstrap(container));
+    }
+
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
@@ -450,6 +532,418 @@ async function saveDraft(container) {
         console.error('[selfProfile] save failed:', e);
         if (status) status.textContent = '저장 실패';
         showToast('저장 중 문제가 생겼어요');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  (53번 본인 프로필 AI 부트스트랩 — 2026-05-14)
+//
+//  흐름: openBootstrap → 묶음 1 ask 1 → 답변 → ask 2 → 답변 → (maxQ) → extract
+//        → 추출 카드 (수정 가능) → "이 묶음 박기" → _draft 업데이트 → 다음 묶음
+//        → 마지막 묶음 끝 → saveSelfCard → 모달 닫기 → 메인 화면 새로고침
+//
+//  사용자가 "건너뛰기" 누르면 그 묶음 비우고 다음으로.
+//  X 닫기 누르면 지금까지 박힌 _draft 그대로 (저장 X — 사용자가 직접 메인 저장 버튼).
+// ═══════════════════════════════════════════════════════════════════════
+
+function openBootstrap(mainContainer) {
+    _bootstrapState = {
+        mainContainer,
+        groupIdx: 0,
+        currentGroup: BOOTSTRAP_GROUPS[0],
+        groupQuestionNumber: 0,           // 0 = 시작 전, 1~maxQ = 진행 중
+        groupAnswers: [],                 // 현재 묶음 안 [{q, a}]
+        phase: 'asking',                  // 'asking' | 'extracting' | 'reviewing' | 'done'
+        currentQuestion: '',
+        extractions: [],                  // 현재 묶음 추출 결과
+        appliedAll: {},                   // 모든 묶음 누적 박힘 {field: value}
+        loading: false,
+    };
+
+    renderBootstrapOverlay();
+
+    // 첫 호출 안내 한 줄
+    let introShown = '0';
+    try { introShown = localStorage.getItem(BOOTSTRAP_INTRO_KEY) || '0'; } catch {}
+    if (introShown !== '1') {
+        document.getElementById('sf-bs-intro')?.classList.remove('hidden');
+    }
+
+    // 첫 질문 즉시 호출
+    askNextQuestion();
+}
+
+/**
+ * 모달 오버레이 DOM 생성 — 한 번만, 이후 내용만 갱신.
+ */
+function renderBootstrapOverlay() {
+    let overlay = document.getElementById('sf-bs-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'sf-bs-overlay';
+        overlay.className = 'sf-bs-overlay';
+        overlay.innerHTML = `
+            <div class="sf-bs-panel" role="dialog" aria-modal="true" aria-labelledby="sf-bs-title">
+                <header class="sf-bs-head">
+                    <div class="sf-bs-mode-chip">AI와 함께 채우기</div>
+                    <h2 id="sf-bs-title">본인 프로필 부트스트랩</h2>
+                    <button id="sf-bs-close" class="sf-bs-close" type="button" aria-label="닫기">×</button>
+                </header>
+
+                <div id="sf-bs-intro" class="sf-bs-intro hidden">
+                    <span>적으신 답변은 가명으로 바뀌지 않고 AI에게 그대로 갑니다 (본인 정보라). 결정은 사용자께서 직접 내리세요.</span>
+                    <button type="button" id="sf-bs-intro-close" aria-label="안내 닫기">×</button>
+                </div>
+
+                <nav class="sf-bs-stepper" id="sf-bs-stepper"></nav>
+
+                <main class="sf-bs-body" id="sf-bs-body"></main>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        // 닫기 / 안내 닫기 위임
+        overlay.addEventListener('click', (e) => {
+            if (e.target.id === 'sf-bs-close' || e.target.id === 'sf-bs-overlay') {
+                closeBootstrap();
+            }
+            if (e.target.id === 'sf-bs-intro-close') {
+                document.getElementById('sf-bs-intro')?.classList.add('hidden');
+                try { localStorage.setItem(BOOTSTRAP_INTRO_KEY, '1'); } catch {}
+            }
+        });
+
+        // ESC 닫기
+        document.addEventListener('keydown', (e) => {
+            if (!_bootstrapState) return;
+            if (e.key === 'Escape') { closeBootstrap(); e.preventDefault(); }
+        });
+    }
+
+    overlay.classList.remove('hidden');
+    document.body.classList.add('sf-bs-open');
+    renderStepper();
+    renderBody();
+}
+
+function renderStepper() {
+    const root = document.getElementById('sf-bs-stepper');
+    if (!root || !_bootstrapState) return;
+    root.innerHTML = BOOTSTRAP_GROUPS.map((g, i) => {
+        let cls = 'sf-bs-step';
+        if (i < _bootstrapState.groupIdx) cls += ' done';
+        else if (i === _bootstrapState.groupIdx) cls += ' active';
+        return `<div class="${cls}"><span class="sf-bs-step-num">${i + 1}</span><span class="sf-bs-step-label">${escapeHtml(g.label)}</span></div>`;
+    }).join('');
+}
+
+function renderBody() {
+    const root = document.getElementById('sf-bs-body');
+    if (!root || !_bootstrapState) return;
+
+    if (_bootstrapState.phase === 'asking') {
+        const turnsHtml = _bootstrapState.groupAnswers.map(t => `
+            <div class="sf-bs-turn sf-bs-turn-ai">
+                <span class="sf-bs-turn-label">AI</span>
+                <div class="sf-bs-turn-text">${escapeHtml(t.q)}</div>
+            </div>
+            <div class="sf-bs-turn sf-bs-turn-user">
+                <span class="sf-bs-turn-label">답</span>
+                <div class="sf-bs-turn-text">${escapeHtml(t.a)}</div>
+            </div>
+        `).join('');
+
+        const currentQHtml = _bootstrapState.currentQuestion ? `
+            <div class="sf-bs-turn sf-bs-turn-ai">
+                <span class="sf-bs-turn-label">AI · ${_bootstrapState.groupQuestionNumber}/${_bootstrapState.currentGroup.maxQuestions}</span>
+                <div class="sf-bs-turn-text">${escapeHtml(_bootstrapState.currentQuestion)}</div>
+            </div>
+            <div class="sf-bs-answer-wrap">
+                <textarea id="sf-bs-answer" class="sf-bs-answer" rows="2"
+                    placeholder="한 줄이면 충분해요. '없어요' '잘 모르겠어요'도 OK."
+                    ${_bootstrapState.loading ? 'disabled' : ''}></textarea>
+                <div class="sf-bs-controls">
+                    <button type="button" id="sf-bs-skip" class="sf-bs-text-btn">이 묶음 건너뛰기</button>
+                    <button type="button" id="sf-bs-next" class="sf-bs-primary-btn"
+                        ${_bootstrapState.loading ? 'disabled' : ''}>
+                        ${_bootstrapState.groupQuestionNumber >= _bootstrapState.currentGroup.maxQuestions ? '묶음 정리하기' : '다음 질문'}
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="sf-bs-loading">
+                <span class="sf-bs-dots"><span></span><span></span><span></span></span>
+                <span>${_bootstrapState.loading ? '호흡 한 번...' : '잠시만요...'}</span>
+            </div>
+        `;
+
+        root.innerHTML = `
+            <div class="sf-bs-group-intro">
+                <strong>${escapeHtml(_bootstrapState.currentGroup.label)}</strong>
+                <span>· ${escapeHtml(_bootstrapState.currentGroup.intro)}</span>
+            </div>
+            <div class="sf-bs-conversation">${turnsHtml}${currentQHtml}</div>
+        `;
+
+        // 이벤트 바인딩
+        document.getElementById('sf-bs-next')?.addEventListener('click', onNextClick);
+        document.getElementById('sf-bs-skip')?.addEventListener('click', onSkipGroup);
+        setTimeout(() => document.getElementById('sf-bs-answer')?.focus(), 30);
+
+    } else if (_bootstrapState.phase === 'extracting') {
+        root.innerHTML = `
+            <div class="sf-bs-loading sf-bs-loading-big">
+                <span class="sf-bs-dots"><span></span><span></span><span></span></span>
+                <span>답변을 정리하는 중...</span>
+            </div>
+        `;
+
+    } else if (_bootstrapState.phase === 'reviewing') {
+        // 추출 카드 — 각 필드별 값 + 수정 가능 input
+        const fieldRows = _bootstrapState.currentGroup.fields.map(f => {
+            const ext = _bootstrapState.extractions.find(e => e.field === f.key);
+            const val = ext ? (Array.isArray(ext.value) ? ext.value.join(', ') : String(ext.value)) : '';
+            const evidence = ext?.evidence ? `<span class="sf-bs-evidence" title="${escapeAttr(ext.evidence)}">💬 근거</span>` : '';
+            const confidence = ext?.confidence ? `<span class="sf-bs-conf sf-bs-conf-${ext.confidence}">${ext.confidence}</span>` : '';
+            return `
+                <div class="sf-bs-review-row">
+                    <label>${escapeHtml(f.label)} ${confidence} ${evidence}</label>
+                    <input type="text" data-field="${f.key}" data-type="${f.type}" value="${escapeAttr(val)}"
+                        placeholder="${escapeAttr(f.hint || '비워두려면 그대로')}">
+                </div>
+            `;
+        }).join('');
+
+        const isLastGroup = _bootstrapState.groupIdx >= BOOTSTRAP_GROUPS.length - 1;
+        const primaryLabel = isLastGroup ? '본인 프로필에 박기 (저장)' : '이대로 박고 다음 묶음 →';
+
+        root.innerHTML = `
+            <div class="sf-bs-group-intro">
+                <strong>${escapeHtml(_bootstrapState.currentGroup.label)}</strong>
+                <span>· AI가 정리한 값이에요. 마음에 안 들면 직접 고치셔도 돼요.</span>
+            </div>
+            <div class="sf-bs-review">${fieldRows || '<p class="sf-bs-empty">이 묶음에서 추출된 값이 없어요. 그대로 넘어가실 수 있어요.</p>'}</div>
+            <div class="sf-bs-controls">
+                <button type="button" id="sf-bs-back-ask" class="sf-bs-text-btn">대화로 돌아가기</button>
+                <button type="button" id="sf-bs-apply" class="sf-bs-primary-btn">${primaryLabel}</button>
+            </div>
+        `;
+
+        document.getElementById('sf-bs-apply')?.addEventListener('click', onApplyGroup);
+        document.getElementById('sf-bs-back-ask')?.addEventListener('click', () => {
+            _bootstrapState.phase = 'asking';
+            renderBody();
+        });
+
+    } else if (_bootstrapState.phase === 'done') {
+        root.innerHTML = `
+            <div class="sf-bs-done">
+                <div class="sf-bs-done-icon">🙏</div>
+                <h3>본인 프로필이 한층 풍부해졌어요</h3>
+                <p>이제 화면을 닫으시면 메인에서 한 번 더 살펴보실 수 있어요. 언제든 다시 부르셔도 됩니다.</p>
+                <button type="button" id="sf-bs-done-close" class="sf-bs-primary-btn">닫기</button>
+            </div>
+        `;
+        document.getElementById('sf-bs-done-close')?.addEventListener('click', closeBootstrap);
+    }
+}
+
+async function askNextQuestion() {
+    if (!_bootstrapState || _bootstrapState.loading) return;
+    _bootstrapState.loading = true;
+    _bootstrapState.groupQuestionNumber += 1;
+    const isLastInGroup = _bootstrapState.groupQuestionNumber >= _bootstrapState.currentGroup.maxQuestions;
+
+    // 현재 메인 폼 값 — currentValues 로 전달
+    const currentValues = {};
+    for (const f of _bootstrapState.currentGroup.fields) {
+        const el = _bootstrapState.mainContainer.querySelector('#' + f.sfId);
+        if (el) currentValues[f.key] = el.value || '';
+    }
+
+    _bootstrapState.currentQuestion = '';
+    renderBody();
+
+    try {
+        const { text, fallback } = await callProfileBootstrap({
+            mode: 'ask',
+            currentGroup: _bootstrapState.currentGroup.key,
+            groupLabel: _bootstrapState.currentGroup.label,
+            groupFields: _bootstrapState.currentGroup.fields.map(f => ({
+                key: f.key, label: f.label, type: f.type, hint: f.hint
+            })),
+            groupQuestionNumber: _bootstrapState.groupQuestionNumber,
+            isLastInGroup,
+            previousAnswers: _bootstrapState.groupAnswers.map(t => ({ q: t.q, a: t.a })),
+            currentValues,
+            userName: _draft?.name || '',
+        });
+
+        if (fallback || !text) {
+            showToast('AI를 지금 부를 수 없어요. 묶음을 건너뛰셔도 돼요.');
+            _bootstrapState.currentQuestion = '(질문을 못 받았어요. 건너뛰거나 X로 닫으세요.)';
+        } else {
+            _bootstrapState.currentQuestion = text;
+        }
+        _bootstrapState.loading = false;
+        renderBody();
+    } catch (e) {
+        console.error('[bootstrap] ask failed:', e);
+        showToast('잠시 막혔어요. 한 번 더 시도해 주세요.');
+        _bootstrapState.loading = false;
+        _bootstrapState.groupQuestionNumber -= 1;  // 차례 복구
+        renderBody();
+    }
+}
+
+async function onNextClick() {
+    if (!_bootstrapState || _bootstrapState.loading) return;
+    const ans = (document.getElementById('sf-bs-answer')?.value || '').trim();
+    if (!ans) {
+        showToast('한 줄이라도 적어 주세요. 모르시면 "모르겠어요" 적으셔도 OK.');
+        return;
+    }
+
+    // 답변 누적
+    _bootstrapState.groupAnswers.push({
+        q: _bootstrapState.currentQuestion,
+        a: ans,
+    });
+    _bootstrapState.currentQuestion = '';
+
+    // 묶음 끝 — 추출 모드로
+    if (_bootstrapState.groupQuestionNumber >= _bootstrapState.currentGroup.maxQuestions) {
+        await runExtract();
+        return;
+    }
+    // 다음 질문
+    askNextQuestion();
+}
+
+async function runExtract() {
+    if (!_bootstrapState) return;
+    _bootstrapState.phase = 'extracting';
+    _bootstrapState.loading = true;
+    renderBody();
+
+    const currentValues = {};
+    for (const f of _bootstrapState.currentGroup.fields) {
+        const el = _bootstrapState.mainContainer.querySelector('#' + f.sfId);
+        if (el) currentValues[f.key] = el.value || '';
+    }
+
+    try {
+        const { extractions, fallback } = await callProfileBootstrap({
+            mode: 'extract',
+            currentGroup: _bootstrapState.currentGroup.key,
+            groupLabel: _bootstrapState.currentGroup.label,
+            groupFields: _bootstrapState.currentGroup.fields.map(f => ({
+                key: f.key, label: f.label, type: f.type, hint: f.hint
+            })),
+            groupQuestionNumber: _bootstrapState.groupQuestionNumber,
+            isLastInGroup: true,
+            previousAnswers: _bootstrapState.groupAnswers.map(t => ({ q: t.q, a: t.a })),
+            currentValues,
+            userName: _draft?.name || '',
+        });
+
+        if (fallback) {
+            showToast('AI를 지금 부를 수 없어요. 직접 적으셔도 됩니다.');
+            _bootstrapState.extractions = [];
+        } else {
+            _bootstrapState.extractions = extractions || [];
+        }
+
+        _bootstrapState.loading = false;
+        _bootstrapState.phase = 'reviewing';
+        renderBody();
+    } catch (e) {
+        console.error('[bootstrap] extract failed:', e);
+        showToast('정리가 막혔어요. 직접 박으셔도 됩니다.');
+        _bootstrapState.loading = false;
+        _bootstrapState.extractions = [];
+        _bootstrapState.phase = 'reviewing';
+        renderBody();
+    }
+}
+
+function onSkipGroup() {
+    if (!_bootstrapState) return;
+    advanceGroup();
+}
+
+function onApplyGroup() {
+    if (!_bootstrapState) return;
+    // reviewing 화면의 input 값 수집해 메인 폼 input + _draft 둘 다 반영
+    const rows = document.querySelectorAll('#sf-bs-body .sf-bs-review-row input');
+    rows.forEach(input => {
+        const field = input.dataset.field;
+        const type = input.dataset.type;
+        const raw = (input.value || '').trim();
+        if (!field) return;
+
+        // 메인 폼 input 갱신
+        const fieldDef = _bootstrapState.currentGroup.fields.find(f => f.key === field);
+        if (fieldDef) {
+            const mainEl = _bootstrapState.mainContainer.querySelector('#' + fieldDef.sfId);
+            if (mainEl) mainEl.value = raw;
+        }
+        // _draft 반영
+        if (type === 'csv') {
+            _draft[field] = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        } else {
+            _draft[field] = raw;
+        }
+        _bootstrapState.appliedAll[field] = _draft[field];
+    });
+    advanceGroup();
+}
+
+async function advanceGroup() {
+    if (!_bootstrapState) return;
+    const isLast = _bootstrapState.groupIdx >= BOOTSTRAP_GROUPS.length - 1;
+    if (isLast) {
+        // 마지막 묶음 끝 — 자동 저장
+        try {
+            const dek = getDEK();
+            if (dek && _userId) {
+                const saved = await saveSelfCard(dek, _userId, _draft);
+                _draft = saved;
+                showToast('🙏 본인 프로필이 저장됐어요');
+            }
+        } catch (e) {
+            console.error('[bootstrap] auto-save failed:', e);
+            showToast('자동 저장이 막혔어요. 메인 화면 저장 버튼으로 한 번 더 눌러 주세요.');
+        }
+        _bootstrapState.phase = 'done';
+        renderBody();
+        renderStepper();
+        return;
+    }
+    // 다음 묶음
+    _bootstrapState.groupIdx += 1;
+    _bootstrapState.currentGroup = BOOTSTRAP_GROUPS[_bootstrapState.groupIdx];
+    _bootstrapState.groupQuestionNumber = 0;
+    _bootstrapState.groupAnswers = [];
+    _bootstrapState.currentQuestion = '';
+    _bootstrapState.extractions = [];
+    _bootstrapState.phase = 'asking';
+    renderStepper();
+    askNextQuestion();
+}
+
+function closeBootstrap() {
+    const overlay = document.getElementById('sf-bs-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    document.body.classList.remove('sf-bs-open');
+    // 부트스트랩 중 박힌 값들은 메인 폼에 이미 반영됨. 사용자가 메인에서 추가 수정 후 저장 가능.
+    _bootstrapState = null;
+    // 마지막 저장 시점 표시 갱신
+    if (_draft?.lastSelfUpdatedAt) {
+        const note = document.querySelector('#view-self-profile .self-profile-snapshot-note');
+        if (note) {
+            note.innerHTML = `📷 마지막 저장: <strong>${new Date(_draft.lastSelfUpdatedAt).toLocaleString('ko-KR')}</strong>`;
+        }
     }
 }
 
@@ -608,6 +1102,362 @@ function injectStylesOnce() {
         #view-self-profile .self-save-status {
             font-size: 12px;
             color: var(--ink-secondary, #5d5a52);
+        }
+
+        /* ═══ (53번 본인 프로필 AI 부트스트랩 — 2026-05-14) ═══ */
+
+        /* 상단 진입 카드 */
+        #view-self-profile .sf-bootstrap-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            margin: 16px 0;
+            padding: 14px 18px;
+            background: linear-gradient(135deg,
+                var(--bg-secondary, #f4f1ec) 0%,
+                var(--bg, #faf7f2) 100%);
+            border: 1px solid var(--brand-primary, #6d7666);
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: left;
+            transition: border-color 0.15s ease, transform 0.1s ease;
+        }
+        #view-self-profile .sf-bootstrap-card:hover {
+            border-color: var(--accent, #6d7666);
+            transform: translateY(-1px);
+        }
+        #view-self-profile .sf-bootstrap-icon { font-size: 28px; flex-shrink: 0; }
+        #view-self-profile .sf-bootstrap-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        #view-self-profile .sf-bootstrap-text strong { font-size: 15px; color: var(--text-primary, #1a1814); }
+        #view-self-profile .sf-bootstrap-sub { font-size: 12px; color: var(--ink-secondary, #5d5a52); }
+        #view-self-profile .sf-bootstrap-arrow { color: var(--brand-primary, #6d7666); font-size: 18px; flex-shrink: 0; }
+
+        /* 부트스트랩 오버레이 — body 직속 (view-self-profile 밖) */
+        .sf-bs-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 18, 14, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .sf-bs-overlay.hidden { display: none; }
+        body.sf-bs-open { overflow: hidden; }
+
+        .sf-bs-panel {
+            background: var(--bg, #faf7f2);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 720px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .sf-bs-head {
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid var(--border, #d8d3c8);
+            position: relative;
+        }
+        .sf-bs-mode-chip {
+            display: inline-block;
+            font-size: 11px;
+            color: var(--brand-primary, #6d7666);
+            background: var(--bg-secondary, #f4f1ec);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+        }
+        .sf-bs-head h2 {
+            margin: 0;
+            font-family: 'Noto Serif KR', serif;
+            font-size: 18px;
+            font-weight: 400;
+            color: var(--text-primary, #1a1814);
+        }
+        .sf-bs-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            font-size: 22px;
+            color: var(--ink-secondary, #5d5a52);
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+        .sf-bs-close:hover { background: var(--bg-secondary, #f4f1ec); color: var(--text-primary, #1a1814); }
+
+        .sf-bs-intro {
+            margin: 12px 20px;
+            padding: 8px 12px;
+            background: var(--bg-secondary, #f4f1ec);
+            border-left: 2px solid var(--brand-primary, #6d7666);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--ink-secondary, #5d5a52);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            line-height: 1.5;
+        }
+        .sf-bs-intro.hidden { display: none; }
+        .sf-bs-intro button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--ink-secondary, #5d5a52);
+            font-size: 14px;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+
+        /* 스테퍼 — 5묶음 진행도 */
+        .sf-bs-stepper {
+            display: flex;
+            gap: 8px;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border, #d8d3c8);
+            overflow-x: auto;
+        }
+        .sf-bs-step {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: var(--ink-secondary, #5d5a52);
+            background: transparent;
+            border: 1px solid var(--border, #d8d3c8);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .sf-bs-step.done {
+            background: var(--bg-secondary, #f4f1ec);
+            color: var(--brand-primary, #6d7666);
+            border-color: var(--brand-primary, #6d7666);
+        }
+        .sf-bs-step.active {
+            background: var(--brand-primary, #6d7666);
+            color: #fff;
+            border-color: var(--brand-primary, #6d7666);
+        }
+        .sf-bs-step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 50%;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        .sf-bs-step.active .sf-bs-step-num { background: rgba(255, 255, 255, 0.2); }
+
+        /* 본문 */
+        .sf-bs-body {
+            padding: 16px 20px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .sf-bs-group-intro {
+            font-size: 13px;
+            color: var(--ink-secondary, #5d5a52);
+            margin-bottom: 12px;
+        }
+        .sf-bs-group-intro strong {
+            font-family: 'Noto Serif KR', serif;
+            font-size: 15px;
+            color: var(--text-primary, #1a1814);
+            margin-right: 8px;
+        }
+
+        .sf-bs-conversation {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .sf-bs-turn {
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border, #d8d3c8);
+            background: var(--bg-secondary, #f4f1ec);
+            line-height: 1.5;
+        }
+        .sf-bs-turn-ai { border-left: 3px solid var(--brand-primary, #6d7666); }
+        .sf-bs-turn-user { background: transparent; border-left: 3px solid var(--ink-tertiary, #a8a499); }
+        .sf-bs-turn-label {
+            display: block;
+            font-size: 11px;
+            color: var(--ink-tertiary, #a8a499);
+            margin-bottom: 4px;
+        }
+        .sf-bs-turn-ai .sf-bs-turn-label { color: var(--brand-primary, #6d7666); }
+        .sf-bs-turn-text {
+            font-size: 14px;
+            color: var(--text-primary, #1a1814);
+        }
+        .sf-bs-turn-ai .sf-bs-turn-text { font-family: 'Noto Serif KR', serif; font-weight: 400; }
+
+        .sf-bs-answer-wrap { margin-top: 8px; }
+        .sf-bs-answer {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border, #d8d3c8);
+            border-radius: 8px;
+            background: var(--bg, #faf7f2);
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .sf-bs-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            gap: 10px;
+        }
+        .sf-bs-text-btn {
+            background: transparent;
+            border: none;
+            color: var(--ink-secondary, #5d5a52);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+        .sf-bs-text-btn:hover { color: var(--text-primary, #1a1814); }
+        .sf-bs-primary-btn {
+            background: var(--brand-primary, #6d7666);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .sf-bs-primary-btn:hover { background: var(--accent, #5d6657); }
+        .sf-bs-primary-btn:disabled { opacity: 0.5; cursor: wait; }
+
+        /* 로딩 */
+        .sf-bs-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            color: var(--ink-tertiary, #a8a499);
+            font-size: 13px;
+        }
+        .sf-bs-loading-big { justify-content: center; padding: 40px 0; }
+        .sf-bs-dots { display: inline-flex; gap: 4px; }
+        .sf-bs-dots span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--brand-primary, #6d7666);
+            opacity: 0.4;
+            animation: sfBsPulse 1.4s ease-in-out infinite;
+        }
+        .sf-bs-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .sf-bs-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes sfBsPulse {
+            0%, 80%, 100% { opacity: 0.2; }
+            40% { opacity: 1; }
+        }
+
+        /* 리뷰(추출 결과) */
+        .sf-bs-review {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .sf-bs-review-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sf-bs-review-row label {
+            font-size: 12px;
+            color: var(--ink-secondary, #5d5a52);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sf-bs-review-row input {
+            padding: 8px 10px;
+            border: 1px solid var(--border, #d8d3c8);
+            border-radius: 8px;
+            background: var(--bg, #faf7f2);
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .sf-bs-conf {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            color: #fff;
+        }
+        .sf-bs-conf-high { background: #6d7666; }
+        .sf-bs-conf-medium { background: #a8a499; }
+        .sf-bs-conf-low { background: #c8c4b9; }
+        .sf-bs-evidence {
+            font-size: 11px;
+            color: var(--ink-tertiary, #a8a499);
+            cursor: help;
+        }
+        .sf-bs-empty {
+            text-align: center;
+            color: var(--ink-tertiary, #a8a499);
+            font-size: 13px;
+            padding: 16px;
+        }
+
+        /* 완료 화면 */
+        .sf-bs-done {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .sf-bs-done-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .sf-bs-done h3 {
+            font-family: 'Noto Serif KR', serif;
+            font-size: 18px;
+            font-weight: 400;
+            margin: 0 0 8px;
+            color: var(--text-primary, #1a1814);
+        }
+        .sf-bs-done p {
+            color: var(--ink-secondary, #5d5a52);
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0 auto 20px;
+            max-width: 420px;
+        }
+
+        /* 모바일 */
+        @media (max-width: 640px) {
+            .sf-bs-overlay { padding: 0; }
+            .sf-bs-panel { max-height: 100vh; border-radius: 0; max-width: 100%; }
+            .sf-bs-stepper { padding: 8px 12px; }
+            .sf-bs-body { padding: 12px 16px 16px; }
+            .sf-bs-step-label { display: none; }
         }
     `;
     document.head.appendChild(style);

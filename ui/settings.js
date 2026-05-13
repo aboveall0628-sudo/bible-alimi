@@ -30,8 +30,9 @@ import {
     FONT_SIZES, PRESETS, applyFontSizeToCSS,
 } from './scriptureSettings.js';
 import { BIBLE_METADATA, resolvePlanParts, seedManualPositionsFromCalendar } from './scripture.js';
-// (2026-05-14 #23 후속) 묵상 템플릿
+// (2026-05-14 #23 후속) 묵상 템플릿 + 마크다운 에디터
 import { getMeditationTemplate, setMeditationTemplate, DEFAULT_TEMPLATE } from './meditationTemplate.js';
+import { bindMarkdownEditor, getMarkdown, setMarkdown } from './markdownEditor.js';
 
 let _userId = null;
 let _userEmail = null;
@@ -216,30 +217,20 @@ function injectExtraSections() {
     templateCard.innerHTML = `
         <h3 class="section-title"><i class="section-icon" data-lucide="layout-template"></i> 묵상 템플릿</h3>
         <p class="section-desc">
-            매일 묵상 노트가 처음 열릴 때 자동으로 깔리는 양식이에요. 마크다운 그대로 적으실 수 있어요.<br>
-            <code>{{scripture}}</code> 자리에 "오늘의 말씀"에서 골라 붙여넣은 절 본문이 들어가요. 마커를 두지 않으면 본문은 노트 끝에 붙어요.
+            매일 묵상 노트가 처음 열릴 때 자동으로 깔리는 양식이에요. 묵상 노트와 같은 에디터(볼드·H1~3·가로줄·단축키)로 적으실 수 있어요.<br>
+            <strong>📖 말씀 본문</strong> 칩 자리에 "오늘의 말씀"에서 골라 붙여넣은 절 본문이 들어가요. 칩이 없으면 본문은 노트 끝에 붙어요.
         </p>
-        <textarea id="meditation-template-input" rows="10" spellcheck="false"
-                  placeholder="예시:
-🌅 오늘의 호흡
-(여기 한 호흡)
-
-📖 오늘의 말씀
-{{scripture}}
-
-💭 묵상
-(깨달은 것)
-
-🙏 기도
-(드리는 기도)"
-                  style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:13px;line-height:1.6;resize:vertical;"></textarea>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-            <button id="btn-save-meditation-template" class="primary-btn">템플릿 저장</button>
-            <button id="btn-reset-meditation-template" class="text-btn">기본값으로</button>
+        <div id="meditation-template-input" class="note-editor settings-template-editor"
+             contenteditable="true" spellcheck="false"
+             data-placeholder='예: 오늘의 호흡 한 줄 / 📖 말씀 본문 칩 넣기 / 묵상 한 단락 / 기도 한 줄'></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+            <button id="btn-insert-scripture-marker" class="text-btn" type="button">📖 말씀 본문 자리 넣기</button>
+            <button id="btn-save-meditation-template" class="primary-btn" type="button">템플릿 저장</button>
+            <button id="btn-reset-meditation-template" class="text-btn" type="button">기본값으로</button>
             <span id="meditation-template-status" style="font-size:12px;color:var(--text-secondary);"></span>
         </div>
         <p class="section-desc-foot" style="margin-top:12px;">
-            ※ "오늘의 말씀"에서 절 선택 → "묵상 노트에 붙여넣기" 누르시면 <code>{{scripture}}</code> 자리에 자동 삽입돼요. (마커 없으면 끝에 추가)
+            ※ "오늘의 말씀"에서 절 선택 → "묵상 노트에 붙여넣기" 누르시면 <strong>📖 말씀 본문</strong> 칩 자리에 자동 삽입돼요. (칩 없으면 끝에 추가)
         </p>
     `;
     container.appendChild(templateCard);
@@ -556,20 +547,26 @@ function bindEvents() {
         });
     }
 
-    // (2026-05-14 #23 후속) 묵상 템플릿 — prefill + 저장 + 기본값 복원
+    // (2026-05-14 #23 후속) 묵상 템플릿 — markdownEditor 부착 + prefill + 저장 + 기본값 + 마커 삽입
     const tmplInput  = document.getElementById('meditation-template-input');
     const tmplSave   = document.getElementById('btn-save-meditation-template');
     const tmplReset  = document.getElementById('btn-reset-meditation-template');
+    const tmplInsert = document.getElementById('btn-insert-scripture-marker');
     const tmplStatus = document.getElementById('meditation-template-status');
-    if (tmplInput && _userId && _userId !== 'anonymous') {
-        getMeditationTemplate(_userId)
-            .then(t => { tmplInput.value = t || DEFAULT_TEMPLATE; })
-            .catch(() => { tmplInput.value = DEFAULT_TEMPLATE; });
+    if (tmplInput) {
+        bindMarkdownEditor(tmplInput, { onChange: () => {} });
+        if (_userId && _userId !== 'anonymous') {
+            getMeditationTemplate(_userId)
+                .then(t => setMarkdown(tmplInput, t || DEFAULT_TEMPLATE))
+                .catch(() => setMarkdown(tmplInput, DEFAULT_TEMPLATE));
+        } else {
+            setMarkdown(tmplInput, DEFAULT_TEMPLATE);
+        }
     }
     if (tmplSave) {
         tmplSave.addEventListener('click', async () => {
             if (!_userId || _userId === 'anonymous') return;
-            const v = (tmplInput?.value || '').trim();
+            const v = tmplInput ? getMarkdown(tmplInput).trim() : '';
             tmplSave.disabled = true;
             if (tmplStatus) tmplStatus.textContent = '저장 중...';
             try {
@@ -586,8 +583,42 @@ function bindEvents() {
     }
     if (tmplReset) {
         tmplReset.addEventListener('click', () => {
-            if (tmplInput) tmplInput.value = DEFAULT_TEMPLATE;
+            if (tmplInput) setMarkdown(tmplInput, DEFAULT_TEMPLATE);
             if (tmplStatus) tmplStatus.textContent = '기본값으로 되돌렸어요. 저장 버튼을 눌러주세요.';
+        });
+    }
+    if (tmplInsert) {
+        tmplInsert.addEventListener('click', () => {
+            if (!tmplInput) return;
+            tmplInput.focus();
+            // caret 위치에 마커 칩 삽입 — markdown 으로 가져와 {{scripture}} 추가 후 다시 렌더
+            const sel = window.getSelection();
+            let inserted = false;
+            if (sel && sel.rangeCount && tmplInput.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                // 빠른 경로 — caret 자리에 chip span 직접 삽입
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                const chip = document.createElement('span');
+                chip.className = 'md-marker-scripture';
+                chip.contentEditable = 'false';
+                chip.dataset.marker = 'scripture';
+                chip.title = '이 자리에 말씀 본문이 들어가요';
+                chip.textContent = '📖 말씀 본문';
+                range.insertNode(chip);
+                // chip 뒤에 빈 텍스트 노드 — caret 이동
+                const after = document.createTextNode('​');
+                chip.parentNode.insertBefore(after, chip.nextSibling);
+                const r2 = document.createRange();
+                r2.setStart(after, 1);
+                r2.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r2);
+                inserted = true;
+            }
+            if (!inserted) {
+                const cur = getMarkdown(tmplInput);
+                setMarkdown(tmplInput, cur + (cur && !cur.endsWith('\n') ? '\n' : '') + '{{scripture}}');
+            }
         });
     }
 
