@@ -26,6 +26,7 @@ import { getActiveVersion } from '../data/goalVersionsRepo.js';
 import { saveDot } from '../data/dotsRepo.js';
 import { getAllGoals } from '../data/goalsRepo.js';
 import { showToast } from './quickReview.js';
+import { openWorkflowEdit } from './workflowEdit.js';
 
 const STATUS_META = {
     pending:     { icon: '○', label: '대기',   cls: 'wf-step-pending' },
@@ -88,15 +89,21 @@ function renderWorkflows() {
                 <p class="wf-empty-title">아직 등산로가 없어요.</p>
                 <p class="wf-empty-body">
                     묵상을 통해 어떤 한 걸음을 박을지 분별이 모이면,<br>
-                    그걸 등산로(워크플로우)로 정리할 수 있어요.<br>
-                    <small>다음 세션에 등산로 만들기 UI가 들어옵니다.</small>
+                    그걸 등산로(워크플로우)로 정리해 보세요.
                 </p>
+                <button type="button" id="wf-new-empty-btn" class="primary-btn">+ 새 등산로 만들기</button>
             </div>
         `;
         return;
     }
 
-    container.innerHTML = _workflows.map(wf => renderWorkflowCard(wf)).join('');
+    // (워크플로우 STEP 3 2026-05-14) 워크플로우 있을 때도 맨 위에 [+ 새 등산로] 진입 버튼
+    container.innerHTML = `
+        <div class="wf-header-actions">
+            <button type="button" id="wf-new-btn" class="wf-new-btn">+ 새 등산로</button>
+        </div>
+        ${_workflows.map(wf => renderWorkflowCard(wf)).join('')}
+    `;
 }
 
 function renderWorkflowCard(wf) {
@@ -114,7 +121,11 @@ function renderWorkflowCard(wf) {
                     <span class="wf-card-goal">${escapeHtml(goalTitle)}</span>
                     <h3 class="wf-card-title">${escapeHtml(wf.title || '(이름 없는 등산로)')}</h3>
                 </div>
-                <span class="wf-progress-chip">${doneCount}/${total}</span>
+                <div class="wf-card-head-right">
+                    <span class="wf-progress-chip">${doneCount}/${total}</span>
+                    <button type="button" class="wf-card-edit-btn icon-btn"
+                            data-workflow-id="${escapeAttr(wf.id)}" title="편집">✏️</button>
+                </div>
             </div>
             <ul class="wf-steps">
                 ${stepsHtml || '<li class="wf-empty-step">스텝이 비어 있어요.</li>'}
@@ -195,6 +206,35 @@ function bindEvents() {
         const slot = nowSlot();   // 현재 시각 기준 슬롯
         await createDotFromStep({ workflowId, stepId, parentGoalId, slot });
     });
+
+    // (워크플로우 STEP 3 2026-05-14) [+ 새 등산로] / 카드 편집 진입점
+    document.addEventListener('click', async (e) => {
+        const newBtn = e.target.closest('#wf-new-btn, #wf-new-empty-btn');
+        if (newBtn) {
+            e.preventDefault();
+            openWorkflowEdit({
+                userId: _userId,
+                onSaved: () => refreshWorkflows({ userId: _userId, date: _date })
+            });
+            return;
+        }
+        const editBtn = e.target.closest('.wf-card-edit-btn');
+        if (editBtn) {
+            e.preventDefault();
+            const wfId = editBtn.dataset.workflowId;
+            openWorkflowEdit({
+                userId: _userId,
+                workflowId: wfId,
+                onSaved: () => refreshWorkflows({ userId: _userId, date: _date })
+            });
+            return;
+        }
+    });
+
+    // 다른 곳에서 워크플로우 변경 시 자동 갱신
+    window.addEventListener('sanctum:workflow-changed', () => {
+        if (_userId) refreshWorkflows({ userId: _userId, date: _date });
+    });
 }
 
 /**
@@ -242,6 +282,13 @@ export async function createDotFromStep({ workflowId, stepId, parentGoalId, slot
         executor: step.executor || 'self',
         source: 'self_report'
     };
+    // (워크플로우 STEP 3 2026-05-14) helper executor 일 때 인물 자동 전파.
+    //   step에 helperPersonId 박혀 있으면 도트의 helperPersonId + linkedPersonIds에 자동 박힘.
+    //   → 도트 평가 시 인물 카드와 자연 연결 + B-4 관계 신뢰도 회로 입력.
+    if (step.executor === 'helper' && step.helperPersonId) {
+        dotData.helperPersonId = step.helperPersonId;
+        dotData.linkedPersonIds = [step.helperPersonId];
+    }
 
     try {
         await saveDot(dek, dotData);

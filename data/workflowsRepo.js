@@ -33,13 +33,17 @@ const PATH = 'workflows';
 /**
  * 새 스텝 객체 빌더 — id/order/status/linkedDotIds 기본값 박힘.
  */
-export function buildStep({ title, estimatedDots = 1, executor = 'self', order = 0 }) {
+export function buildStep({ title, estimatedDots = 1, executor = 'self', helperPersonId = null, order = 0 }) {
     return {
         id: `step_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         order,
         title: title || '',
         estimatedDots,
         executor,
+        // (워크플로우 STEP 3 2026-05-14) executor='helper' 일 때 어느 인물 카드인가.
+        //   도트 생성(createDotFromStep) 시 dotData.helperPersonId + linkedPersonIds 로 전파됨.
+        //   B-4 관계 신뢰도 트랙에서 이 인물과 함께한 스텝·도트 집계 회로의 핵심 키.
+        helperPersonId,
         status: 'pending',
         linkedDotIds: []
     };

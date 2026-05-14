@@ -6198,6 +6198,118 @@ body.dg-open { overflow: hidden; }
     background: var(--bg-quiet, rgba(0,0,0,0.02));
     border-radius: var(--radius);
 }
+.wf-empty-card .primary-btn { margin-top: var(--sp-3); }
+
+/* (워크플로우 STEP 3 2026-05-14) 섹션 상단 [+ 새 등산로] 버튼 */
+.wf-header-actions {
+    display: flex; justify-content: flex-end; margin-bottom: var(--sp-2);
+}
+.wf-new-btn {
+    padding: 6px 12px;
+    border: 1px dashed var(--border);
+    background: var(--surface);
+    color: var(--ink-primary);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.wf-new-btn:hover { border-color: var(--brand-primary); border-style: solid; color: var(--brand-primary); }
+
+/* (워크플로우 STEP 3) 카드 헤더 우측 — 진척 칩 + 편집 버튼 */
+.wf-card-head-right { display: flex; align-items: center; gap: 6px; }
+.wf-card-edit-btn {
+    padding: 4px 6px;
+    border: none; background: transparent;
+    color: var(--ink-tertiary); cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background .15s, color .15s;
+}
+.wf-card-edit-btn:hover { background: var(--bg-quiet); color: var(--ink-primary); }
+
+/* (워크플로우 STEP 3) 목표 카드 옆 [🛤️ 등산로 만들기] 버튼 */
+.goal-add-workflow-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-secondary);
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.goal-add-workflow-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+/* (워크플로우 STEP 3) workflowEdit 모달 */
+.wfe-card { max-width: 600px; width: 100%; }
+.wfe-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.wfe-row > label { font-size: 13px; color: var(--ink-secondary); font-weight: 500; }
+.wfe-hint { font-weight: 400; opacity: 0.7; font-size: 11px; }
+.wfe-row > select,
+.wfe-row > input[type="text"] {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); color: var(--ink-primary);
+    font-family: inherit; font-size: 14px;
+}
+.wfe-steps-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.wfe-step-row {
+    display: flex; gap: 8px;
+    padding: 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-quiet, rgba(0,0,0,0.02));
+}
+.wfe-step-order { font-weight: 600; color: var(--ink-tertiary); margin-top: 6px; min-width: 20px; }
+.wfe-step-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.wfe-step-title {
+    width: 100%; padding: 6px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); font-size: 13px;
+}
+.wfe-exec-row { display: flex; gap: 4px; align-items: center; }
+.wfe-exec-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--ink-primary); border-radius: 6px;
+    font-size: 12px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.wfe-exec-btn:hover { border-color: var(--brand-primary); }
+.wfe-exec-btn.active { background: var(--brand-primary); color: #fff; border-color: var(--brand-primary); }
+.wfe-est-dots {
+    width: 60px; padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); font-size: 12px;
+    margin-left: auto;
+}
+.wfe-step-del {
+    padding: 2px 6px; border: none; background: transparent;
+    color: var(--ink-tertiary); cursor: pointer; font-size: 14px;
+}
+.wfe-step-del:hover { color: var(--dot-red, #d33); }
+.wfe-helper-row { position: relative; margin-top: 4px; }
+.wfe-helper-input {
+    width: 100%; padding: 6px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface); font-size: 12px;
+}
+.wfe-helper-ac { position: absolute; top: 100%; left: 0; right: 0; z-index: 1; }
+.wfe-add-step-btn {
+    width: 100%; padding: 10px;
+    border: 1px dashed var(--border);
+    background: transparent; color: var(--ink-tertiary);
+    border-radius: 6px; cursor: pointer;
+    font-size: 13px; margin-top: 8px;
+    transition: border-color .15s, color .15s;
+}
+.wfe-add-step-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); border-style: solid; }
+@media (max-width: 480px) {
+    .wfe-exec-row { flex-wrap: wrap; }
+    .wfe-est-dots { margin-left: 0; }
+}
 .wf-empty-title { font-size: 14px; font-weight: 600; margin: 0 0 var(--sp-2); }
 .wf-empty-body {
     font-size: 12px; color: var(--ink-secondary, var(--text-secondary));

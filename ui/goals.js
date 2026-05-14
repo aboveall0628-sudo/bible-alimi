@@ -179,6 +179,9 @@ function renderGoalCard(g) {
                     <button class="goal-discernment-btn" title="분별의 자리 — 결정을 한 번 들여다보기" type="button">
                         📜 분별
                     </button>
+                    <button class="goal-add-workflow-btn" title="이 목표의 등산로 만들기 (목표 → 큰 단계로 분해)" type="button" data-goal-id="${g.id}">
+                        🛤️ 등산로
+                    </button>
                     <button class="icon-btn extinguish-btn" title="이 목표 그만두기 (분별 후 추모비로 보존)">🪦</button>
                     <button class="icon-btn delete-btn" title="완전 삭제 (흔적 없음)">🗑</button>
                 </div>
@@ -233,6 +236,24 @@ function bindPanelEvents(panel) {
 
         titleInput?.addEventListener('input', triggerSave);
         descInput?.addEventListener('input', triggerSave);
+
+        // (워크플로우 STEP 3 2026-05-14) 🛤️ 등산로 만들기 — 목표 카드에서 직접 진입
+        const addWfBtn = card.querySelector('.goal-add-workflow-btn');
+        addWfBtn?.addEventListener('click', async () => {
+            try {
+                const { openWorkflowEdit } = await import('./workflowEdit.js');
+                openWorkflowEdit({
+                    userId: _userId,
+                    parentGoalId: id,
+                    onSaved: () => {
+                        // workflows.js 가 자동 갱신 이벤트 듣고 있음 (sanctum:workflow-changed)
+                    }
+                });
+            } catch (e) {
+                console.error('[goals] openWorkflowEdit failed:', e);
+                showToast('등산로 만들기가 잠깐 막혔어요.');
+            }
+        });
 
         deleteBtn?.addEventListener('click', async () => {
             if (!confirm('이 목표를 완전히 지워도 괜찮을까요?\n흔적이 남지 않아요. 보존하고 싶다면 옆 🪦 그만두기를 눌러 주세요.')) return;
