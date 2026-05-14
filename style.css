@@ -6645,3 +6645,164 @@ body.dg-open { overflow: hidden; }
     color: var(--accent, #6d7666);
     font-weight: 500;
 }
+
+/* ────────────────────────────────────────────────────────────────
+   (본인 프로필 재기획 트랙 2026-05-14 S-C) 미션 게이트 UI
+   - 사이드바 잠금 회색 톤 (자물쇠 아이콘 X, 톤만)
+   - 미션 안내 모달 (잠긴 모듈 클릭 시)
+   - 진행도 도트 블록 (view-today 머리말)
+   디자인 톤 노트 2026-05: 모노톤 + soft accent + 절제 여백
+   ──────────────────────────────────────────────────────────────── */
+
+/* ─ 사이드바 잠금 회색 톤 ─ */
+.sidebar-item.nav-locked {
+    color: var(--ink-tertiary, #a8a8a3);
+    opacity: 0.72;
+}
+.sidebar-item.nav-locked .icon {
+    opacity: 0.55;
+}
+.sidebar-item.nav-locked:hover {
+    /* 잠긴 모듈도 클릭은 가능 — hover 시 살짝 톤 올림으로 "눌 수 있음" 안내 */
+    color: var(--ink-secondary, #6f7068);
+    opacity: 0.9;
+}
+
+/* ─ 미션 안내 모달 ─ */
+.mission-gate-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(36, 36, 32, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9000;
+    padding: 24px;
+    animation: missionGateFade 180ms ease-out;
+}
+@keyframes missionGateFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.mission-gate-modal {
+    background: var(--surface, #fbfaf6);
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(36, 36, 32, 0.18);
+    padding: 32px 28px 24px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    animation: missionGateLift 220ms ease-out;
+}
+@keyframes missionGateLift {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+.mission-gate-icon {
+    font-size: 40px;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+.mission-gate-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink-primary, #2a2a26);
+    margin: 0 0 8px;
+}
+.mission-gate-hint {
+    font-size: 14px;
+    color: var(--ink-secondary, #6f7068);
+    margin: 0 0 16px;
+    line-height: 1.55;
+}
+.mission-gate-foot {
+    font-size: 13px;
+    color: var(--ink-tertiary, #a8a8a3);
+    margin: 0 0 20px;
+}
+.mission-gate-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+.mission-gate-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 120ms, border 120ms, color 120ms;
+}
+.mission-gate-btn-secondary {
+    background: transparent;
+    color: var(--ink-secondary, #6f7068);
+    border-color: var(--border-soft, #e3e1d8);
+}
+.mission-gate-btn-secondary:hover {
+    background: var(--surface-elev, #f4f1ea);
+}
+.mission-gate-btn-primary {
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+}
+.mission-gate-btn-primary:hover {
+    background: var(--accent-deep, #5a6354);
+}
+
+/* ─ 진행도 도트 블록 ─ */
+.mission-progress-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin: 0 0 14px;
+    background: var(--surface-elev, #f4f1ea);
+    border-radius: 10px;
+    font-size: 13px;
+}
+.mission-progress-label {
+    color: var(--ink-secondary, #6f7068);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.mission-progress-dots {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+.mission-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid var(--ink-tertiary, #a8a8a3);
+    transition: background 180ms, border-color 180ms, transform 120ms;
+}
+.mission-dot:hover {
+    transform: scale(1.18);
+}
+.mission-dot-done {
+    background: var(--accent, #6d7666);
+    border-color: var(--accent, #6d7666);
+}
+
+/* 모바일 */
+@media (max-width: 640px) {
+    .mission-gate-modal {
+        padding: 24px 20px 18px;
+    }
+    .mission-gate-icon {
+        font-size: 36px;
+    }
+    .mission-progress-block {
+        padding: 8px 12px;
+        font-size: 12px;
+        gap: 10px;
+    }
+    .mission-dot {
+        width: 9px;
+        height: 9px;
+    }
+}

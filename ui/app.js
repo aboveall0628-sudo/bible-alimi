@@ -8,7 +8,8 @@ import {
     GoogleAuthProvider, signInWithCredential
 } from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
-import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen } from './lockScreen.js';
+import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen, getDEK } from './lockScreen.js';
+import { attachSidebarLockGuard, refreshMissionGateUI, bindMissionUnlockListener } from './missionGate.js';
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen, showPasswordMigrationModal, showEmailRecoveryMigrationModal } from './auth.js';
 import { isEmailRecoveryRegistered } from '../crypto/emailRecoverySlot.js';
 import { POLICY_VERSION } from '../crypto/passwordPolicy.js';
@@ -562,6 +563,13 @@ function setupNavigation() {
         }
     });
 
+    // (본인 프로필 재기획 트랙 2026-05-14 S-C) 사이드바 잠금 가드 — capture 단계에서
+    //   잠긴 모듈 클릭을 가로채 미션 안내 모달을 띄움. 기존 click 핸들러보다 먼저 동작.
+    const missionCtxGetter = () => ({ dek: getDEK(), userId: currentUserId });
+    attachSidebarLockGuard(missionCtxGetter);
+    // 미션 클리어 즉시 사이드바·진행도 갱신 — markMissionComplete 가 발화하는 이벤트 listen.
+    bindMissionUnlockListener(missionCtxGetter, 'mission-progress-block');
+
     // 오늘 화면의 "거래 한 건" 빠른 추가 (Phase F)
     const addTxBtn = document.getElementById('today-add-tx-btn');
     if (addTxBtn) {
@@ -739,6 +747,9 @@ function switchView(viewId) {
         requestAnimationFrame(() => scrollTimelineToNow());
         // 2026-05-13 재기획: '오늘의 시작' 영역 (시간대 인사 + 핀 원칙 + 어제 질문) 갱신
         renderTodayStartIntoView(currentUserId).catch(() => {});
+        // (본인 프로필 재기획 트랙 2026-05-14 S-C) 미션 진행도 도트 블록 갱신.
+        //   사이드바 회색 톤도 함께 갱신 — 미션 클리어된 모듈은 평상 톤으로 돌아옴.
+        refreshMissionGateUI(getDEK(), currentUserId, 'mission-progress-block').catch(() => {});
     }
 
     // 모바일 사이드바 닫기

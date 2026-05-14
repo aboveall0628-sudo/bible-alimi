@@ -320,6 +320,16 @@ export async function markMissionComplete(dek, userId, missionId, opts = {}) {
         }
     };
     await saveSelfCard(dek, userId, next);
+
+    // (S-C) 미션 클리어 즉시 UI 갱신 신호 — missionGate.js 가 listen.
+    //   브라우저 환경에서만 발화 (테스트·SSR 환경 보호).
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+            window.dispatchEvent(new CustomEvent('sanctum:mission-unlocked', {
+                detail: { missionId, moduleId }
+            }));
+        } catch (_) { /* 이벤트 디스패치 실패는 무시 */ }
+    }
     return true;
 }
 
@@ -331,7 +341,8 @@ export async function markMissionComplete(dek, userId, missionId, opts = {}) {
  */
 export async function isModuleLocked(dek, userId, moduleId) {
     // 도트·묵상은 Day 0 첫날부터 활성 — 잠금 X
-    if (moduleId === 'dots' || moduleId === 'meditation' || moduleId === 'today' || moduleId === 'self-profile' || moduleId === 'settings') {
+    // economy 는 B4 결정 (2026-05-14 S-B): 1.a 트랙 끝나기 전까지 처음부터 unlocked.
+    if (moduleId === 'dots' || moduleId === 'meditation' || moduleId === 'today' || moduleId === 'self-profile' || moduleId === 'settings' || moduleId === 'economy') {
         return false;
     }
     const self = await getSelfCard(dek, userId);
