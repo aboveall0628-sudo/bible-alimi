@@ -85,6 +85,14 @@ function handleKeydown(e, editor, onChange) {
         }
     }
 
+    // (2026-05-14 #23 2차) Tab / Shift+Tab — 리스트 들여쓰기 / 내어쓰기 (노션식)
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (handleListTab(editor, e.shiftKey, onChange)) {
+            e.preventDefault();
+            return;
+        }
+    }
+
     const cmdKey = e.ctrlKey || e.metaKey;
     if (!cmdKey) return;
     const k = (e.key || '').toLowerCase();
@@ -187,6 +195,49 @@ function handleToggleEnter(editor, onChange) {
         }
     }
     return false;
+}
+
+// (2026-05-14 #23 2차) Tab / Shift+Tab — 리스트 항목 들여쓰기·내어쓰기 (노션식)
+//   Tab: 현재 li 를 이전 li 의 자식 ul/ol 로 옮김 (없으면 새 nested 생성)
+//   Shift+Tab: 현재 li 를 부모 li 의 다음 sibling 으로 (이미 root 면 무동작)
+function handleListTab(editor, isShift, onChange) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    let node = sel.getRangeAt(0).startContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    let li = node;
+    while (li && li !== editor && li.tagName !== 'LI') li = li.parentElement;
+    if (!li || li === editor) return false;
+    const parentList = li.parentElement;
+    if (!parentList || !/^(UL|OL)$/.test(parentList.tagName)) return false;
+
+    if (isShift) {
+        // outdent — 부모 li 의 다음 sibling 으로
+        const parentLi = parentList.parentElement;
+        if (!parentLi || parentLi.tagName !== 'LI') return false; // 이미 최상위
+        const grandList = parentLi.parentElement;
+        if (!grandList || !/^(UL|OL)$/.test(grandList.tagName)) return false;
+        grandList.insertBefore(li, parentLi.nextSibling);
+        // 빈 parentList 제거
+        if (parentList.querySelectorAll(':scope > li').length === 0) parentList.remove();
+        moveCaretToEnd(sel, li);
+        onChange(getMarkdown(editor));
+        return true;
+    } else {
+        // indent — 이전 li 의 자식 ul/ol 로
+        const prev = li.previousElementSibling;
+        if (!prev || prev.tagName !== 'LI') return false; // 첫 항목 — indent 불가
+        const listTag = parentList.tagName.toLowerCase();
+        let nestedList = prev.querySelector(`:scope > ${listTag}`);
+        if (!nestedList) {
+            nestedList = document.createElement(listTag);
+            prev.appendChild(nestedList);
+        }
+        nestedList.appendChild(li);
+        moveCaretToEnd(sel, li);
+        onChange(getMarkdown(editor));
+        return true;
+    }
 }
 
 // (2026-05-14 #23 2차) Enter — 빈 li 에서 누르면 리스트 종료. 그 외는 기본 동작.
@@ -590,9 +641,9 @@ function walkNode(node) {
             out += '{{scripture}}';
             continue;
         }
-        // (2026-05-14 #23 2차) 리스트·토글
-        if (tag === 'UL') { out += '\n' + walkListItems(child, '- ') + '\n'; continue; }
-        if (tag === 'OL') { out += '\n' + walkListItems(child, null) + '\n'; continue; }
+        // (2026-05-14 #23 2차) 리스트·토글 — nested 재귀 (들여쓰기 2 스페이스)
+        if (tag === 'UL') { out += '\n' + walkListItems(child, '- ', '') + '\n'; continue; }
+        if (tag === 'OL') { out += '\n' + walkListItems(child, null, '') + '\n'; continue; }
         if (tag === 'DETAILS') {
             const summary = child.querySelector(':scope > summary');
             const summaryText = summary ? walkNode(summary).trim() : '';
@@ -635,14 +686,28 @@ function walkNode(node) {
     return out;
 }
 
-// ul/ol 안의 li 들을 마크다운 줄로
-function walkListItems(listEl, bulletPrefix) {
+// ul/ol 안의 li 들을 마크다운 줄로 — nested 재귀 + indent 들여쓰기
+function walkListItems(listEl, bulletPrefix, indent) {
     const items = Array.from(listEl.querySelectorAll(':scope > li'));
-    return items.map((li, i) => {
-        const inner = walkNode(li).trim();
+    const out = [];
+    items.forEach((li, i) => {
+        // li 의 텍스트 자식 + nested ul/ol 분리
+        let inner = '';
+        let nested = '';
+        for (const c of Array.from(li.childNodes)) {
+            if (c.nodeType === 1 && (c.tagName === 'UL' || c.tagName === 'OL')) {
+                const subPrefix = c.tagName === 'UL' ? '- ' : null;
+                nested += '\n' + walkListItems(c, subPrefix, indent + '  ');
+            } else if (c.nodeType === 3) {
+                inner += c.nodeValue || '';
+            } else if (c.nodeType === 1) {
+                inner += walkNode(c);
+            }
+        }
         const prefix = bulletPrefix !== null ? bulletPrefix : `${i + 1}. `;
-        return prefix + inner;
-    }).join('\n');
+        out.push(indent + prefix + inner.trim() + nested);
+    });
+    return out.join('\n');
 }
 
 /**
@@ -693,31 +758,41 @@ export function markdownToHtml(md) {
             continue;
         }
 
-        // 번호 리스트(1. 2. 3. ...)
-        const ol = line.match(/^(\d+)\.\s+(.*)$/);
-        if (ol) {
-            const items = [];
+        // (2026-05-14 #23 2차) 점/번호 리스트 — 들여쓰기 인식 스택 기반 nested 파서
+        const LIST_LINE = /^(\s*)([-*]|\d+\.)\s+(.*)$/;
+        const firstListMatch = line.match(LIST_LINE);
+        if (firstListMatch) {
+            const rootIndent = firstListMatch[1].length;
+            const rootIsOrdered = /\d+\./.test(firstListMatch[2]);
+            const rootList = document.createElement(rootIsOrdered ? 'ol' : 'ul');
+            const stack = [{ list: rootList, indent: rootIndent }];
             while (i < lines.length) {
-                const m = lines[i].match(/^(\d+)\.\s+(.*)$/);
+                const m = lines[i].match(LIST_LINE);
                 if (!m) break;
-                items.push(`<li>${inlineMd(escape(m[2]))}</li>`);
+                const lineIndent = m[1].length;
+                const isOrdered = /\d+\./.test(m[2]);
+                const content = m[3];
+                // 스택 정리 — 현재 indent 보다 깊은 스택 pop
+                while (stack.length > 1 && stack[stack.length - 1].indent > lineIndent) {
+                    stack.pop();
+                }
+                if (stack[stack.length - 1].indent < lineIndent) {
+                    // 새 nested — 이전 li 안에 자식 list
+                    const parentList = stack[stack.length - 1].list;
+                    const lastLi = parentList.lastElementChild;
+                    if (lastLi) {
+                        const newList = document.createElement(isOrdered ? 'ol' : 'ul');
+                        lastLi.appendChild(newList);
+                        stack.push({ list: newList, indent: lineIndent });
+                    }
+                }
+                const list = stack[stack.length - 1].list;
+                const li = document.createElement('li');
+                li.innerHTML = inlineMd(escape(content));
+                list.appendChild(li);
                 i++;
             }
-            out.push(`<ol>${items.join('')}</ol>`);
-            continue;
-        }
-
-        // 점 리스트(- · *)
-        const ul = line.match(/^[-*]\s+(.*)$/);
-        if (ul) {
-            const items = [];
-            while (i < lines.length) {
-                const m = lines[i].match(/^[-*]\s+(.*)$/);
-                if (!m) break;
-                items.push(`<li>${inlineMd(escape(m[1]))}</li>`);
-                i++;
-            }
-            out.push(`<ul>${items.join('')}</ul>`);
+            out.push(rootList.outerHTML);
             continue;
         }
 
