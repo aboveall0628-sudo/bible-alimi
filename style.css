@@ -6200,6 +6200,55 @@ body.dg-open { overflow: hidden; }
 }
 .wf-empty-card .primary-btn { margin-top: var(--sp-3); }
 
+/* (B-5 트랙 Phase 1 2026-05-14) 회복의 자리 모달 — 톤 분기 (cute / calm) */
+.recovery-gate-card { max-width: 520px; width: 100%; }
+.recovery-intro {
+    margin: 0 0 16px;
+    font-size: 13px; line-height: 1.6;
+    color: var(--ink-secondary);
+}
+.recovery-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.recovery-row > label {
+    font-size: 12px; color: var(--ink-secondary); font-weight: 500;
+}
+.recovery-row > textarea {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--ink-primary);
+    font-family: inherit; font-size: 14px;
+    line-height: 1.5; resize: vertical;
+}
+/* cute 톤 — 부드러운 둥근 모서리 + 따뜻한 배경 + 큰 행간 */
+.recovery-cute .modal-head h3 {
+    font-family: var(--font-display, inherit);
+    color: var(--ink-primary);
+}
+.recovery-cute .recovery-intro {
+    background: var(--bg-quiet, rgba(255, 235, 200, 0.3));
+    padding: 12px 14px;
+    border-radius: 12px;
+    border-left: 3px solid var(--brand-primary);
+}
+.recovery-cute textarea {
+    border-radius: 12px;
+    background: rgba(255, 250, 240, 0.5);
+}
+/* calm 톤 — 모노톤 + Noto Serif 본문 + 절제된 보더 */
+.recovery-calm .modal-head h3 {
+    font-family: 'Noto Serif KR', serif;
+    color: var(--ink-primary);
+    font-weight: 500;
+}
+.recovery-calm .recovery-intro {
+    font-family: 'Noto Serif KR', serif;
+    color: var(--ink-primary);
+    line-height: 1.7;
+}
+.recovery-calm textarea {
+    font-family: 'Noto Serif KR', serif;
+    line-height: 1.7;
+}
+
 /* (워크플로우 STEP 3 2026-05-14) 섹션 상단 [+ 새 등산로] 버튼 */
 .wf-header-actions {
     display: flex; justify-content: flex-end; margin-bottom: var(--sp-2);

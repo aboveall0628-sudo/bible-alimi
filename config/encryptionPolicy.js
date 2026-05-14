@@ -469,6 +469,10 @@ export const POLICY = {
             // (2026-05-14 #23 후속) 묵상 템플릿 — 사용자 정의 마크다운.
             //   {{scripture}} 마커 위치에 절 본문이 삽입됨. 미설정 시 default = '{{scripture}}'.
             'meditationTemplate',
+            // (B-5 트랙 Phase 1 2026-05-14) 회복의 자리 모드 — 'cute'(귀여움·디지소울 톤) | 'calm'(차분·묵상 톤) | 'off'(완전 끔).
+            //   디폴트 'calm'. UI 톤 분기 (recoveryGate 모달).
+            //   사용자 명시: "무조건 귀여워야 함, 아무런 해 끼치지 않게" + "묵상으로 자연 돌아가게".
+            'recoveryTone',
             'updatedAt'
         ],
         encrypted: []
@@ -484,6 +488,23 @@ export const POLICY = {
             'updatedAt'
         ],
         encrypted: []
+    },
+    // (B-5 트랙 Phase 1 알 단계, 2026-05-14) 회복의 자리 메모 — 자기 인식·기도·다시 결심 보관.
+    //   가이드 별: "양치기 소년 = 정죄 X / 회복으로 이끄는 게임 ✓" (사용자 명시).
+    //   자기 자신만 자동 감지 (마 7:1~5 들보 먼저). 타인 자동 감지 X.
+    //   patternKey 평문 — "broken_promise_3" / "broken_promise_5" 등 패턴 식별자(통계 가능).
+    //   tone 평문 — 'cute' | 'calm' (사용자 모드, 저장 시점 톤 보존).
+    //   content/prayerNote/linkedDotIds 암호화 — 사적 인식.
+    recoveryMemos: {
+        plaintext: [
+            'id', 'userId', 'createdAt', 'patternKey', 'tone', 'source'
+        ],
+        encrypted: [
+            'content',        // 사용자 자기 인식 메모 자유 텍스트
+            'prayerNote',     // 같은 자리에 기도 적은 게 있으면
+            'linkedDotIds',   // 감지된 도트들 (자기 인식 자료)
+            'linkedScriptureId' // 묵상 훅 (선택)
+        ]
     },
     // (2026-05-13 HC#1 추모비) 폐기된 목표의 추모비 — 목표·도트·기간·기여·내러티브 보존.
     // 1차: 도트 삭제 X, 목표 status='archived'. contributions·representativeDots·
