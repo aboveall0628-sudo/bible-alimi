@@ -247,7 +247,14 @@ function pageTemplate(d) {
             </div>
             <div class="self-field">
                 <label>생일 ${v('birthday')}</label>
-                <input type="text" id="sf-birthday" value="${escapeAttr(d.birthday)}" placeholder="YYYY-MM-DD 또는 자유 텍스트">
+                <input type="text" id="sf-birthday" value="${escapeAttr(d.birthday)}"
+                    placeholder="${(d.birthdayCalendar === 'lunar') ? '음력 예: 8월 15일' : 'YYYY-MM-DD 또는 자유 텍스트'}">
+                <div class="birthday-cal-toggle" role="group" aria-label="달력 종류">
+                    <button type="button" class="bcal-chip ${(d.birthdayCalendar || 'solar') === 'solar' ? 'active' : ''}"
+                        data-bcal="solar">☀️ 양력</button>
+                    <button type="button" class="bcal-chip ${d.birthdayCalendar === 'lunar' ? 'active' : ''}"
+                        data-bcal="lunar">🌙 음력</button>
+                </div>
             </div>
         </section>
 
@@ -468,6 +475,23 @@ function bindEvents(container) {
     if (bootstrapBtn) {
         bootstrapBtn.addEventListener('click', () => openBootstrap(container));
     }
+
+    // (#58 2026-05-14) 생일 음력/양력 토글 — 메타만 보존
+    const birthInput = container.querySelector('#sf-birthday');
+    container.querySelectorAll('.birthday-cal-toggle .bcal-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const val = chip.dataset.bcal;
+            _draft.birthdayCalendar = val;
+            container.querySelectorAll('.birthday-cal-toggle .bcal-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.bcal === val);
+            });
+            if (birthInput) {
+                birthInput.placeholder = val === 'lunar'
+                    ? '음력 예: 8월 15일'
+                    : 'YYYY-MM-DD 또는 자유 텍스트';
+            }
+        });
+    });
 
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }

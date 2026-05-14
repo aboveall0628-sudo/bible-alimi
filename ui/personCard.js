@@ -583,8 +583,24 @@ function bindLayer1Events(root) {
 }
 
 function bindAnnivEvents(root) {
-    root.querySelector('#person-birthday')?.addEventListener('change', e => {
+    const birthInput = root.querySelector('#person-birthday');
+    birthInput?.addEventListener('change', e => {
         _editingDraft.birthday = e.target.value;
+    });
+    // (#58) 음력/양력 토글 — 메타만 보존, 알람 트리거는 별도 트랙
+    root.querySelectorAll('.birthday-cal-toggle .bcal-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const val = chip.dataset.bcal;
+            _editingDraft.birthdayCalendar = val;
+            root.querySelectorAll('.birthday-cal-toggle .bcal-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.bcal === val);
+            });
+            if (birthInput) {
+                birthInput.placeholder = val === 'lunar'
+                    ? '음력 예: 8월 15일 또는 1985-08-15'
+                    : 'YYYY-MM-DD 또는 8/15';
+            }
+        });
     });
     root.querySelector('#person-anniv-add')?.addEventListener('click', () => {
         const list = Array.isArray(_editingDraft.anniversaries) ? _editingDraft.anniversaries : [];
@@ -1158,9 +1174,16 @@ function anniversariesHtml(p) {
         <section class="person-layer" id="person-anniv-layer">
             <h4 class="person-layer-title">생일 · 기념일</h4>
             <p class="org-layer-hint">친한 사람에게만 보여요. 연도를 모르면 그냥 비워도 돼요.</p>
-            <div class="person-row">
+            <div class="person-row person-birthday-row">
                 <label>생일</label>
-                <input id="person-birthday" type="date" value="${escapeAttr(p.birthday || '')}" />
+                <input id="person-birthday" type="text" value="${escapeAttr(p.birthday || '')}"
+                    placeholder="${p.birthdayCalendar === 'lunar' ? '음력 예: 8월 15일 또는 1985-08-15' : 'YYYY-MM-DD 또는 8/15'}" />
+                <div class="birthday-cal-toggle" role="group" aria-label="달력 종류">
+                    <button type="button" class="bcal-chip ${(p.birthdayCalendar || 'solar') === 'solar' ? 'active' : ''}"
+                        data-bcal="solar">☀️ 양력</button>
+                    <button type="button" class="bcal-chip ${p.birthdayCalendar === 'lunar' ? 'active' : ''}"
+                        data-bcal="lunar">🌙 음력</button>
+                </div>
             </div>
             <div class="anniv-list" id="person-anniv-list">${rows}</div>
             <button type="button" id="person-anniv-add" class="text-btn">+ 기념일 추가</button>

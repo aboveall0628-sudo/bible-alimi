@@ -271,6 +271,10 @@ export const POLICY = {
             'notes', 'strengths', 'tendencies',
             // 친한 사람 한정 기념일/생일 — 사적 정보로 암호화
             'birthday', 'anniversaries',
+            // (2026-05-14 #58) 생일 달력 종류 — 'solar'(양력, 디폴트) | 'lunar'(음력).
+            //   "아빠 생일 음력이라 그거 지켜야 함" 사용자 명시. 1차는 메타만 보존.
+            //   자동 양력 변환·알람은 별도 트랙 (lunar-calendar 라이브러리 필요).
+            'birthdayCalendar',
             // (v3 2026-05-12) 첫 평가 1회 보존 — 첫인상 비교용
             'firstImpression',
             // ─── (B-4 본인 프로필 트랙 2026-05-13) isSelf=true 카드 전용 ───
