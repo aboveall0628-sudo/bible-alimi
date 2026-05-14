@@ -7473,12 +7473,22 @@ body.dg-open { overflow: hidden; }
     background: var(--brand-soft);
 }
 .onboarding-font-label { font-weight: 600; }
-.onboarding-font-desc { font-size: 0.85em; color: var(--ink-secondary); }
+.onboarding-font-desc { color: var(--ink-secondary); }
 .onboarding-font-sample {
     margin-top: 0.3rem;
     color: var(--ink-secondary);
     word-break: keep-all;
 }
+/* 시스템 폰트 4단계 칩 — 라벨·설명을 실제 그 단계 크기로.
+   data-system 속성은 onboarding.js 에서 'sm|md|lg|xl' 로 박힘. */
+.onboarding-font-chip[data-system="sm"] .onboarding-font-label { font-size: 13px; }
+.onboarding-font-chip[data-system="sm"] .onboarding-font-desc  { font-size: 11px; }
+.onboarding-font-chip[data-system="md"] .onboarding-font-label { font-size: 16px; }
+.onboarding-font-chip[data-system="md"] .onboarding-font-desc  { font-size: 12px; }
+.onboarding-font-chip[data-system="lg"] .onboarding-font-label { font-size: 19px; }
+.onboarding-font-chip[data-system="lg"] .onboarding-font-desc  { font-size: 14px; }
+.onboarding-font-chip[data-system="xl"] .onboarding-font-label { font-size: 23px; }
+.onboarding-font-chip[data-system="xl"] .onboarding-font-desc  { font-size: 17px; }
 
 /* Step 7: 원칙 — 큰 textarea */
 .onboarding-textarea {
@@ -7617,7 +7627,18 @@ body.dg-open { overflow: hidden; }
     background: var(--brand-soft);
 }
 .settings-font-chip-label { font-weight: 600; }
-.settings-font-chip-desc { font-size: 0.85em; color: var(--ink-secondary); }
+.settings-font-chip-desc { color: var(--ink-secondary); }
+/* 4단계 칩 라벨·설명을 실제 그 단계의 폰트 크기로 보여주기 —
+   사용자가 칩만 봐도 시각 차이를 즉시 알 수 있도록.
+   sm(작게) ~ xl(매우 크게) 약 1.8배 비례. */
+.settings-font-chip[data-system-font="sm"] .settings-font-chip-label { font-size: 13px; }
+.settings-font-chip[data-system-font="sm"] .settings-font-chip-desc  { font-size: 11px; }
+.settings-font-chip[data-system-font="md"] .settings-font-chip-label { font-size: 16px; }
+.settings-font-chip[data-system-font="md"] .settings-font-chip-desc  { font-size: 12px; }
+.settings-font-chip[data-system-font="lg"] .settings-font-chip-label { font-size: 19px; }
+.settings-font-chip[data-system-font="lg"] .settings-font-chip-desc  { font-size: 14px; }
+.settings-font-chip[data-system-font="xl"] .settings-font-chip-label { font-size: 23px; }
+.settings-font-chip[data-system-font="xl"] .settings-font-chip-desc  { font-size: 17px; }
 
 .settings-bible-list {
     display: flex; flex-direction: column;
