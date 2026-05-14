@@ -275,6 +275,10 @@ export const POLICY = {
             //   "아빠 생일 음력이라 그거 지켜야 함" 사용자 명시. 1차는 메타만 보존.
             //   자동 양력 변환·알람은 별도 트랙 (lunar-calendar 라이브러리 필요).
             'birthdayCalendar',
+            // (2026-05-14 #58 후속) 생일 알람 명시 활성 — true 면 innerCircle 아니어도 발화.
+            //   false/null 이면 innerCircle 기반 디폴트.
+            //   "특수하게 케어하는 사람들도 알람 가능하게" 사용자 명시.
+            'birthdayAlertEnabled',
             // (v3 2026-05-12) 첫 평가 1회 보존 — 첫인상 비교용
             'firstImpression',
             // ─── (B-4 본인 프로필 트랙 2026-05-13) isSelf=true 카드 전용 ───
@@ -396,6 +400,10 @@ export const POLICY = {
             // (2026-05-13 HC#1 N7) 매일 묵상 알람 시각 — "HH:MM" 형식.
             // dailyAlarmEnabled 가 true 일 때만 reminderGenerator 가 발화.
             'dailyAlarmEnabled', 'dailyAlarmTime',
+            // (2026-05-14 #58 후속) 생일 알람 며칠 전 발화 — 배열, 예: [7, 3, 0].
+            //   innerCircle 인물 + 본인 대상. 디폴트 [7, 3, 0] (1일 전 없음).
+            //   빈 배열이면 생일 알람 전체 비활성.
+            'birthdayAlarmDays',
             // (2026-05-14 #23 후속) 묵상 템플릿 — 사용자 정의 마크다운.
             //   {{scripture}} 마커 위치에 절 본문이 삽입됨. 미설정 시 default = '{{scripture}}'.
             'meditationTemplate',

@@ -6506,3 +6506,56 @@ body.dg-open { overflow: hidden; }
     margin-top: 2px;
     margin-bottom: 2px;
 }
+
+/* ═══ (#58 후속 2026-05-14) 생일 알람 토글 + 설정 카드 ═══ */
+
+/* 인물 카드 — 생일 알람 명시 토글 row */
+.birthday-alert-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-secondary, #5d5a52);
+    cursor: pointer;
+}
+.birthday-alert-row em.birthday-alert-auto {
+    color: var(--ink-tertiary, #a8a499);
+    font-style: normal;
+    font-size: 11px;
+    margin-left: 2px;
+}
+
+/* 설정 — 생일 알람 일수 체크박스 그리드 */
+.birthday-alarm-day-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+.birthday-alarm-day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border, #d8d3c8);
+    border-radius: 999px;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink-secondary, #5d5a52);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.birthday-alarm-day-chip:hover {
+    border-color: var(--accent, #6d7666);
+}
+.birthday-alarm-day-chip input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+.birthday-alarm-day-chip:has(input[type="checkbox"]:checked) {
+    background: var(--accent-soft, #f0ece4);
+    border-color: var(--accent, #6d7666);
+    color: var(--accent, #6d7666);
+    font-weight: 500;
+}

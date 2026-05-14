@@ -31,8 +31,8 @@ import {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STALE_GOAL_DAYS_THRESHOLD = 3;   // daily 목표 미배치 N일+ 이면 알람
 const EMPTY_CARD_DAYS_THRESHOLD = 3;    // 인물/조직 카드 생성 후 N일+ 미완 시 알람
-// (#58 후속) 생일 알람 — 7일 전, 3일 전, 당일 3회
-const BIRTHDAY_REMINDER_DAYS = [7, 3, 0];
+// (#58 후속) 생일 알람 디폴트 — 7일 전, 3일 전, 당일. 사용자가 설정에서 변경 가능.
+const BIRTHDAY_REMINDER_DAYS_DEFAULT = [7, 3, 0];
 
 /**
  * 4종 자동 알람 모두 시도. 각각 try/catch — 하나 실패해도 나머지는 동작.
@@ -371,6 +371,21 @@ function isoYearWeek(dateStr) {
 // ─────────────────────────────────────────────────────────────────────
 export async function generateBirthdayReminders(dek, userId, today) {
     let created = 0;
+
+    // 1) 설정 읽기 — spiritualLock 도큐먼트의 birthdayAlarmDays (디폴트 [7,3,0])
+    let reminderDays = BIRTHDAY_REMINDER_DAYS_DEFAULT;
+    try {
+        const snap = await getDoc(doc(db, 'users', userId, 'settings', 'spiritualLock'));
+        if (snap.exists()) {
+            const cfg = snap.data();
+            if (Array.isArray(cfg.birthdayAlarmDays)) {
+                reminderDays = cfg.birthdayAlarmDays.map(Number).filter(n => Number.isInteger(n) && n >= 0);
+            }
+        }
+    } catch (e) { console.warn('[reminderGen] birthday settings load 실패:', e?.message || e); }
+    if (reminderDays.length === 0) return 0;  // 사용자가 모든 옵션 끄면 발화 X
+
+    // 2) 인물 카드 전체 로드
     let all;
     try {
         all = await getAllPersons(dek, userId, { includeSelf: true });
@@ -378,8 +393,13 @@ export async function generateBirthdayReminders(dek, userId, today) {
         console.warn('[reminderGen] birthday: getAllPersons 실패', e?.message || e);
         return 0;
     }
-    // 본인 + innerCircle 만
-    const targets = all.filter(p => p && (p.isSelf === true || p.innerCircle === true));
+    // 3) 대상: 본인 + innerCircle + 명시 birthdayAlertEnabled
+    //    "특수하게 케어하는 사람들도 알람 가능하게" (사용자 명시 2026-05-14)
+    const targets = all.filter(p => p && (
+        p.isSelf === true ||
+        p.innerCircle === true ||
+        p.birthdayAlertEnabled === true
+    ));
 
     for (const p of targets) {
         if (!p.birthday) continue;
@@ -401,7 +421,7 @@ export async function generateBirthdayReminders(dek, userId, today) {
             continue;
         }
 
-        if (!BIRTHDAY_REMINDER_DAYS.includes(solar.daysUntil)) continue;
+        if (!reminderDays.includes(solar.daysUntil)) continue;
 
         const daysOffset = solar.daysUntil;
         const id = makeReminderId(userId, 'birthday', `${p.id}_${today}_${daysOffset}`);
@@ -409,15 +429,20 @@ export async function generateBirthdayReminders(dek, userId, today) {
         const calLabel = p.birthdayCalendar === 'lunar' ? ' (음력)' : '';
 
         let title, body;
+        const dayLabel = daysOffset === 0 ? '오늘' : `${daysOffset}일 후`;
         if (isSelf) {
-            if (daysOffset === 0)      { title = '🎂 오늘 생신이에요'; body = '하루를 곁들여 보세요.'; }
-            else if (daysOffset === 3) { title = `🎂 3일 후 생신이에요`; body = '한 호흡 미리.'; }
-            else                       { title = `🎂 ${daysOffset}일 후 생신이에요`; body = '한 주가 다가와요.'; }
+            title = `🎂 ${dayLabel} 생신이에요`;
+            body  = daysOffset === 0 ? '하루를 곁들여 보세요.'
+                  : daysOffset === 1 ? '바로 내일이에요.'
+                  : daysOffset === 3 ? '한 호흡 미리.'
+                  : '한 주가 다가와요.';
         } else {
             const who = p.name || '한 분';
-            if (daysOffset === 0)      { title = `🎂 ${who} 오늘 생신${calLabel}`; body = '한 줄 메시지 어떠세요?'; }
-            else if (daysOffset === 3) { title = `🎂 ${who} 3일 후 생신${calLabel}`; body = '선물·메시지 준비할 시간이에요.'; }
-            else                       { title = `🎂 ${who} ${daysOffset}일 후 생신${calLabel}`; body = '한 주가 다가와요.'; }
+            title = `🎂 ${who} ${dayLabel} 생신${calLabel}`;
+            body  = daysOffset === 0 ? '한 줄 메시지 어떠세요?'
+                  : daysOffset === 1 ? '내일이에요. 준비됐어요?'
+                  : daysOffset === 3 ? '선물·메시지 준비할 시간이에요.'
+                  : '한 주가 다가와요.';
         }
 
         try {

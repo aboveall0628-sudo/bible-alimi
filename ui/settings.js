@@ -49,12 +49,14 @@ async function loadDailyAlarmSettings() {
     const snap = await getDoc(spiritualLockRef());
     return snap.exists() ? snap.data() : null;
 }
-async function saveDailyAlarmSettings({ dailyAlarmEnabled, dailyAlarmTime }) {
-    await setDoc(spiritualLockRef(), {
+async function saveDailyAlarmSettings({ dailyAlarmEnabled, dailyAlarmTime, birthdayAlarmDays }) {
+    const payload = {
         dailyAlarmEnabled,
         dailyAlarmTime,
         updatedAt: serverTimestamp(),
-    }, { merge: true });
+    };
+    if (Array.isArray(birthdayAlarmDays)) payload.birthdayAlarmDays = birthdayAlarmDays;
+    await setDoc(spiritualLockRef(), payload, { merge: true });
 }
 
 export function renderSettingsView(userId, userEmail) {
@@ -258,6 +260,41 @@ function injectExtraSections() {
         </div>
     `;
     container.appendChild(dailyAlarmCard);
+
+    // (#58 후속 2026-05-14) 생일 알람 카드 — 며칠 전 발화할지 체크박스 4개
+    const birthdayAlarmCard = document.createElement('div');
+    birthdayAlarmCard.id = 'settings-birthday-alarm-card';
+    birthdayAlarmCard.className = 'card-section';
+    birthdayAlarmCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="cake"></i> 생일 알람</h3>
+        <p class="section-desc">
+            내 사람(innerCircle) 인물 카드 + 본인 카드 + "🎂 생일 알람 받기" 켠 인물의 생일이 다가오면 알람이 와요.
+            음력 생일은 자동으로 양력 변환돼요. 며칠 전부터 알람을 받을지 고르세요.
+        </p>
+        <div class="birthday-alarm-day-grid">
+            <label class="birthday-alarm-day-chip">
+                <input type="checkbox" class="bd-alarm-day" value="7" />
+                <span>7일 전</span>
+            </label>
+            <label class="birthday-alarm-day-chip">
+                <input type="checkbox" class="bd-alarm-day" value="3" />
+                <span>3일 전</span>
+            </label>
+            <label class="birthday-alarm-day-chip">
+                <input type="checkbox" class="bd-alarm-day" value="1" />
+                <span>1일 전</span>
+            </label>
+            <label class="birthday-alarm-day-chip">
+                <input type="checkbox" class="bd-alarm-day" value="0" />
+                <span>당일</span>
+            </label>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:12px;align-items:center;">
+            <button id="btn-save-birthday-alarm" class="text-btn">저장</button>
+            <span id="birthday-alarm-status" style="font-size:12px;color:var(--text-secondary);"></span>
+        </div>
+    `;
+    container.appendChild(birthdayAlarmCard);
 
     // 비밀번호 변경 카드
     const pwCard = document.createElement('div');
@@ -668,6 +705,44 @@ function bindEvents() {
             } catch (e) {
                 console.error('[settings] daily alarm save failed:', e);
                 if (dailyAlarmStatus) dailyAlarmStatus.textContent = '저장이 잠깐 막혔어요.';
+            }
+        });
+    }
+
+    // (#58 후속 2026-05-14) 생일 알람 일수 — 현재 값 로드 + 저장 버튼.
+    const btnSaveBirthdayAlarm = document.getElementById('btn-save-birthday-alarm');
+    const birthdayAlarmStatus  = document.getElementById('birthday-alarm-status');
+    const birthdayDayChecks    = document.querySelectorAll('.bd-alarm-day');
+    if (btnSaveBirthdayAlarm && birthdayDayChecks.length === 4) {
+        // 현재 값 prefill — birthdayAlarmDays 배열 (디폴트 [7,3,0])
+        loadDailyAlarmSettings().then(s => {
+            const days = Array.isArray(s?.birthdayAlarmDays) ? s.birthdayAlarmDays : [7, 3, 0];
+            birthdayDayChecks.forEach(cb => {
+                cb.checked = days.includes(Number(cb.value));
+            });
+        }).catch(e => console.warn('[settings] birthday alarm load failed:', e));
+
+        btnSaveBirthdayAlarm.addEventListener('click', async () => {
+            const selected = Array.from(birthdayDayChecks)
+                .filter(cb => cb.checked)
+                .map(cb => Number(cb.value))
+                .sort((a, b) => b - a);  // 큰 수부터 [7,3,1,0] 순
+            try {
+                // 기존 dailyAlarm 값 보존하면서 birthdayAlarmDays 만 갱신
+                const cur = await loadDailyAlarmSettings();
+                await saveDailyAlarmSettings({
+                    dailyAlarmEnabled: cur?.dailyAlarmEnabled === true,
+                    dailyAlarmTime: cur?.dailyAlarmTime || '20:00',
+                    birthdayAlarmDays: selected,
+                });
+                if (birthdayAlarmStatus) {
+                    birthdayAlarmStatus.textContent = selected.length === 0
+                        ? '✓ 생일 알람을 모두 껐어요.'
+                        : `✓ ${selected.map(d => d === 0 ? '당일' : `${d}일 전`).join(' · ')} 알람이 와요.`;
+                }
+            } catch (e) {
+                console.error('[settings] birthday alarm save failed:', e);
+                if (birthdayAlarmStatus) birthdayAlarmStatus.textContent = '저장이 잠깐 막혔어요.';
             }
         });
     }

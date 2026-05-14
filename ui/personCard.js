@@ -623,6 +623,11 @@ function bindAnnivEvents(root) {
     });
     birthInput?.addEventListener('input', () => refreshSolarHint());
     refreshSolarHint();
+
+    // (#58 후속) 생일 알람 명시 토글
+    root.querySelector('#person-birthday-alert')?.addEventListener('change', e => {
+        _editingDraft.birthdayAlertEnabled = !!e.target.checked;
+    });
     root.querySelector('#person-anniv-add')?.addEventListener('click', () => {
         const list = Array.isArray(_editingDraft.anniversaries) ? _editingDraft.anniversaries : [];
         list.push({ date: '', label: '' });
@@ -1205,6 +1210,10 @@ function anniversariesHtml(p) {
                     <button type="button" class="bcal-chip ${p.birthdayCalendar === 'lunar' ? 'active' : ''}"
                         data-bcal="lunar">🌙 음력</button>
                 </div>
+                <label class="birthday-alert-row">
+                    <input type="checkbox" id="person-birthday-alert" ${p.birthdayAlertEnabled === true ? 'checked' : ''}>
+                    <span>🎂 생일 알람 받기 ${p.innerCircle ? '<em class="birthday-alert-auto">(내 사람은 자동)</em>' : ''}</span>
+                </label>
                 <div id="person-birthday-solar-hint" class="birthday-solar-hint"></div>
             </div>
             <div class="anniv-list" id="person-anniv-list">${rows}</div>
