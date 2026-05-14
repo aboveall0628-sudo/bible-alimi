@@ -42,7 +42,7 @@ import {
     getScriptureSettings, setFontSize as setScriptureFontSize, applyFontSizeToCSS as applyScriptureFontToCSS,
 } from './scriptureSettings.js';
 import { savePrinciple } from '../data/principlesRepo.js';
-import { saveRecord } from '../data/baseRepo.js';
+import { saveRecord, getRecord } from '../data/baseRepo.js';
 import { getActiveMissionIds, MISSION_CATALOG } from '../config/missionCatalog.js';
 
 const TOTAL_STEPS = 8;
@@ -476,6 +476,10 @@ function renderMeditationStep(body) {
           <p class="onboarding-verse-text" id="onboarding-verse-text">${escapeHtml(passage.text)}</p>
         </div>
 
+        <div id="onboarding-existing-meditation-notice" class="onboarding-existing-notice" hidden>
+          <p>오늘 이미 묵상 적으신 게 있어요. 여기 적으시는 한 줄은 <strong>기존 묵상 끝에 추가</strong>돼요. 덮어쓰지 않아요.</p>
+        </div>
+
         <label class="onboarding-label" for="onboarding-meditation-note">이 한 절을 보며 떠오른 한 줄</label>
         <textarea class="onboarding-textarea" id="onboarding-meditation-note"
                   rows="3" maxlength="400"
@@ -492,6 +496,8 @@ function renderMeditationStep(body) {
     `;
     const noteEl = document.getElementById('onboarding-meditation-note');
     noteEl.addEventListener('input', () => { _state.draft.meditationNote = noteEl.value; });
+    // 오늘 묵상 이미 있는지 비동기 체크 — 있으면 안내 카드 노출, 합치기 모드로 작동
+    checkExistingMeditation().catch(() => {});
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
     document.getElementById('onboarding-skip').addEventListener('click', async () => {
         _state.draft.meditationNote = '';
@@ -576,6 +582,33 @@ function renderFinishCard(body) {
     });
 }
 
+/**
+ * 오늘 묵상 이미 있는지 확인 — 있으면 step 8 안내 카드 노출 + _state 에 기존 content 박힘.
+ * persistAll 시 합치기 모드(기존 끝에 한 줄 append)로 작동.
+ */
+async function checkExistingMeditation() {
+    if (!_state) return;
+    const { userId, dek } = _state;
+    const today = new Date().toISOString().slice(0, 10);
+    const id = `meditation_${userId}_${today}`;
+    try {
+        const existing = await getRecord(dek, 'meditations', id);
+        const existingContent = (existing && typeof existing.content === 'string') ? existing.content : '';
+        const existingPrayer = (existing && typeof existing.prayer === 'string') ? existing.prayer : '';
+        _state.draft.existingMeditationContent = existingContent;
+        _state.draft.existingMeditationPrayer = existingPrayer;
+        // 안내 카드 — 기존 content 있을 때만 노출
+        if (existingContent.trim()) {
+            const notice = document.getElementById('onboarding-existing-meditation-notice');
+            if (notice) notice.hidden = false;
+        }
+    } catch (e) {
+        // 처음 가입한 사용자는 도큐먼트 자체가 없어 에러 — 무시.
+        _state.draft.existingMeditationContent = '';
+        _state.draft.existingMeditationPrayer = '';
+    }
+}
+
 // ─── 저장 — 마지막 단계에서 일괄 ──────────────────────────
 async function persistAll() {
     const { userId, dek, draft, cardSnapshot } = _state;
@@ -620,22 +653,54 @@ async function persistAll() {
         } catch (e) { console.warn('[onboarding] savePrinciple failed:', e?.message || e); }
     }
 
-    // 4) 첫 묵상 — 한 줄 적었으면 meditations 컬렉션에 저장 (meditation_first_save 미션 자동 클리어는 별도)
+    // 4) 첫 묵상 — 한 줄 적었으면 meditations 컬렉션에 저장.
+    //    ⚠️ 단일 encryptedPayload 결로 sensitive 필드는 통째 덮어쓰니, 기존 묵상을 먼저 합쳐서 박음.
+    //    합치기 모드: 기존 content + "\n\n" + 새 한 줄. prayer 는 그대로 보존.
     const note = (draft.meditationNote || '').trim();
     if (note && draft.meditationScripture) {
         try {
             const id = `meditation_${userId}_${today}`;
+            // 단계 진입 시 캐시된 기존 값이 없을 수도 있어 한 번 더 안전하게 읽기.
+            let existingContent = draft.existingMeditationContent;
+            let existingPrayer = draft.existingMeditationPrayer;
+            if (existingContent === undefined || existingPrayer === undefined) {
+                try {
+                    const existing = await getRecord(dek, 'meditations', id);
+                    existingContent = (existing && typeof existing.content === 'string') ? existing.content : '';
+                    existingPrayer = (existing && typeof existing.prayer === 'string') ? existing.prayer : '';
+                } catch (_) {
+                    existingContent = '';
+                    existingPrayer = '';
+                }
+            }
+            const trimmedExisting = (existingContent || '').trimEnd();
+            const mergedContent = trimmedExisting
+                ? `${trimmedExisting}\n\n${note}`
+                : note;
             await saveRecord(dek, 'meditations', {
                 id,
                 userId,
                 date: today,
-                scriptureRef: draft.meditationScripture.ref,
-                content: note,
-                prayer: '',
+                // scriptureRef: 기존이 있으면 보존 (사용자가 이미 본 본문 우선), 없을 때만 추천 본문 박음.
+                scriptureRef: (await safeGetExistingScriptureRef(dek, userId, today)) || draft.meditationScripture.ref,
+                content: mergedContent,
+                prayer: existingPrayer || '',
             }, id);
-            // meditation_first_save 미션 — saveMeditationDoc 안 트리거와 동일 의미로 여기서도 박힘.
+            // meditation_first_save 미션 — saveMeditationDoc 안 트리거와 동일 의미로 여기서도 클리어.
             await markMissionComplete(dek, userId, 'meditation_first_save', { signal: 'onboarding' });
         } catch (e) { console.warn('[onboarding] saveMeditation failed:', e?.message || e); }
+    }
+}
+
+/** 오늘 묵상의 기존 scriptureRef 한 번 더 읽기 (덮어쓰기 방지용 안전망). */
+async function safeGetExistingScriptureRef(dek, userId, today) {
+    try {
+        const existing = await getRecord(dek, 'meditations', `meditation_${userId}_${today}`);
+        return existing && typeof existing.scriptureRef === 'string' && existing.scriptureRef
+            ? existing.scriptureRef
+            : null;
+    } catch (_) {
+        return null;
     }
 }
 

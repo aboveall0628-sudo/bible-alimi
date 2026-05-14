@@ -87,9 +87,11 @@
 }
 
 /* ── System Font Scale (4단계) ──
-   <html data-system-font="sm|md|lg|xl"> 로 :root 폰트 변수 override.
+   <html data-system-font="sm|md|lg|xl"> 로 :root 폰트 변수 override + 모달용 scale.
    md 는 디폴트라 :root 그대로. 다른 단계만 카드/헤더/본문 일괄 갱신.
-   디자인 토큰 시스템과 일관 — 곱셈이 아니라 픽셀 직접 박아 두 디자인 사이 점프 자연스러움. */
+   디자인 토큰 시스템과 일관 — 곱셈이 아니라 픽셀 직접 박아 두 디자인 사이 점프 자연스러움.
+   --system-font-scale 는 em 기반 자식 트리(예: .onboarding-modal)에 곱셈 결로 반영. */
+html { --system-font-scale: 1; }
 html[data-system-font="sm"] {
     --fs-hero:    26px;
     --fs-display: 21px;
@@ -98,7 +100,9 @@ html[data-system-font="sm"] {
     --fs-body:    14px;
     --fs-small:   12px;
     --fs-caption: 10px;
+    --system-font-scale: 0.92;
 }
+html[data-system-font="md"] { --system-font-scale: 1; }
 html[data-system-font="lg"] {
     --fs-hero:    34px;
     --fs-display: 27px;
@@ -107,6 +111,7 @@ html[data-system-font="lg"] {
     --fs-body:    17px;
     --fs-small:   15px;
     --fs-caption: 13px;
+    --system-font-scale: 1.12;
 }
 html[data-system-font="xl"] {
     --fs-hero:    38px;
@@ -116,6 +121,7 @@ html[data-system-font="xl"] {
     --fs-body:    19px;
     --fs-small:   17px;
     --fs-caption: 14px;
+    --system-font-scale: 1.25;
 }
 
 [data-theme="dark"] {
@@ -6250,6 +6256,55 @@ body.dg-open { overflow: hidden; }
     font-family: inherit; font-size: 14px;
     line-height: 1.5; resize: vertical;
 }
+
+/* (B-5 Phase 1.c 2026-05-15) 연관 도트 리스트 — 알람에서 들어왔을 때 어떤 어김이 보였는지 */
+.recovery-linked-dots {
+    background: var(--bg-quiet, rgba(0,0,0,0.03));
+    padding: 10px 12px;
+    border-radius: 8px;
+    border-left: 2px solid var(--ink-tertiary);
+}
+.recovery-dots-list {
+    list-style: none; padding: 0;
+    margin: 6px 0 10px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.recovery-dots-list li {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    display: flex; gap: 8px; align-items: baseline;
+}
+.recovery-dot-date {
+    color: var(--ink-primary);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+.recovery-dot-slot {
+    color: var(--ink-tertiary);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+}
+.recovery-dot-state {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--ink-tertiary);
+    font-style: italic;
+}
+.recovery-dots-note {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--ink-tertiary);
+    line-height: 1.5;
+}
+.recovery-cute .recovery-linked-dots {
+    background: rgba(255, 245, 220, 0.4);
+    border-left-color: var(--brand-primary);
+    border-radius: 12px;
+}
+.recovery-calm .recovery-linked-dots {
+    font-family: 'Noto Serif KR', serif;
+}
+
 /* cute 톤 — 부드러운 둥근 모서리 + 따뜻한 배경 + 큰 행간 */
 .recovery-cute .modal-head h3 {
     font-family: var(--font-display, inherit);
@@ -7098,8 +7153,8 @@ body.dg-open { overflow: hidden; }
     border-radius: 1rem;
     box-shadow: 0 1rem 3rem rgba(36, 36, 32, 0.08);
     padding: 2.5rem 2rem 2rem;
-    /* 어체별 기본 폰트 크기 — sub-tree 전체에 상속 */
-    font-size: var(--onboarding-base-font, 1rem);
+    /* 어체별 기본 폰트 크기 × 시스템 폰트 스케일 — sub-tree 전체에 상속 */
+    font-size: calc(var(--onboarding-base-font, 1rem) * var(--system-font-scale, 1));
     line-height: 1.6;
     animation: onboardingLift 320ms ease-out;
 }
@@ -7462,11 +7517,26 @@ body.dg-open { overflow: hidden; }
     letter-spacing: 0.02em;
 }
 .onboarding-verse-text {
-    font-size: 1.05em;
-    line-height: 1.75;
+    /* 성경 본문 폰트 변수(--scripture-fs) 즉시 반영 — step 6 폰트 칩 미리보기 */
+    font-size: var(--scripture-fs, 1.05em);
+    line-height: var(--scripture-lh, 1.75);
     color: var(--ink-primary);
     word-break: keep-all;
     user-select: text;
+}
+.onboarding-existing-notice {
+    margin: 0.3rem 0 0.6rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 0.5rem;
+    background: var(--brand-soft);
+    border-left: 3px solid var(--brand-primary);
+    color: var(--ink-secondary);
+    font-size: 0.88em;
+    line-height: 1.55;
+}
+.onboarding-existing-notice strong {
+    color: var(--ink-primary);
+    font-weight: 600;
 }
 
 /* 마침 카드 */
