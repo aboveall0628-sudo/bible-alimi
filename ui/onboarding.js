@@ -556,39 +556,20 @@ function renderFinishCard(body) {
           </div>
         </div>
 
-        <p class="onboarding-finish-cta">방금 정한 원칙으로 첫 의사결정 한 번 해보실래요?</p>
-        <div class="onboarding-actions onboarding-actions-split">
-          <button type="button" class="onboarding-btn onboarding-btn-secondary" id="onboarding-go-today">오늘 화면으로</button>
-          <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-go-decision">의사결정 해볼게요</button>
+        <p class="onboarding-finish-cta">미션은 사용하시다 보면 자연스럽게 하나씩 열려요. 부담 없이 둘러보세요.</p>
+        <div class="onboarding-actions">
+          <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-go-today">오늘 화면으로</button>
         </div>
       </div>
     `;
     document.getElementById('onboarding-go-today').addEventListener('click', () => {
         const cb = _state.onComplete;
         closeOnboardingModal();
-        // 명확히 오늘 화면으로 — 어디서 모달을 띄웠든(가입 직후·설정 재시연 모두) 같은 결.
-        //   onComplete 콜백에만 의존하면 settings 의 빈 콜백 경로에서 설정 자리에 남게 됨.
+        // 어디서 모달을 띄웠든(가입 직후·설정 재시연 모두) 같은 결로 오늘 화면 진입.
         try {
             if (typeof window.__sanctumSwitchView === 'function') window.__sanctumSwitchView('today');
         } catch (_) {}
         try { cb(); } catch (_) {}
-    });
-    document.getElementById('onboarding-go-decision').addEventListener('click', async () => {
-        const userId = _state.userId;
-        const cb = _state.onComplete;
-        closeOnboardingModal();
-        // 의사결정 진입 전에도 오늘 화면을 먼저 박아 둠 — 분별의 자리는 우측 슬라이드 패널이라
-        //   뒤에 어떤 뷰가 깔리느냐가 시각 자연스러움을 좌우해요.
-        try {
-            if (typeof window.__sanctumSwitchView === 'function') window.__sanctumSwitchView('today');
-        } catch (_) {}
-        try { cb(); } catch (_) {}
-        try {
-            const { openDecisionGate } = await import('./decisionGate.js');
-            await openDecisionGate({ userId, mode: 'free' });
-        } catch (e) {
-            console.warn('[onboarding] openDecisionGate failed:', e?.message || e);
-        }
     });
 }
 
