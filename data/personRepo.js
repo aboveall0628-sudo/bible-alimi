@@ -30,7 +30,19 @@ export async function savePerson(dek, userId, data) {
     if (!data.id) {
         data.id = `person_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
-    return saveRecord(dek, subPath(userId, SUB), data, data.id);
+    const result = await saveRecord(dek, subPath(userId, SUB), data, data.id);
+
+    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 인물 카드 미션 트리거.
+    //   isSelf 카드(본인)는 제외 — 미션 의미는 "다른 사람 1명 박기".
+    //   markMissionComplete 가 idempotent 라 dotsRepo 보조 트리거와 중복돼도 안전.
+    if (data.isSelf !== true) {
+        try {
+            await markMissionComplete(dek, userId, 'person_first_dot', { signal: 'savePerson' });
+        } catch (e) {
+            console.warn('[savePerson] mission trigger failed:', e?.message || e);
+        }
+    }
+    return result;
 }
 
 /**

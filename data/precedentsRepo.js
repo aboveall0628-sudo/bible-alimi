@@ -77,6 +77,16 @@ export async function savePrecedent(dek, data) {
             try { await appendLinkedPrecedent(dek, pid, data.id); }
             catch (e) { console.warn('[savePrecedent] reverse link failed:', pid, e?.message || e); }
         }
+
+        // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 분별의 자리 미션 트리거.
+        try {
+            const { markMissionComplete } = await import('./personRepo.js');
+            await markMissionComplete(dek, data.userId, 'decision_first_record', {
+                signal: 'savePrecedent'
+            });
+        } catch (e) {
+            console.warn('[savePrecedent] mission trigger failed:', e?.message || e);
+        }
     }
 
     return saved;

@@ -64,6 +64,15 @@ export async function saveWeekReport(dek, userId, weekStart, weekEnd, stats, aiS
     };
 
     await saveRecord(dek, COLLECTION, data, reportId);
+
+    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 주간 리포트 미션 트리거.
+    //   idempotent — 이후 호출은 false 반환.
+    try {
+        const { markMissionComplete } = await import('../data/personRepo.js');
+        await markMissionComplete(dek, userId, 'report_first_weekly', { signal: 'saveWeekReport' });
+    } catch (e) {
+        console.warn('[saveWeekReport] mission trigger failed:', e?.message || e);
+    }
     return reportId;
 }
 

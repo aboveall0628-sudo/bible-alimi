@@ -71,7 +71,17 @@ export async function saveOrganization(dek, userId, data) {
     if (!data.id) {
         data.id = `org_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
-    return saveRecord(dek, subPath(userId, SUB), data, data.id);
+    const result = await saveRecord(dek, subPath(userId, SUB), data, data.id);
+
+    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 조직 카드 미션 트리거.
+    //   markMissionComplete 가 idempotent 라 dotsRepo 보조 트리거와 중복돼도 안전.
+    try {
+        const { markMissionComplete } = await import('./personRepo.js');
+        await markMissionComplete(dek, userId, 'org_first_dot', { signal: 'saveOrganization' });
+    } catch (e) {
+        console.warn('[saveOrganization] mission trigger failed:', e?.message || e);
+    }
+    return result;
 }
 
 /**

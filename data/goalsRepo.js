@@ -68,7 +68,20 @@ export async function saveGoal(dek, goalData, opts = {}) {
         }
     }
 
-    return await saveRecord(dek, 'goals', goalData, goalData.id);
+    const result = await saveRecord(dek, 'goals', goalData, goalData.id);
+
+    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 목표 박기 미션 트리거.
+    //   신규 목표일 때만 (currentVersion === 1). 시드·마이그레이션 경로(skipVersioning)는
+    //   currentVersion 이 undefined 일 수 있어 자연스럽게 제외됨.
+    if (goalData.currentVersion === 1) {
+        try {
+            const { markMissionComplete } = await import('./personRepo.js');
+            await markMissionComplete(dek, goalData.userId, 'goal_first_save', { signal: 'saveGoal' });
+        } catch (e) {
+            console.warn('[saveGoal] mission trigger failed:', e?.message || e);
+        }
+    }
+    return result;
 }
 
 /**

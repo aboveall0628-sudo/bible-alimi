@@ -1134,6 +1134,22 @@ async function saveMeditationDoc() {
         const document_ = await prepareDocument(dek, meta, sensitive);
         await setDoc(doc(db, 'meditations', id), document_, { merge: true });
 
+        // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 묵상 일지 미션 트리거.
+        //   autosave 가 빈 본문으로도 호출될 수 있으니 content·prayer 둘 중 하나라도
+        //   비어있지 않을 때만 트리거. idempotent.
+        const hasContent = (sensitive.content && sensitive.content.trim() !== '')
+                       || (sensitive.prayer  && sensitive.prayer.trim()  !== '');
+        if (hasContent) {
+            try {
+                const { markMissionComplete } = await import('../data/personRepo.js');
+                await markMissionComplete(dek, _userId, 'meditation_first_save', {
+                    signal: 'saveMeditationDoc'
+                });
+            } catch (e) {
+                console.warn('[saveMeditationDoc] mission trigger failed:', e?.message || e);
+            }
+        }
+
         const ok = '🔐 안전하게 보관됐어요';
         if (noteStatus)   noteStatus.textContent   = ok;
         if (prayerStatus) prayerStatus.textContent = ok;
