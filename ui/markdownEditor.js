@@ -73,8 +73,12 @@ export function setMarkdown(editor, md) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function handleKeydown(e, editor, onChange) {
-    // (2026-05-14 #23 2차) Enter 자동 이어쓰기 — 리스트 안에서 Enter
+    // (2026-05-14 #23 2차) Enter 자동 이어쓰기 — 리스트·토글 안에서 Enter
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (handleToggleEnter(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
         if (handleListEnter(editor, onChange)) {
             e.preventDefault();
             return;
@@ -127,6 +131,62 @@ function handleKeydown(e, editor, onChange) {
         onChange(getMarkdown(editor));
         return;
     }
+}
+
+// (2026-05-14 #23 2차) summary 안 또는 details body 안에서 Enter 처리
+//   - summary 끝 Enter → details 안 body div 만들고 caret 이동 (본문이 details 자식이 되도록)
+//   - body 안 빈 줄 Enter → details 밖으로 빠져나감 (토글 종료)
+function handleToggleEnter(editor, onChange) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    let node = sel.getRangeAt(0).startContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    // case 1: caret 이 summary 안
+    let summary = node;
+    while (summary && summary !== editor && summary.tagName !== 'SUMMARY') summary = summary.parentElement;
+    if (summary && summary !== editor) {
+        const details = summary.parentElement;
+        if (!details || details.tagName !== 'DETAILS') return false;
+        // details 안에 새 body 줄 추가 (이미 있으면 그 끝)
+        const newLine = document.createElement('div');
+        newLine.innerHTML = '<br>';
+        details.appendChild(newLine);
+        const r = document.createRange();
+        r.selectNodeContents(newLine);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        onChange(getMarkdown(editor));
+        return true;
+    }
+    // case 2: caret 이 details 안 body 줄 (summary 가 아닌 다른 자식)
+    let inDetailsBody = null;
+    let cur = node;
+    while (cur && cur !== editor) {
+        if (cur.tagName === 'DETAILS') { inDetailsBody = cur; break; }
+        cur = cur.parentElement;
+    }
+    if (inDetailsBody) {
+        // 빈 줄에서 Enter → details 밖으로 빠져나가는 새 div
+        const text = (node.textContent || '').trim();
+        if (text === '') {
+            const empty = document.createElement('div');
+            empty.innerHTML = '<br>';
+            inDetailsBody.parentNode.insertBefore(empty, inDetailsBody.nextSibling);
+            // 빈 줄 노드 제거
+            if (node !== summary && node.tagName === 'DIV' && !node.querySelector('summary')) {
+                node.remove();
+            }
+            const r = document.createRange();
+            r.selectNodeContents(empty);
+            r.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(r);
+            onChange(getMarkdown(editor));
+            return true;
+        }
+    }
+    return false;
 }
 
 // (2026-05-14 #23 2차) Enter — 빈 li 에서 누르면 리스트 종료. 그 외는 기본 동작.
@@ -289,14 +349,17 @@ function runBlockMarkdownTransforms(editor) {
         moveCaretToEnd(sel, li);
         return;
     }
-    // 토글 — `> ` 줄 시작
+    // 토글 — `> ` 줄 시작 (본문 자리도 미리 — Enter 시 거기로 떨어짐)
     const tgMatch = text.match(/^>\s(.*)$/);
     if (tgMatch && /^(DIV|P)$/.test(block.tagName)) {
         const details = document.createElement('details');
         details.open = true;
         const summary = document.createElement('summary');
         summary.textContent = tgMatch[1];
+        const body = document.createElement('div');
+        body.innerHTML = '<br>';
         details.appendChild(summary);
+        details.appendChild(body);
         block.parentNode.replaceChild(details, block);
         moveCaretToEnd(sel, summary);
         return;
@@ -459,7 +522,8 @@ function closeContextMenu() {
     }
 }
 
-// (2026-05-14 #23 2차) 토글 블록 삽입 — <details><summary>제목</summary></details>
+// (2026-05-14 #23 2차) 토글 블록 삽입 — <details><summary>제목</summary><div>본문</div></details>
+//   본문 div 를 미리 만들어 두어 사용자가 본문 입력하면 details 안에 자식으로 들어감 (토글 닫혀도 숨김 정상)
 function insertToggle(editor) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
@@ -468,7 +532,10 @@ function insertToggle(editor) {
     details.open = true;
     const summary = document.createElement('summary');
     summary.textContent = '제목';
+    const body = document.createElement('div');
+    body.innerHTML = '<br>';
     details.appendChild(summary);
+    details.appendChild(body);
     range.deleteContents();
     range.insertNode(details);
     moveCaretToEnd(sel, summary);
@@ -606,23 +673,22 @@ export function markdownToHtml(md) {
             i++; continue;
         }
 
-        // 토글(>) — 한 묶음 (시작 줄 + 그 다음 '> ' 로 시작하는 줄들이 본문)
+        // 토글(>) — 첫 줄은 summary, 그 다음 연속된 '> ' 줄은 모두 본문
         const tg = line.match(/^>\s+(.*)$/);
         if (tg) {
             const summary = tg[1];
             const bodyLines = [];
             let j = i + 1;
             while (j < lines.length) {
-                const next = lines[j];
-                const m = next.match(/^>\s+(.*)$/);
-                if (m && j === i + 1) {
-                    // 첫 후속 '>' 가 같은 토글의 본문 (1차 단순 모델)
-                    bodyLines.push(m[1]);
-                    j++;
-                } else { break; }
+                const m = lines[j].match(/^>\s+(.*)$/);
+                if (!m) break;
+                bodyLines.push(m[1]);
+                j++;
             }
-            const bodyHtml = bodyLines.map(b => `<div>${inlineMd(escape(b))}</div>`).join('');
-            out.push(`<details><summary>${inlineMd(escape(summary))}</summary>${bodyHtml}</details>`);
+            const bodyHtml = bodyLines.length > 0
+                ? bodyLines.map(b => `<div>${inlineMd(escape(b))}</div>`).join('')
+                : '<div><br></div>';   // 본문 자리 미리 — 사용자가 본문 입력하면 details 안 자식으로
+            out.push(`<details open><summary>${inlineMd(escape(summary))}</summary>${bodyHtml}</details>`);
             i = j;
             continue;
         }
