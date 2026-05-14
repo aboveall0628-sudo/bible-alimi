@@ -195,6 +195,32 @@ export async function ensureSelfCard(dek, userId) {
         // visibility 는 디폴트가 UI 상수로 박혀있어 비워두면 디폴트 적용
         profileVisibility: {},
         profileVersionIds: [],
+        // ─── (본인 프로필 재기획 트랙 2026-05-14 S-A) 신규 8 차원 빈 값 ───
+        // (R12) 자동 정렬 메타 — 1차는 0, 의사결정·도트 트리거로 갱신 (후속 회로)
+        displayOrder: 0,
+        // (R17) 큐티 수준 — Day 0 큐티 수준 분기에서 박힘. 디폴트 null (사용자 첫 선택 기다림).
+        devotionalLevel: null,
+        // (R18) 미션 진행도 평문 요약 — 모듈별 클리어 표 (사이드바 잠금 가드용)
+        //   각 모듈: { completed:boolean, unlockedAt?:ISO }
+        missionStatus: {
+            persons: { completed: false },
+            organizations: { completed: false },
+            economy: { completed: false },
+            goals: { completed: false },
+            decisions: { completed: false },
+            reports: { completed: false },
+            meditation: { completed: false }
+        },
+        // (R19) GA4 가명화 토큰 — 사용자 동의 시 발급. 미동의면 null.
+        gaAnonymousId: null,
+        // (R10) 간증 — 사용자 명시 글만, 자동 추출 X
+        testimony: [],
+        // (R15) 관계 추이 timeline — 본인 카드 안에서는 본인 스테이터스 변화 추이 (R12 연결)
+        relationshipHistory: [],
+        // (R17) 묵상 진도 사적 — 큐티 수준 따라 사용자별 어디까지 묵상했는지
+        devotionalProgress: {},
+        // (R18) 튜토리얼 상태 사적 — { [missionId]: { completedAt, signal, contextDotId? } }
+        tutorialState: {},
         // 메타
         lastSelfUpdatedAt: now,
         createdAt: now,
@@ -226,6 +252,97 @@ export async function saveSelfCard(dek, userId, data) {
     }
     await savePerson(dek, userId, payload);
     return payload;
+}
+
+// ─── (본인 프로필 재기획 트랙 2026-05-14 S-A) 미션 진행 헬퍼 3개 ───
+
+/**
+ * 모듈 ID → 미션 ID 추론 단순 매핑 (1차).
+ *   미션 카탈로그(`config/missionCatalog.js`)가 S-B 에 박히면 그쪽에서 단일 출처로.
+ */
+const MODULE_FROM_MISSION_ID = {
+    'person_first_dot':        'persons',
+    'org_first_dot':           'organizations',
+    'economy_first_transaction': 'economy',
+    'goal_first_save':         'goals',
+    'decision_first_record':   'decisions',
+    'report_first_weekly':     'reports',
+    'meditation_first_save':   'meditation'
+};
+
+/**
+ * 미션 클리어 — selfCard 안 missionStatus 평문 갱신 + tutorialState 암호화 상세 박음.
+ *   호출 측: dotsRepo.saveDot / economyRepo.saveTransaction / 등 각 repo 의 save 끝 (S-B).
+ *
+ * @param {CryptoKey} dek
+ * @param {string} userId
+ * @param {string} missionId - 'person_first_dot' 등
+ * @param {Object} opts - { signal?:string, contextDotId?:string }
+ * @returns {Promise<boolean>} 이번 호출로 새로 클리어됐는지 (idempotent — 이미 클리어면 false)
+ */
+export async function markMissionComplete(dek, userId, missionId, opts = {}) {
+    const moduleId = MODULE_FROM_MISSION_ID[missionId];
+    if (!moduleId) return false;
+
+    const self = await getSelfCard(dek, userId);
+    if (!self) return false;
+
+    const missionStatus = self.missionStatus || {};
+    const moduleEntry = missionStatus[moduleId] || { completed: false };
+    if (moduleEntry.completed) return false;  // idempotent
+
+    const now = new Date().toISOString();
+    const next = {
+        ...self,
+        missionStatus: {
+            ...missionStatus,
+            [moduleId]: { completed: true, unlockedAt: now }
+        },
+        tutorialState: {
+            ...(self.tutorialState || {}),
+            [missionId]: {
+                completedAt: now,
+                signal: opts.signal || null,
+                contextDotId: opts.contextDotId || null
+            }
+        }
+    };
+    await saveSelfCard(dek, userId, next);
+    return true;
+}
+
+/**
+ * 모듈 잠금 여부 — 사이드바 nav-* 진입 가드용 (R18c).
+ *   도트·묵상은 처음부터 unlocked (Day 0 첫날부터 활성, Q6 B 결).
+ *
+ * @returns {Promise<boolean>} true 면 잠긴 상태
+ */
+export async function isModuleLocked(dek, userId, moduleId) {
+    // 도트·묵상은 Day 0 첫날부터 활성 — 잠금 X
+    if (moduleId === 'dots' || moduleId === 'meditation' || moduleId === 'today' || moduleId === 'self-profile' || moduleId === 'settings') {
+        return false;
+    }
+    const self = await getSelfCard(dek, userId);
+    if (!self) return true;  // selfCard 없으면 잠긴 상태로 안전 fallback
+    const entry = (self.missionStatus || {})[moduleId];
+    return !entry || !entry.completed;
+}
+
+/**
+ * 열린 미션 목록 — Day 1+ 메인 "오늘의 시작" 카드 미션 진행도 블록용 (S-D).
+ *   missionCatalog 와 join 은 호출 측에서 (S-B 박힌 뒤).
+ *
+ * @returns {Promise<Array<{moduleId, completed, unlockedAt?}>>}
+ */
+export async function getOpenMissions(dek, userId) {
+    const self = await getSelfCard(dek, userId);
+    if (!self) return [];
+    const ms = self.missionStatus || {};
+    return Object.entries(ms).map(([moduleId, entry]) => ({
+        moduleId,
+        completed: !!entry.completed,
+        unlockedAt: entry.unlockedAt || null
+    }));
 }
 
 /**

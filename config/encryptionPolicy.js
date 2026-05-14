@@ -258,7 +258,23 @@ export const POLICY = {
             // (B-4 본인 프로필 트랙) 본인 카드 식별·필터
             'isSelf',
             // (B-4 본인 프로필 트랙) 본인 프로필 마지막 저장 시점 — 5y/10y 리포트 base 시점 인덱싱용
-            'lastSelfUpdatedAt'
+            'lastSelfUpdatedAt',
+            // ─── (본인 프로필 재기획 트랙 2026-05-14 S-A) 평문 메타 ───
+            // (R12) 본인 카드 자동 정렬 메타 — 사이드바·리스트에서 본인이 자동 위로 정렬
+            //   의사결정·도트가 스테이터스 변화를 감지하면 갱신 (자세한 트리거 회로는 후속)
+            'displayOrder',
+            // (R17) 큐티 수준 — 'basic'(🌱 기초) | 'intermediate'(🌿 성장) | 'advanced'(🌳 깊이)
+            //   Day 0 큐티 수준 분기에서 박힘. localStorage scriptureSettings.cutiLevel 와 양방향 동기화.
+            //   기기 동기화 필요 → personRepo.devotionalLevel 이 우선, localStorage 는 캐시·fallback.
+            'devotionalLevel',
+            // (R18) 미션 진행도 평문 요약 — { person:true, org:false, ... } 모듈별 클리어 표
+            //   상세 진행 상태(tutorialState 안)는 암호화. 이 자리는 잠금 가드용 빠른 평문 체크.
+            //   사이드바 nav-* 진입 가드에서 한 번 평문 비교로 차단·통과 결정.
+            'missionStatus',
+            // (R19) GA4 익명 식별자 — 베타 사용자 흐름 추적 가명화 토큰
+            //   사용자 답·도트·기도 본문은 절대 GA4 로 보내지 않음. 익명 ID 만 페이로드.
+            //   사용자 동의(베타 가입 시) 후 발급. 미동의면 null.
+            'gaAnonymousId'
         ],
         encrypted: [
             'name', 'nicknames', 'avatarUrl',
@@ -298,7 +314,27 @@ export const POLICY = {
             //   디폴트는 ui/selfProfile.js 상수로 박혀 있고, 사용자가 바꾼 결과만 여기 저장
             'profileVisibility',
             // 📷 시점 스냅샷 (1차엔 모델 자리만 — 자동 보존 로직은 5y/10y·B-1 트랙)
-            'profileVersionIds'   // [profileVersions docId, ...] — 1차엔 비어 있음
+            'profileVersionIds',   // [profileVersions docId, ...] — 1차엔 비어 있음
+            // ─── (본인 프로필 재기획 트랙 2026-05-14 S-A) 사적 차원 ───
+            // (R10) 간증 — 사람·관계에 대한 하나님의 역사 기록. 유다·요셉 비유.
+            //   사용자가 명시 박은 글만 (자동 추출 X). AI 가 의사결정 시 과거 사례로 활용 가능.
+            //   shape: [{date:'YYYY-MM-DD', personId?:string, title?:string, body:string, createdAt}]
+            //   personId 가 있으면 인물 카드 안에서 노출, 없으면 본인 카드 안 일반 간증.
+            'testimony',
+            // (R15) 관계 추이 timeline — "관계 사진첩" 모델 B (2026-05-14 (a) 합의)
+            //   shape: [{date:'YYYY-MM-DD', event:string, sentiment:'warm'|'cool'|'neutral'|'hurt', note:string, linkedDotIds:string[], linkedPrecedentIds:string[]}]
+            //   인물 카드별 항목 (본인 카드 안에는 본인 스테이터스 변화 추이).
+            //   "관계의 가지가 뻗어나가는 추이" R15 결 — 자동 점수화 X, sentiment·event·note 모두 사용자 입력만.
+            //   linkedDotIds/linkedPrecedentIds 책갈피 자리 (R11 도트↔인물 매핑 자연 흡수).
+            'relationshipHistory',
+            // (R17) 묵상 진도 사적 — 큐티 수준별 어디까지 묵상했는지 사용자별 위치
+            //   shape: { lastPart?:string, lastChapter?:number, lastVerse?:number, lastReadAt?:'YYYY-MM-DD' }
+            //   scriptureSettings (localStorage) 와 양방향 동기화 — 기기 변경 시 이 자리가 진실.
+            'devotionalProgress',
+            // (R18) 튜토리얼 상태 사적 — 미션 진행 디테일·완료 시점·완료 카피
+            //   shape: { [missionId]: { completedAt, signal, contextDotId? } }
+            //   사이드바 잠금 가드는 평문 missionStatus 만 보고 결정. 이 자리는 졸업식·리포트 시드용.
+            'tutorialState'
         ]
     },
     // (B-4 본인 프로필 트랙 2026-05-13) 본인 프로필 시점 스냅샷 — 1차엔 컬렉션 자리만 박아둠.
@@ -306,7 +342,13 @@ export const POLICY = {
     profileVersions: {
         plaintext: [
             'id', 'userId', 'versionNumber', 'capturedAt', 'createdAt',
-            'trigger'   // 'manual'|'auto_quarter'|'decision_gate'|... 자동 보존 로직 진입 시 분류
+            // 자동 보존 트리거 분류 (2026-05-14 S-A 확장):
+            //   'manual'           — 사용자 명시 캡처
+            //   'auto_quarter'     — 분기 자동 (후속)
+            //   'decision_gate'    — 분별의 자리에서 자동 (후속)
+            //   'graduation'       — 가입 +14일 종료 시점 자동 보존 (Q7 (b) 합의 — Day 14 종료)
+            //   'mission_milestone'— 마일스톤 미션 클리어 시 (후속, 졸업식 풀스크린 카드와 별개)
+            'trigger'
         ],
         encrypted: [
             'snapshotData',  // 그 시점 본인 카드 전체 (인물 카드 + 본인 전용 필드)
