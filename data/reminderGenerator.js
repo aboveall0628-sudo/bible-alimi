@@ -15,6 +15,8 @@
 
 import { saveReminderIfAbsent, makeReminderId } from './remindersRepo.js';
 import { getDotsByDate, getDotsByDateRange } from './dotsRepo.js';
+// (B-5 Phase 1.b 2026-05-15) 회복의 자리 자동 트리거 — 약속 어김 패턴 감지
+import { detectBrokenPromisePattern, normalizeRecoveryTone } from './recoveryMemosRepo.js';
 import { getDailyGoals } from './goalsRepo.js';
 import { getPrinciples } from './principlesRepo.js';
 import { getAllPersons } from './personRepo.js';
@@ -75,8 +77,75 @@ export async function generateAllAutoReminders(dek, userId, today) {
         result.birthday = await generateBirthdayReminders(dek, userId, today);
     } catch (e) { console.warn('[reminderGen] birthday failed:', e); }
 
+    // (B-5 Phase 1.b 2026-05-15) 회복의 자리 자동 트리거 — 약속 어김 패턴 감지
+    try {
+        if (await generateBrokenPromiseRecoveryReminder(dek, userId, today)) result.recovery = 1;
+        else result.recovery = 0;
+    } catch (e) { console.warn('[reminderGen] recovery-broken-promise failed:', e); }
+
     return { generated: result };
 }
+
+/**
+ * (B-5 Phase 1.b 2026-05-15) 회복의 자리 자동 트리거 — 약속 어김 패턴 감지.
+ *
+ * 🕊️ 가이드 별:
+ *   "양치기 소년 = 정죄 X / 회복 게임 ✓" — 사용자 명시.
+ *   "자기 자신만 (마 7:1~5)" — 자동 감지 대상은 본인 도트만.
+ *   "무조건 귀여움 + 신뢰·회개는 스스로" — 알람도 부드럽게.
+ *
+ * 발화 조건 (모두 충족):
+ *   1) recoveryTone !== 'off' (사용자가 끄지 않음)
+ *   2) 최근 14일 도트에서 약속 어김 N >= 3 감지
+ *   3) 같은 주(yearWeek) 안 같은 알람 없음 (idempotent)
+ *
+ * 빈도 제한 — 주 1회. 같은 패턴으로 매일 시끄럽지 않게.
+ *
+ * 컨텍스트 ID: yearWeek (한 주에 한 번)
+ */
+export async function generateBrokenPromiseRecoveryReminder(dek, userId, today) {
+    // 1) 사용자 톤 'off' 면 자동 트리거 X (사용자 자율)
+    let tone = 'calm';
+    try {
+        const snap = await getDoc(doc(db, 'users', userId, 'settings', 'spiritualLock'));
+        if (snap.exists()) tone = normalizeRecoveryTone(snap.data()?.recoveryTone);
+    } catch (e) { /* 설정 없으면 디폴트 calm 으로 진행 */ }
+    if (tone === 'off') return false;
+
+    // 2) 최근 14일 도트 가져와서 패턴 감지
+    const cutoff = shiftDate(today, -14);
+    const dots = await getDotsByDateRange(dek, userId, cutoff, today).catch(() => []);
+    if (dots.length === 0) return false;
+
+    const result = detectBrokenPromisePattern(dots, { threshold: 3, lookbackDays: 14 });
+    if (!result.detected) return false;
+
+    // 3) 컨텍스트 ID = yearWeek (주 1회)
+    const yearWeek = isoYearWeek(today);
+    const id = makeReminderId(userId, 'recovery-broken-promise', yearWeek);
+
+    // 4) 톤별 카피
+    const isCute = tone === 'cute';
+    const title = isCute
+        ? '🐣 우리 잠깐 같이 봐볼래요?'
+        : '🕊️ 마음에 머무는 패턴이 있어요';
+    const body = isCute
+        ? '계획한 거랑 실제로 한 게 좀 어긋난 날들이 있어요. 무거우면 안 봐도 돼요.'
+        : '계획과 실제 사이에 어긋남이 보여요. 잠깐 같이 머무를래요?';
+
+    const res = await saveReminderIfAbsent(dek, {
+        id,
+        userId,
+        type:         'recovery-broken-promise',
+        title,
+        body,
+        targetView:   'recovery',  // ui/reminders.js navigateToTarget 에서 openRecoveryGate 호출
+        // targetParams 는 (Phase 1.c) 에서 patternKey·linkedDotIds 전달 정교화 예정
+        dueDate:      today,
+    });
+    return res.created;
+}
+
 
 /**
  * (HC#1 N7) 매일 묵상 알람.

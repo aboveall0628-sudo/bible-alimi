@@ -199,7 +199,19 @@ function navigateToTarget(targetView) {
         reports: 'nav-reports',
         persons: 'nav-persons',
         organizations: 'nav-organizations',
+        'self-profile': 'nav-self-profile',
     };
+    // (B-5 Phase 1.b 2026-05-15) 회복의 자리 — 사이드바 라우팅 X, 모달 직접 열기
+    if (targetView === 'recovery') {
+        document.getElementById('reminder-panel')?.classList.add('hidden');
+        // 동적 import 로 순환 의존 회피
+        import('./recoveryGate.js').then(mod => {
+            if (mod.openRecoveryGate && _userId) {
+                mod.openRecoveryGate({ userId: _userId, source: 'reminder' });
+            }
+        }).catch(e => console.warn('[reminders] recoveryGate import 실패:', e?.message || e));
+        return;
+    }
     const btnId = navMap[targetView];
     if (btnId) document.getElementById(btnId)?.click();
     document.getElementById('reminder-panel')?.classList.add('hidden');
