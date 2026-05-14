@@ -19,6 +19,8 @@ import {
 } from '../data/remindersRepo.js';
 
 let _userId = null;
+// (B-5 Phase 1.c 2026-05-15) 가장 최근 렌더된 reminder 목록 캐시 — 클릭 시 targetParams 찾기용
+let _itemsCache = [];
 let _bound = false;
 
 const TYPE_LABEL = {
@@ -143,6 +145,8 @@ function renderList(items) {
         return;
     }
 
+    // (B-5 Phase 1.c 2026-05-15) items 모듈 캐시 — 클릭 시 targetParams 등 메타 찾기용
+    _itemsCache = items;
     ul.innerHTML = items.map(r => {
         const label = TYPE_LABEL[r.type] || r.type;
         const icon  = TYPE_ICON[r.type]  || 'bell';
@@ -186,12 +190,13 @@ function renderList(items) {
 
         li.querySelector('[data-action="go"]')?.addEventListener('click', (e) => {
             e.stopPropagation();
-            navigateToTarget(target);
+            // (B-5 Phase 1.c 2026-05-15) reminder id 같이 전달 → targetParams 찾기
+            navigateToTarget(target, id);
         });
     });
 }
 
-function navigateToTarget(targetView) {
+function navigateToTarget(targetView, reminderId) {
     if (!targetView) return;
     // 기존 사이드바 네비게이션 이벤트 재사용
     const navMap = {
@@ -204,10 +209,21 @@ function navigateToTarget(targetView) {
     // (B-5 Phase 1.b 2026-05-15) 회복의 자리 — 사이드바 라우팅 X, 모달 직접 열기
     if (targetView === 'recovery') {
         document.getElementById('reminder-panel')?.classList.add('hidden');
+        // (Phase 1.c) reminder 의 targetParams 가져와서 패턴 메타 전달
+        const r = (reminderId && _itemsCache.find(it => it.id === reminderId)) || null;
+        const targetParams = r?.targetParams || null;
         // 동적 import 로 순환 의존 회피
         import('./recoveryGate.js').then(mod => {
             if (mod.openRecoveryGate && _userId) {
-                mod.openRecoveryGate({ userId: _userId, source: 'reminder' });
+                mod.openRecoveryGate({
+                    userId: _userId,
+                    source: 'reminder',
+                    patternResult: targetParams ? {
+                        patternKey:   targetParams.patternKey,
+                        linkedDotIds: targetParams.linkedDotIds || [],
+                    } : null,
+                    overrideTone: targetParams?.tone || null,  // 알람 시점 톤 유지
+                });
             }
         }).catch(e => console.warn('[reminders] recoveryGate import 실패:', e?.message || e));
         return;

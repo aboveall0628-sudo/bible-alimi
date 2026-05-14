@@ -140,7 +140,13 @@ export async function generateBrokenPromiseRecoveryReminder(dek, userId, today) 
         title,
         body,
         targetView:   'recovery',  // ui/reminders.js navigateToTarget 에서 openRecoveryGate 호출
-        // targetParams 는 (Phase 1.c) 에서 patternKey·linkedDotIds 전달 정교화 예정
+        // (Phase 1.c 2026-05-15) 패턴 메타 전달 — recoveryGate 모달이 어떤 도트들이었는지 같이 보여줌.
+        //   tone 도 같이 전달해서 모달이 알람 시점 톤으로 열림 (사용자가 그 사이 톤 바꿔도 일관).
+        targetParams: {
+            patternKey:    result.patternKey,
+            linkedDotIds:  result.linkedDotIds,
+            tone:          tone,
+        },
         dueDate:      today,
     });
     return res.created;

@@ -28,6 +28,7 @@ import { getDEK } from './lockScreen.js';
 import { showToast } from './quickReview.js';
 import { openModal } from './modalManager.js';
 import { saveRecoveryMemo, normalizeRecoveryTone } from '../data/recoveryMemosRepo.js';
+import { getDot } from '../data/dotsRepo.js';
 import { db, doc, getDoc } from '../data/firebase.js';
 
 const OVERLAY_ID = 'recovery-gate-overlay';
@@ -59,21 +60,24 @@ const COPY = {
 };
 
 export async function openRecoveryGate(opts = {}) {
-    const { userId, patternResult = null, source = 'user_initiated', onSaved } = opts;
+    const { userId, patternResult = null, source = 'user_initiated', onSaved, overrideTone = null } = opts;
     if (!userId) { showToast('사용자 정보가 없어요.'); return; }
     const dek = getDEK();
     if (!dek) { showToast('잠겨 있어요. 비밀번호로 먼저 열어 주실래요?'); return; }
 
-    // 톤 모드 읽기 (settings/spiritualLock.recoveryTone)
+    // 톤 모드 읽기 — (Phase 1.c) overrideTone 있으면 우선 (알람 시점 톤 유지)
     let tone = 'calm';
-    try {
-        const ref = doc(db, 'users', userId, 'settings', 'spiritualLock');
-        const snap = await getDoc(ref);
-        const raw = snap.exists() ? (snap.data()?.recoveryTone || null) : null;
-        tone = normalizeRecoveryTone(raw);
-    } catch (e) {
-        // 설정 없거나 못 읽어도 디폴트 calm 으로 진행
-        tone = 'calm';
+    if (overrideTone) {
+        tone = normalizeRecoveryTone(overrideTone);
+    } else {
+        try {
+            const ref = doc(db, 'users', userId, 'settings', 'spiritualLock');
+            const snap = await getDoc(ref);
+            const raw = snap.exists() ? (snap.data()?.recoveryTone || null) : null;
+            tone = normalizeRecoveryTone(raw);
+        } catch (e) {
+            tone = 'calm';
+        }
     }
     if (tone === 'off' && source !== 'user_initiated') {
         // off 모드 + 자동 트리거면 모달 자체 X
@@ -82,6 +86,45 @@ export async function openRecoveryGate(opts = {}) {
     }
     const effectiveTone = (tone === 'off') ? 'calm' : tone;
     const copy = COPY[effectiveTone];
+
+    // (Phase 1.c 2026-05-15) patternResult.linkedDotIds 있으면 도트 메타 미리 가져와 모달에 표시
+    //   "어떤 어김이 보였는지" 사용자가 직접 보고 자기 인식 메모 적기 쉽게.
+    //   영적 안전장치: plannedTask·actualTask 본문 그대로는 안 보여줌. *날짜·시각 메타*만 노출.
+    //   본문이 궁금하면 도트 자체로 이동하면 보임.
+    let linkedDotMeta = [];
+    if (patternResult?.linkedDotIds && patternResult.linkedDotIds.length > 0) {
+        const ids = patternResult.linkedDotIds.slice(0, 5); // 최대 5개만
+        try {
+            const dots = await Promise.all(ids.map(id => getDot(dek, id).catch(() => null)));
+            linkedDotMeta = dots.filter(Boolean).map(d => ({
+                id: d.id,
+                date: d.date,
+                timeSlot: d.timeSlot,
+                executed: d.executed,
+            }));
+        } catch (e) {
+            console.warn('[recoveryGate] 도트 메타 로드 실패:', e?.message || e);
+        }
+    }
+
+    // (Phase 1.c) 연관 도트 메타 영역 — 날짜·슬롯·상태만 (본문 X, 영적 안전장치)
+    const linkedDotsHtml = linkedDotMeta.length > 0 ? `
+        <div class="recovery-row recovery-linked-dots">
+            <label>${effectiveTone === 'cute' ? '🐤 보인 자리들' : '🕯️ 마음에 머무는 자리들'}</label>
+            <ul class="recovery-dots-list">
+                ${linkedDotMeta.map(d => {
+                    const slotLabel = d.timeSlot != null ? slotToTime(d.timeSlot) : '';
+                    const stateLabel = (d.executed === 'skipped') ? '건너뜀'
+                                     : (d.executed === 'replaced') ? '다른 일'
+                                     : '계획과 다름';
+                    return `<li><span class="recovery-dot-date">${escapeHtml(d.date || '')}</span> <span class="recovery-dot-slot">${escapeHtml(slotLabel)}</span> <span class="recovery-dot-state">${escapeHtml(stateLabel)}</span></li>`;
+                }).join('')}
+            </ul>
+            <p class="recovery-dots-note">${effectiveTone === 'cute'
+                ? '괜찮아요. 누구나 그래요. 그냥 마음을 한 번 들여다보면 돼요.'
+                : '평가가 아닌 거울이에요. 무엇이 있었는지 잠깐 머무릅니다.'}</p>
+        </div>
+    ` : '';
 
     const overlay = ensureOverlay();
     overlay.innerHTML = `
@@ -92,6 +135,7 @@ export async function openRecoveryGate(opts = {}) {
             </header>
             <div class="modal-body">
                 <p class="recovery-intro">${copy.intro}</p>
+                ${linkedDotsHtml}
                 <div class="recovery-row">
                     <textarea id="recovery-content" placeholder="${copy.placeholder}" rows="4" maxlength="800"></textarea>
                 </div>
@@ -143,11 +187,23 @@ export async function openRecoveryGate(opts = {}) {
             const id = await saveRecoveryMemo(dek, userId, data);
             showToast(copy.toast);
             handle.close();
-            // 디지소울 hook — 자리만 (실제 연동은 디지소울 저장소 트랙)
+            // (Phase 1.c 2026-05-15) 디지소울 hook 페이로드 확장 —
+            //   캐릭터 진화 신호: source(어디서 왔는지)·패턴 메타·기도 여부.
+            //   디지소울 저장소가 listen 해서 알 → 진화 / 회복 메모 → 경험치 매핑 가능.
+            //   영적 안전장치: content·prayerNote 본문은 절대 안 보냄 (메타만).
             try {
                 window.postMessage({
                     type: 'sanctum:recovery-memo-saved',
-                    payload: { id, tone: effectiveTone, hadContent: !!content, hadPrayer: !!prayerNote }
+                    payload: {
+                        id,
+                        tone: effectiveTone,
+                        source,
+                        patternKey: patternResult?.patternKey || null,
+                        linkedDotCount: linkedDotMeta.length,
+                        hadContent: !!content,
+                        hadPrayer: !!prayerNote,
+                        savedAt: new Date().toISOString(),
+                    }
                 }, '*');
             } catch {}
             if (typeof onSaved === 'function') onSaved({ id, ...data });
@@ -166,4 +222,19 @@ function ensureOverlay() {
     el.className = 'modal-overlay hidden';
     document.body.appendChild(el);
     return el;
+}
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+
+// (Phase 1.c) 슬롯 번호 → 'HH:MM' (15분 단위 슬롯)
+function slotToTime(slot) {
+    if (slot == null || isNaN(slot)) return '';
+    const totalMin = slot * 15;
+    const hh = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
