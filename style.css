@@ -7121,6 +7121,192 @@ body.dg-open { overflow: hidden; }
     }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   (S-E 2026-05-15) "다음 해볼 만한 미션" 추천 카드 — 3-자리
+   ① 대시보드 도트 바로 아래 (.mission-recommend-wrap)
+   ② 잠긴 모듈 모달 안 (.mission-gate-recommend, .mission-rc-card-sm)
+   ③ 사이드바 하단 미니 풋터 (.sidebar-mission-footer)
+   디자인: 모노톤 + soft accent + 절제 여백
+   ───────────────────────────────────────────────────────────── */
+
+/* ─ ① 대시보드 추천 카드 영역 ─ */
+.mission-recommend-wrap {
+    margin: 0 0 18px;
+}
+.mission-recommend-head {
+    color: var(--ink-secondary, #6f7068);
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0 0 8px 2px;
+    letter-spacing: 0.02em;
+}
+.mission-recommend-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+/* 개별 카드 */
+.mission-rc-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px 14px 12px;
+    background: var(--surface-elev, #f4f1ea);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 160ms, transform 120ms, background 160ms;
+    font-family: inherit;
+    min-height: 116px;
+    position: relative;
+}
+.mission-rc-card:hover {
+    border-color: var(--accent, #6d7666);
+    transform: translateY(-1px);
+}
+.mission-rc-card:active {
+    transform: translateY(0);
+}
+.mission-rc-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+.mission-rc-title {
+    color: var(--ink-primary, #2c2c28);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+.mission-rc-hint {
+    color: var(--ink-secondary, #6f7068);
+    font-size: 11.5px;
+    line-height: 1.45;
+    margin-bottom: 6px;
+}
+.mission-rc-cta {
+    margin-top: auto;
+    align-self: flex-end;
+    color: var(--accent, #6d7666);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ─ ② 모달 안 추천 (작은 카드 2개) ─ */
+.mission-gate-recommend {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft, #e3e1d8);
+}
+.mission-gate-rec-head {
+    color: var(--ink-secondary, #6f7068);
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+.mission-gate-rec-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.mission-rc-card-sm {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    min-height: 0;
+    background: var(--surface, #fbfaf6);
+    border: 1px solid var(--border-soft, #e3e1d8);
+    border-radius: 10px;
+}
+.mission-rc-card-sm .mission-rc-icon {
+    font-size: 18px;
+}
+.mission-rc-card-sm .mission-rc-title {
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+/* ─ ③ 사이드바 미니 풋터 ─ */
+.sidebar-mission-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 0 10px;
+    margin-bottom: 6px;
+    border-top: 1px solid var(--border-soft, #e3e1d8);
+}
+.sidebar-mission-head {
+    color: var(--ink-tertiary, #a8a8a3);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin: 8px 0 4px 14px;
+    text-transform: uppercase;
+}
+.sidebar-mission-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 14px;
+    background: transparent;
+    border: 0;
+    color: var(--ink-secondary, #6f7068);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background 140ms, color 140ms;
+    border-radius: 6px;
+}
+.sidebar-mission-item:hover {
+    background: var(--surface-elev, #f4f1ea);
+    color: var(--ink-primary, #2c2c28);
+}
+.sidebar-mission-icon {
+    font-size: 14px;
+    line-height: 1;
+    width: 16px;
+    text-align: center;
+}
+.sidebar-mission-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ─ 모바일: 대시보드 카드 가로 스와이프 캐러셀 ─ */
+@media (max-width: 640px) {
+    .mission-recommend-cards {
+        display: flex;
+        grid-template-columns: none;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+    }
+    .mission-recommend-cards::-webkit-scrollbar { display: none; }
+    .mission-rc-card {
+        flex: 0 0 78%;
+        scroll-snap-align: start;
+        min-height: 104px;
+    }
+    .mission-gate-rec-cards {
+        grid-template-columns: 1fr;
+    }
+    /* 사이드바 풋터는 모바일에선 자리 부족 — 숨김. 대시보드 카드 / 모달 카드로 충분 커버. */
+    .sidebar-mission-footer {
+        display: none;
+    }
+}
+
 /* ────────────────────────────────────────────────────────────────
    (본인 프로필 재기획 트랙 2026-05-14 S-D) 온보딩 모달 — Day 0 첫 진입
    - 풀스크린 모달 + 4 stepper + 카드 안 한 흐름

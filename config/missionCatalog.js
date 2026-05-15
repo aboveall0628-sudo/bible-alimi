@@ -18,10 +18,18 @@
  *   "튜토리얼성 미션이라 못 깨게 만들 생각 X, '오 이런 기능이?!' 알 수 있게만"
  *   (사용자 명시 2026-05-14)
  *
+ * 난이도 difficulty (2026-05-15 S-E 추천 카드 트랙):
+ *   1 = 가장 가벼움 (메뉴 진입·토글 1번)
+ *   2 = 가벼움 (한 줄 입력·1건 열어보기)
+ *   3 = 보통 (카드 1장·도트 1개·거래 1건)
+ *   4 = 무거움 (분별 흐름·주간 리포트)
+ *   "다음 해볼 만한 미션" 추천 카드에서 미완료 중 오름차순 정렬에 사용.
+ *
  * 사용처:
  *   - personRepo.markMissionComplete(dek, userId, missionId, opts) 호출
  *   - 사이드바 잠금 가드 (isModuleLocked) — 같은 moduleId 키 사용
  *   - "오늘의 시작" 카드 미션 진행도 블록 — getOpenMissions + 이 카탈로그 join
+ *   - "다음 해볼 만한 미션" 추천 카드 — difficulty 오름차순 정렬
  */
 
 export const MISSION_CATALOG = {
@@ -33,6 +41,7 @@ export const MISSION_CATALOG = {
         unlockCopy: '인물 모듈이 열렸어요',
         trigger: 'savePerson(isSelf=false) | saveDot(linkedPersonIds≠∅)',
         deferred: false,
+        difficulty: 2,
     },
     org_first_dot: {
         moduleId: 'organizations',
@@ -42,6 +51,7 @@ export const MISSION_CATALOG = {
         unlockCopy: '조직 모듈이 열렸어요',
         trigger: 'saveOrganization | saveDot(linkedOrgIds≠∅)',
         deferred: false,
+        difficulty: 3,
     },
     economy_first_transaction: {
         moduleId: 'economy',
@@ -49,18 +59,20 @@ export const MISSION_CATALOG = {
         title: '첫 거래 적기',
         hint: '오늘 들어오거나 나간 돈 한 줄 적기',
         unlockCopy: '경제 미션이 클리어됐어요',
-        // 1.a 트랙(이벤트 도트 + 거래 9종) 박힘 — 트리거는 saveDot(kind='event', eventType='transaction')
+        // 1.a 트랙(이벤트 도트 + 거래 9종) 자리잡음 — 트리거는 saveDot(kind='event', eventType='transaction')
         trigger: 'saveDot(kind=event, eventType=transaction)',
         deferred: false,
+        difficulty: 3,
     },
     goal_first_save: {
         moduleId: 'goals',
         icon: '🎯',
-        title: '첫 목표 박기',
-        hint: '오늘·이번 주·이번 달 어디든 목표 1개 박기',
+        title: '첫 목표 정하기',
+        hint: '오늘·이번 주·이번 달 어디든 목표 1개 적기',
         unlockCopy: '목표 모듈이 열렸어요',
         trigger: 'saveGoal(prev=null)',
         deferred: false,
+        difficulty: 3,
     },
     decision_first_record: {
         moduleId: 'decisions',
@@ -70,6 +82,7 @@ export const MISSION_CATALOG = {
         unlockCopy: '분별의 자리가 열렸어요',
         trigger: 'savePrecedent(isNew)',
         deferred: false,
+        difficulty: 4,
     },
     report_first_weekly: {
         moduleId: 'reports',
@@ -79,6 +92,7 @@ export const MISSION_CATALOG = {
         unlockCopy: '리포트 모듈이 열렸어요',
         trigger: 'saveWeekReport(첫 호출)',
         deferred: false,
+        difficulty: 4,
     },
     meditation_first_save: {
         moduleId: 'meditation',
@@ -89,6 +103,7 @@ export const MISSION_CATALOG = {
         // 묵상 모듈 자체는 Day 0 부터 활성 — 이 미션은 "묵상 시스템에 노트 발화" 흔적용
         trigger: 'saveMeditationDoc(content·prayer 비어있지 않음)',
         deferred: false,
+        difficulty: 2,
     },
     // (S-D 후속 2026-05-15) 풀사이클 한 바퀴를 자연 발화로 풀기 위한 3 미션 추가
     past_meditation_revisit: {
@@ -99,15 +114,17 @@ export const MISSION_CATALOG = {
         unlockCopy: '지난 묵상 자리를 알게 됐어요',
         trigger: 'switchView(past) | 묵상 1건 다시 열기',
         deferred: false,
+        difficulty: 2,
     },
     notification_setup: {
         moduleId: 'notifications',
         icon: '🔔',
         title: '알림 시각 정하기',
-        hint: '설정에서 매일 묵상 알람 시간 한 번 박기',
+        hint: '설정에서 매일 묵상 알람 시간 한 번 정하기',
         unlockCopy: '알림이 자리잡았어요',
         trigger: 'saveNotificationTime',
         deferred: false,
+        difficulty: 1,
     },
     settings_explore: {
         moduleId: 'settings',
@@ -117,6 +134,7 @@ export const MISSION_CATALOG = {
         unlockCopy: '설정 자리를 둘러봤어요',
         trigger: 'switchView(settings)',
         deferred: false,
+        difficulty: 1,
     },
 };
 
@@ -128,11 +146,34 @@ export function getMissionByModule(moduleId) {
 }
 
 /**
- * 카탈로그에 박힌 모든 missionId 배열 (deferred 제외).
+ * 카탈로그 안 모든 missionId 배열 (deferred 제외).
  *   사이드바 진행도·"오늘의 시작" 카드에서 deferred 미션은 안 보임.
  */
 export function getActiveMissionIds() {
     return Object.entries(MISSION_CATALOG)
         .filter(([_, m]) => !m.deferred)
         .map(([id]) => id);
+}
+
+/**
+ * 추천 미션 정렬 — difficulty 오름차순, 같은 난이도면 카탈로그 정의 순서.
+ *   "다음 해볼 만한 미션" 카드/풋터에서 사용.
+ *
+ * @param {string[]} completedMissionIds - 이미 클리어된 missionId 배열
+ * @param {number} limit - 상위 몇 개 (기본 3)
+ * @returns {Array<{missionId:string, mission:object}>}
+ */
+export function getRecommendedMissions(completedMissionIds, limit = 3) {
+    const completedSet = new Set(completedMissionIds || []);
+    const order = Object.keys(MISSION_CATALOG);
+    return Object.entries(MISSION_CATALOG)
+        .filter(([id, m]) => !m.deferred && !completedSet.has(id))
+        .map(([id, m]) => ({ missionId: id, mission: m }))
+        .sort((a, b) => {
+            const da = a.mission.difficulty ?? 99;
+            const db = b.mission.difficulty ?? 99;
+            if (da !== db) return da - db;
+            return order.indexOf(a.missionId) - order.indexOf(b.missionId);
+        })
+        .slice(0, limit);
 }

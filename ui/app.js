@@ -590,8 +590,16 @@ function setupNavigation() {
     //   잠긴 모듈 클릭을 가로채 미션 안내 모달을 띄움. 기존 click 핸들러보다 먼저 동작.
     const missionCtxGetter = () => ({ dek: getDEK(), userId: currentUserId });
     attachSidebarLockGuard(missionCtxGetter);
-    // 미션 클리어 즉시 사이드바·진행도 갱신 — markMissionComplete 가 발화하는 이벤트 listen.
-    bindMissionUnlockListener(missionCtxGetter, 'mission-progress-block');
+    // 미션 클리어 즉시 사이드바·진행도·추천 카드·풋터 갱신 + 조용한 토스트.
+    //   (S-E 2026-05-15) 추천 카드 + 사이드바 풋터 자리 추가.
+    bindMissionUnlockListener(
+        missionCtxGetter,
+        'mission-progress-block',
+        'mission-recommend-cards',
+        'sidebar-mission-footer'
+    );
+    // 첫 로드 시 사이드바 풋터 1회 렌더 — DEK 도착 후 자동 갱신은 unlock listener / switchView 에서 처리.
+    //   초기엔 ctx 없으니 빈 채로 두고, ready 시점에 별도 호출.
 
     // 오늘 화면의 "거래 한 건" 빠른 추가 (Phase F)
     const addTxBtn = document.getElementById('today-add-tx-btn');
@@ -779,9 +787,25 @@ function switchView(viewId) {
         requestAnimationFrame(() => scrollTimelineToNow());
         // 2026-05-13 재기획: '오늘의 시작' 영역 (시간대 인사 + 핀 원칙 + 어제 질문) 갱신
         renderTodayStartIntoView(currentUserId).catch(() => {});
-        // (본인 프로필 재기획 트랙 2026-05-14 S-C) 미션 진행도 도트 블록 갱신.
-        //   사이드바 회색 톤도 함께 갱신 — 미션 클리어된 모듈은 평상 톤으로 돌아옴.
-        refreshMissionGateUI(getDEK(), currentUserId, 'mission-progress-block').catch(() => {});
+        // (본인 프로필 재기획 트랙 2026-05-14 S-C / S-E) 미션 게이트 UI 한 번에 갱신.
+        //   사이드바 회색 톤·진행도 도트·추천 카드·사이드바 풋터 모두.
+        refreshMissionGateUI(
+            getDEK(),
+            currentUserId,
+            'mission-progress-block',
+            'mission-recommend-cards',
+            'sidebar-mission-footer'
+        ).catch(() => {});
+    } else {
+        // (S-E 2026-05-15) today 가 아닌 뷰에서도 사이드바 풋터·잠금 톤은 갱신.
+        //   대시보드 카드/도트 블록은 today 뷰에만 있으므로 해당 자리는 건드리지 X.
+        refreshMissionGateUI(
+            getDEK(),
+            currentUserId,
+            null,
+            null,
+            'sidebar-mission-footer'
+        ).catch(() => {});
     }
 
     // 모바일 사이드바 닫기
