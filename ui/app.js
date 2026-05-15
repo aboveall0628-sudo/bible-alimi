@@ -51,10 +51,12 @@ import { generateAllAutoReminders } from '../data/reminderGenerator.js';
 import { mountDecisionGate } from './decisionGate.js';
 // 단축키 / 모달 매니저 — Phase E-9 (Step 1)
 import { initShortcuts } from '../shortcuts/router.js';
-// CS AI 트랙 §9 (2026-05-15): SWAN 풍선 피드백
-import { mountSwanFeedback } from './swanFeedback.js';
+// CS AI 트랙 §9 (2026-05-15): SWAN 풍선 피드백 + 관리자 페이지
+import { mountSwanFeedback, openSwanPreSurvey } from './swanFeedback.js';
 import { installConsoleErrorCapture } from '../infra/feedbackContext.js';
 import { getSelfCard } from '../data/personRepo.js';
+import { renderFeedbackAdminView } from './feedbackAdmin.js';
+import { isSwanAdmin } from '../config/adminConfig.js';
 
 // 옛 형식(v1) 데이터를 처음 만난 순간에 한 번만 사용자에게 알림.
 // cryptoService.readDocument 가 dispatchEvent 함. 모듈 로드 시 한 번 등록.
@@ -508,6 +510,14 @@ async function onVaultUnlocked(dek) {
         console.warn('[swanFeedback] mount failed:', e);
     }
 
+    // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 메뉴 노출 + 사전 설문 트리거 전역 노출
+    if (isSwanAdmin(currentUserId)) {
+        const adminBtn = document.getElementById('nav-feedback-admin');
+        if (adminBtn) adminBtn.classList.remove('hidden');
+    }
+    // 설정 페이지·외부 진입에서 사전 설문 시작할 수 있도록 전역 노출.
+    window.__sanctumOpenPreSurvey = openSwanPreSurvey;
+
     // (본인 프로필 재기획 트랙 2026-05-14 S-D) 신규 사용자 첫 진입 자동 라우팅.
     //   selfCard.name 빈 값이면 onboarding 모달 강제. 완료 후 view-today 진입 + 미션 진행도 갱신.
     //   기존 사용자는 needsOnboarding=false 라 즉시 통과.
@@ -625,6 +635,7 @@ function setupNavigation() {
         'nav-persons': 'persons',
         'nav-organizations': 'organizations',
         'nav-economy': 'economy',
+        'nav-feedback-admin': 'feedback-admin',
         'nav-settings': 'settings',
     };
 
@@ -821,6 +832,8 @@ function switchView(viewId) {
         renderOrganizationsView(currentUserId);
     } else if (viewId === 'economy') {
         renderEconomyView(currentUserId);
+    } else if (viewId === 'feedback-admin') {
+        renderFeedbackAdminView(currentUserId);
     }
 
     // 뷰 전환 직후엔 항상 새 뷰의 최상단에서 시작 (main-content + window 둘 다).

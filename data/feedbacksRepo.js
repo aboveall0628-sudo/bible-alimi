@@ -52,15 +52,19 @@ function feedbackCollRef(userId) {
  *   - nickname: string
  *   - context: { screenPath, moduleName, viewport, userAgent }
  *   - openingTurn: { role: 'swan', text, at }
+ *   - kind: 'feedback' | 'preSurvey' | 'postSurvey' (디폴트 'feedback')
  * @returns {Promise<string>} feedbackId
  */
-export async function startFeedback({ userId, nickname, context, openingTurn }) {
+export async function startFeedback({ userId, nickname, context, openingTurn, kind = 'feedback' }) {
     const id = feedbackId(userId);
     const record = {
         id,
         userId,
         nickname: nickname || '',
         createdAt: serverTimestamp(),
+
+        // 대화 종류 (베타 검증 시나리오 v1 §1·§4 — 사전·사후 설문 합류)
+        kind,
 
         // 자동 라벨 (열어주는 시점)
         screenPath:   context?.screenPath || '',
@@ -79,12 +83,30 @@ export async function startFeedback({ userId, nickname, context, openingTurn }) 
         category: '',
         categoryConfidence: 0,
 
+        // 사전·사후 설문 구조화 결과 (kind 가 preSurvey/postSurvey 일 때 채움)
+        //   사전: { q1_focus, q2_frequency, q3_recent_failure, ... q10_personalGoal }
+        //   스키마는 docs/backlog/1차_베타_검증_시나리오_v1.md §1 저장 스키마
+        surveyExtract: null,
+
         // 관리자 상태
         status: 'unread',
         swanNote: '',
     };
     await setDoc(feedbackDocRef(userId, id), record);
     return id;
+}
+
+/**
+ * 설문 구조화 결과 저장 (사전·사후 설문 finalize 시 추가 호출).
+ *
+ * @param {string} userId
+ * @param {string} feedbackId
+ * @param {Object} extract - { q1_focus: {...}, q2_frequency: {...}, ... }
+ */
+export async function saveSurveyExtract(userId, feedbackId, extract) {
+    await updateDoc(feedbackDocRef(userId, feedbackId), {
+        surveyExtract: extract || null,
+    });
 }
 
 // ─── turn 누적 ───────────────────────────────────────────────

@@ -1516,6 +1516,110 @@ function parseSwanSummaryResponse(raw) {
     }
 }
 
+// ─── 사전 설문 (1차 베타 검증 시나리오 v1 §1) ──────────────────────
+
+const PRE_SURVEY_META_REGEX = /^\s*-{2,}\s*META\s*-{2,}\s*(.+?)\s*$/im;
+
+/**
+ * SWAN 사전 설문 다음 발화 호출.
+ *
+ * @param {Object} args
+ *   @param {Array}  args.history          [{role:'swan'|'user', text}]
+ *   @param {string[]} args.askedQuestionIds   이미 던진 핵심 질문 ID (예: ['Q1','Q2'])
+ *   @param {number} args.turnCount
+ *
+ * @returns {Promise<{
+ *   text: string,              // 사용자에게 보일 본문 (META 라인 제거됨)
+ *   askedNow: string|null,     // 이번 발화에서 핵심으로 던진 질문 ('Q3' 또는 null)
+ *   nextQuestion: string|null, // 다음 질문 ID ('Q4', 'done', 또는 null)
+ *   done: boolean,             // 마무리 발화 여부
+ *   fallback: boolean
+ * }>}
+ */
+export async function callSwanPreSurvey({ history = [], askedQuestionIds = [], turnCount = 0 }) {
+    const plain = {
+        history,
+        askedQuestionIds,
+        turnCount,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanPreSurvey', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { text: '', askedNow: null, nextQuestion: null, done: false, fallback: true };
+    }
+    return { ..._parsePreSurveyResponse(String(result.text || '')), fallback: false };
+}
+
+function _parsePreSurveyResponse(raw) {
+    const text = raw.trim();
+    const m = text.match(PRE_SURVEY_META_REGEX);
+    if (!m) {
+        return { text, askedNow: null, nextQuestion: null, done: false };
+    }
+    const metaLine = m[1];
+    const cleanText = text.replace(PRE_SURVEY_META_REGEX, '').trim();
+
+    let askedNow = null;
+    const aMatch = metaLine.match(/ASKED\s*:\s*(\S+)/i);
+    if (aMatch && aMatch[1].toLowerCase() !== 'none') askedNow = aMatch[1].trim();
+
+    let nextQuestion = null;
+    const nMatch = metaLine.match(/NEXT\s*:\s*(\S+)/i);
+    if (nMatch) nextQuestion = nMatch[1].trim();
+
+    let done = false;
+    const dMatch = metaLine.match(/DONE\s*:\s*(\S+)/i);
+    if (dMatch) done = /^true$/i.test(dMatch[1]);
+
+    return { text: cleanText, askedNow, nextQuestion, done };
+}
+
+/**
+ * 사전 설문 종료 시 구조화 추출 호출.
+ *
+ * @param {Object} args
+ *   @param {Array} args.turns  [{role, text}]
+ *
+ * @returns {Promise<{ extract: Object|null, fallback: boolean }>}
+ */
+export async function callSwanPreSurveyExtract({ turns = [] }) {
+    const plain = {
+        turns,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanPreSurveyExtract', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { extract: null, fallback: true };
+    }
+    const extract = _parseExtractJson(result.text);
+    return { extract, fallback: false };
+}
+
+function _parseExtractJson(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    const fenced = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+    const candidate = fenced ? fenced[1] : text;
+    const braceStart = candidate.indexOf('{');
+    const braceEnd   = candidate.lastIndexOf('}');
+    if (braceStart < 0 || braceEnd < 0 || braceEnd < braceStart) {
+        console.warn('[swanPreSurveyExtract] no JSON braces');
+        return null;
+    }
+    try {
+        return JSON.parse(candidate.slice(braceStart, braceEnd + 1));
+    } catch (e) {
+        console.warn('[swanPreSurveyExtract] JSON parse failed:', e.message);
+        return null;
+    }
+}
+
 function buildSwanSummaryFallback(turns) {
     const userTexts = (turns || []).filter(t => t.role === 'user').map(t => t.text);
     const joined = userTexts.join(' ').slice(0, 120);

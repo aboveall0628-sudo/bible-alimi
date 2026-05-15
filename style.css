@@ -8959,3 +8959,390 @@ button.mission-progress-block:hover {
     }
 }
 
+/* ─── CS AI 트랙 §9-6·7·8 — 피드백 관리 페이지 (2026-05-15) ─────── */
+#view-feedback-admin {
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+.fbadmin-header {
+    margin-bottom: 16px;
+}
+.fbadmin-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--ink-primary, #1a1814);
+}
+.fbadmin-subtitle {
+    font-size: 13px;
+    color: var(--ink-tertiary, #9c9893);
+    margin: 0;
+}
+
+.fbadmin-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
+    margin-bottom: 16px;
+}
+.fbadmin-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-secondary, #6b6863);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.fbadmin-tab:hover {
+    color: var(--ink-primary, #1a1814);
+}
+.fbadmin-tab.active {
+    color: var(--ink-primary, #1a1814);
+    border-bottom-color: var(--accent, #1a1814);
+}
+.fbadmin-tab-count {
+    font-size: 12px;
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+    border-radius: 9999px;
+    padding: 1px 7px;
+    font-weight: 500;
+}
+
+.fbadmin-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: center;
+}
+.fbadmin-search {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+}
+.fbadmin-select {
+    padding: 7px 10px;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+}
+.fbadmin-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fbadmin-btn:hover {
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+}
+
+.fbadmin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.fbadmin-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, rgba(0,0,0,0.05));
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+.fbadmin-row:hover {
+    background: var(--surface-quiet, rgba(0,0,0,0.03));
+}
+.fbadmin-row.is-read .fbadmin-row-summary {
+    color: var(--ink-secondary, #6b6863);
+}
+.fbadmin-row-checkbox {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.fbadmin-row-checkbox input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+.fbadmin-row-status {
+    flex: 0 0 auto;
+    font-size: 16px;
+    color: var(--accent, #1a1814);
+    width: 18px;
+    text-align: center;
+}
+.fbadmin-row.is-read .fbadmin-row-status {
+    color: var(--ink-tertiary, #9c9893);
+}
+.fbadmin-row-body {
+    flex: 1;
+    min-width: 0;
+}
+.fbadmin-row-meta {
+    font-size: 12px;
+    color: var(--ink-tertiary, #9c9893);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+}
+.fbadmin-row-summary {
+    font-size: 14px;
+    color: var(--ink-primary, #1a1814);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.fbadmin-row-cat {
+    font-size: 14px;
+    flex: 0 0 auto;
+}
+
+.fbadmin-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-tertiary, #9c9893);
+    font-size: 14px;
+}
+
+/* ─── 상세 페이지 ──────────────────────────────────────────── */
+.fbadmin-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
+}
+.fbadmin-back-btn {
+    background: transparent;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink-secondary, #6b6863);
+}
+.fbadmin-back-btn:hover {
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+}
+.fbadmin-detail-title {
+    flex: 1;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+.fbadmin-toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.fbadmin-toggle-btn:hover {
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+}
+
+.fbadmin-meta {
+    background: var(--bg-soft, rgba(0,0,0,0.02));
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--ink-secondary, #6b6863);
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.fbadmin-meta strong {
+    color: var(--ink-primary, #1a1814);
+    font-weight: 600;
+    margin-right: 4px;
+}
+.fbadmin-meta code {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-tertiary, #9c9893);
+}
+.fbadmin-errors {
+    margin-top: 4px;
+}
+.fbadmin-errors summary {
+    cursor: pointer;
+    color: var(--dot-red, #E5654A);
+}
+.fbadmin-errors ul {
+    margin: 6px 0 0 16px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+}
+
+.fbadmin-section {
+    margin-bottom: 20px;
+}
+.fbadmin-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    color: var(--ink-primary, #1a1814);
+}
+
+.fbadmin-category-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.fbadmin-category-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-secondary, #6b6863);
+}
+.fbadmin-confidence {
+    font-size: 12px;
+    color: var(--ink-tertiary, #9c9893);
+}
+
+.fbadmin-summary {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-primary, #1a1814);
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--bg-soft, rgba(0,0,0,0.02));
+    border-radius: 10px;
+}
+
+.fbadmin-turns {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.fbadmin-turn {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border, rgba(0,0,0,0.06));
+}
+.fbadmin-turn-swan {
+    background: var(--bg-card, #fff);
+}
+.fbadmin-turn-user {
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+}
+.fbadmin-turn-role {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-tertiary, #9c9893);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+.fbadmin-turn p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-primary, #1a1814);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.fbadmin-note {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+    resize: vertical;
+}
+
+.fbadmin-detail-footer {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border, rgba(0,0,0,0.08));
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* ─── 설문 구조화 표 ──────────────────────────────────────── */
+.fbadmin-survey-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.fbadmin-survey-table th,
+.fbadmin-survey-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,0.06));
+    vertical-align: top;
+}
+.fbadmin-survey-table th {
+    color: var(--ink-tertiary, #9c9893);
+    font-weight: 500;
+    width: 30%;
+}
+.fbadmin-survey-table td {
+    color: var(--ink-primary, #1a1814);
+    white-space: pre-wrap;
+}
+.fbadmin-survey-na {
+    color: var(--ink-tertiary, #9c9893);
+    font-style: italic;
+}
+.fbadmin-survey-raw {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 12px;
+    background: var(--bg-soft, rgba(0,0,0,0.02));
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    color: var(--ink-secondary, #6b6863);
+}
+
+@media (max-width: 600px) {
+    #view-feedback-admin { padding: 12px; }
+    .fbadmin-toolbar { flex-direction: column; align-items: stretch; }
+    .fbadmin-toolbar .fbadmin-btn { width: 100%; }
+    .fbadmin-row { padding: 10px; }
+    .fbadmin-row-summary { white-space: normal; }
+}
+

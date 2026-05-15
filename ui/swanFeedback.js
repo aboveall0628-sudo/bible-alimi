@@ -25,22 +25,47 @@ import {
     finalizeFeedback,
 } from '../data/feedbacksRepo.js';
 import { collectFeedbackContext } from '../infra/feedbackContext.js';
-import { callSwanAgent, callSwanSummary } from './aiClient.js';
+import {
+    callSwanAgent, callSwanSummary,
+    callSwanPreSurvey, callSwanPreSurveyExtract,
+} from './aiClient.js';
+import {
+    startFeedback,
+    addTurn,
+    finalizeFeedback,
+    saveSurveyExtract,
+} from '../data/feedbacksRepo.js';
 
 // ─── 카피 (Rule 9 §10-1~4 디폴트, 2026-05-15) ─────────────────
 const COPY = {
-    openingTurn:     '안녕하세요. 오늘 어떤 부분을 알려주고 싶으세요?',
-    closeFarewell:   '알려주셔서 고마워요. 잘 정리해 둘게요.',
-    turnLimitNote:   '여기까지 알려주신 걸 정리해서 보낼게요.',
+    // 일반 피드백 (kind='feedback')
+    feedback: {
+        openingTurn:    '안녕하세요. 오늘 어떤 부분을 알려주고 싶으세요?',
+        closeFarewell:  '알려주셔서 고마워요. 잘 정리해 둘게요.',
+        turnLimitNote:  '여기까지 알려주신 걸 정리해서 보낼게요.',
+        title:          'SWAN',
+        balloonAria:    '의견 보내기',
+    },
+    // 사전 설문 (kind='preSurvey')
+    preSurvey: {
+        openingTurn:    null,             // AI 첫 호출이 오프닝+Q1 생성
+        closeFarewell:  '사전 설문 잘 받았어요. 고마워요.',
+        turnLimitNote:  '여기까지 들려주신 걸 잘 정리해 둘게요.',
+        title:          'SWAN · 사전 설문',
+        balloonAria:    '사전 설문 시작',
+    },
     inputPlaceholder: '편하게 알려주세요…',
-    sendButton:      '보내기',
-    closeAria:       '닫기',
-    balloonAria:     '의견 보내기',
+    sendButton:       '보내기',
+    closeAria:        '닫기',
     summaryFailToast: '전달은 잘 됐어요. 자동 정리만 잠깐 못 했어요.',
-    sendFailToast:   '잠깐 문제가 있었어요. 다시 한 번 보내볼까요?',
+    sendFailToast:    '잠깐 문제가 있었어요. 다시 한 번 보내볼까요?',
 };
 
-const MAX_TURNS    = 12;          // 비용 가드
+const MAX_TURNS_BY_KIND = {
+    feedback:   12,    // 일반 피드백
+    preSurvey:  40,    // 10 질문 × 평균 3~4 턴 (Q+후속+사용자)
+    postSurvey: 50,    // 사후 13 질문 (Phase 2)
+};
 const AUTO_CLOSE_MS = 5 * 60_000; // 5분 무응답
 
 // ─── 모듈 상태 ───────────────────────────────────────────────
@@ -82,15 +107,30 @@ export function mountSwanFeedback({ userId, getNickname }) {
 }
 
 /**
- * 프로그램적 오픈 — 단축키나 메뉴에서 호출 가능.
+ * 일반 피드백 풍선 오픈 — 단축키·메뉴에서 호출 가능.
  */
 export function openSwanFeedback() {
     if (!_mounted || !_userId) {
         console.warn('[swanFeedback] not mounted yet');
         return;
     }
-    if (_session) return; // 이미 열려있음
-    startSession();
+    if (_session) return;
+    startSession({ kind: 'feedback' });
+}
+
+/**
+ * SWAN 사전 설문 시작 — 베타 1차 검증 시나리오 §1.
+ *   - 가입 직후 onboarding 완료 시 자동 호출(예정) 또는 수동 트리거.
+ *   - feedbacks 컬렉션에 kind='preSurvey' 로 저장.
+ *   - 시작 직후 SWAN 이 직접 오프닝+Q1 발화 생성.
+ */
+export function openSwanPreSurvey() {
+    if (!_mounted || !_userId) {
+        console.warn('[swanFeedback] not mounted yet');
+        return;
+    }
+    if (_session) return;
+    startSession({ kind: 'preSurvey' });
 }
 
 // ─── 풍선 렌더 ───────────────────────────────────────────────
@@ -100,7 +140,7 @@ function renderBalloon() {
     btn.id = 'swan-balloon-btn';
     btn.className = 'swan-balloon';
     btn.type = 'button';
-    btn.setAttribute('aria-label', COPY.balloonAria);
+    btn.setAttribute('aria-label', COPY.feedback.balloonAria);
     btn.innerHTML = `<i data-lucide="message-circle"></i>`;
     btn.addEventListener('click', openSwanFeedback);
     return btn;
@@ -108,14 +148,16 @@ function renderBalloon() {
 
 // ─── 세션 시작 ───────────────────────────────────────────────
 
-async function startSession() {
+async function startSession({ kind = 'feedback' } = {}) {
     const context  = collectFeedbackContext();
     const nickname = (_getNickname() || '').toString();
-    const openingTurn = {
-        role: 'swan',
-        text: COPY.openingTurn,
-        at:   new Date().toISOString(),
-    };
+    const copy     = COPY[kind] || COPY.feedback;
+    const maxTurns = MAX_TURNS_BY_KIND[kind] || MAX_TURNS_BY_KIND.feedback;
+
+    // 일반 피드백: 하드코드 첫 인사 / 사전 설문: AI 가 첫 발화 생성 (openingTurn null)
+    const openingTurn = copy.openingTurn
+        ? { role: 'swan', text: copy.openingTurn, at: new Date().toISOString() }
+        : null;
 
     // 1) Firestore 새 문서 생성
     let feedbackId;
@@ -125,6 +167,7 @@ async function startSession() {
             nickname,
             context,
             openingTurn,
+            kind,
         });
     } catch (e) {
         console.error('[swanFeedback] startFeedback failed:', e);
@@ -133,17 +176,22 @@ async function startSession() {
     }
 
     // 2) 모달 DOM
-    const { overlay, listEl, inputEl, sendBtn, closeBtn } = renderModal();
+    const { overlay, listEl, inputEl, sendBtn, closeBtn, titleEl } = renderModal(copy.title);
     document.body.appendChild(overlay);
     if (window.lucide?.createIcons) window.lucide.createIcons({ icons: window.lucide.icons });
 
-    appendTurnDOM(listEl, openingTurn);
+    if (openingTurn) appendTurnDOM(listEl, openingTurn);
 
     _session = {
         feedbackId,
+        kind,
+        copy,
+        maxTurns,
         context,
         nickname,
-        turns: [openingTurn],
+        turns: openingTurn ? [openingTurn] : [],
+        askedQuestionIds: [],            // 사전 설문 추적용 (Q1~Q10)
+        preSurveyDone: false,            // SWAN 이 마무리 발화했는지
         waitingForSwan: false,
         autoCloseTimer: null,
         finalized: false,
@@ -174,11 +222,22 @@ async function startSession() {
 
     // 5) 5분 무응답 타이머
     resetAutoCloseTimer();
+
+    // 6) 사전 설문 — SWAN 이 직접 오프닝+Q1 발화 생성
+    if (kind === 'preSurvey') {
+        runPreSurveyTurn();   // background — 사용자는 thinking 도트 보고 기다림
+    }
 }
 
 // ─── 모달 DOM 렌더 ───────────────────────────────────────────
 
-function renderModal() {
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
+    }[ch]));
+}
+
+function renderModal(title = 'SWAN') {
     const overlay = document.createElement('div');
     overlay.id = 'swan-feedback-overlay';
     overlay.className = 'swan-overlay';
@@ -187,7 +246,7 @@ function renderModal() {
             <header class="swan-header">
                 <div class="swan-title" id="swan-title">
                     <span class="swan-dot" aria-hidden="true"></span>
-                    <span>SWAN</span>
+                    <span>${escapeHtml(title)}</span>
                 </div>
                 <button type="button" class="swan-close-btn" id="swan-close-btn" aria-label="${COPY.closeAria}">
                     <i data-lucide="x"></i>
@@ -199,9 +258,9 @@ function renderModal() {
                     class="swan-input"
                     id="swan-input"
                     rows="2"
-                    placeholder="${COPY.inputPlaceholder}"
+                    placeholder="${escapeHtml(COPY.inputPlaceholder)}"
                 ></textarea>
-                <button type="button" class="swan-send-btn" id="swan-send-btn">${COPY.sendButton}</button>
+                <button type="button" class="swan-send-btn" id="swan-send-btn">${escapeHtml(COPY.sendButton)}</button>
             </footer>
         </div>
     `;
@@ -211,6 +270,7 @@ function renderModal() {
         inputEl:  overlay.querySelector('#swan-input'),
         sendBtn:  overlay.querySelector('#swan-send-btn'),
         closeBtn: overlay.querySelector('#swan-close-btn'),
+        titleEl:  overlay.querySelector('#swan-title'),
     };
 }
 
@@ -262,7 +322,7 @@ async function handleSend() {
     // 2) Firestore turn 저장
     let turnCountAfterUser = _session.turns.length;
     try {
-        const res = await addTurn(_userId, _session.feedbackId, userTurn, MAX_TURNS);
+        const res = await addTurn(_userId, _session.feedbackId, userTurn, _session.maxTurns);
         turnCountAfterUser = res.turnCount;
     } catch (e) {
         console.error('[swanFeedback] addTurn(user) failed:', e);
@@ -274,25 +334,49 @@ async function handleSend() {
         return;
     }
 
-    // 3) SWAN AI 호출
-    appendThinkingDOM(_session.listEl);
+    // 3) SWAN 다음 발화 (kind 분기)
+    await runSwanTurn({ turnCountAfterUser });
+}
+
+/**
+ * SWAN AI 호출 + 응답 UI/저장. kind 별 분기.
+ * 사전 설문 첫 발화(history 비어있음)일 때도 같은 함수 재사용.
+ */
+async function runSwanTurn({ turnCountAfterUser = null } = {}) {
+    if (!_session) return;
+    const sess = _session;
+
+    appendThinkingDOM(sess.listEl);
+
     let swanText = '';
+    let preSurveyMeta = null;
     try {
-        const result = await callSwanAgent({
-            history:       _session.turns,
-            screenPath:    _session.context.screenPath || '',
-            consoleErrors: _session.context.consoleErrors || [],
-            turnCount:     turnCountAfterUser,
-        });
-        swanText = (result.text || '').trim();
+        if (sess.kind === 'preSurvey') {
+            const res = await callSwanPreSurvey({
+                history:          sess.turns,
+                askedQuestionIds: sess.askedQuestionIds,
+                turnCount:        turnCountAfterUser || sess.turns.length,
+            });
+            swanText = (res.text || '').trim();
+            preSurveyMeta = { askedNow: res.askedNow, nextQuestion: res.nextQuestion, done: res.done };
+        } else {
+            const res = await callSwanAgent({
+                history:       sess.turns,
+                screenPath:    sess.context.screenPath || '',
+                consoleErrors: sess.context.consoleErrors || [],
+                turnCount:     turnCountAfterUser || sess.turns.length,
+            });
+            swanText = (res.text || '').trim();
+        }
     } catch (e) {
-        console.warn('[swanFeedback] callSwanAgent failed:', e);
+        console.warn('[swanFeedback] SWAN call failed:', e);
     }
-    removeThinkingDOM(_session.listEl);
+    removeThinkingDOM(sess.listEl);
 
     if (!swanText) {
-        // AI 응답 실패 — 사용자 입력은 이미 저장됐으니 정중한 한 줄로 마무리
-        swanText = '잘 받았어요. 더 알려주고 싶은 게 있으면 한 줄 더 적어 주세요.';
+        swanText = sess.kind === 'preSurvey'
+            ? '잠깐 끊겼어요. 한 줄 더 들려주시면 이어 갈게요.'
+            : '잘 받았어요. 더 알려주고 싶은 게 있으면 한 줄 더 적어 주세요.';
     }
 
     const swanTurn = {
@@ -300,35 +384,59 @@ async function handleSend() {
         text: swanText,
         at:   new Date().toISOString(),
     };
-    appendTurnDOM(_session.listEl, swanTurn);
-    _session.turns.push(swanTurn);
+    appendTurnDOM(sess.listEl, swanTurn);
+    sess.turns.push(swanTurn);
+
+    // 사전 설문 메타 반영
+    if (preSurveyMeta?.askedNow && /^Q\d+$/i.test(preSurveyMeta.askedNow)
+        && !sess.askedQuestionIds.includes(preSurveyMeta.askedNow)) {
+        sess.askedQuestionIds.push(preSurveyMeta.askedNow);
+    }
+    if (preSurveyMeta?.done) sess.preSurveyDone = true;
 
     let reachedMax = false;
     try {
-        const res = await addTurn(_userId, _session.feedbackId, swanTurn, MAX_TURNS);
+        const res = await addTurn(_userId, sess.feedbackId, swanTurn, sess.maxTurns);
         reachedMax = res.reachedMax;
     } catch (e) {
         console.warn('[swanFeedback] addTurn(swan) failed:', e);
     }
 
-    // 4) 12턴 도달 — 안내 한 줄 더 + 자동 종료
+    // 사전 설문 자연 종결
+    if (sess.preSurveyDone) {
+        await finalizeAndClose('preSurvey_completed');
+        return;
+    }
+
+    // 턴 한도 도달 — 안내 한 줄 + 자동 종료
     if (reachedMax) {
         const limitTurn = {
             role: 'swan',
-            text: COPY.turnLimitNote,
+            text: sess.copy.turnLimitNote,
             at:   new Date().toISOString(),
         };
-        appendTurnDOM(_session.listEl, limitTurn);
-        _session.turns.push(limitTurn);
-        try { await addTurn(_userId, _session.feedbackId, limitTurn, MAX_TURNS + 1); } catch (_) {}
+        appendTurnDOM(sess.listEl, limitTurn);
+        sess.turns.push(limitTurn);
+        try { await addTurn(_userId, sess.feedbackId, limitTurn, sess.maxTurns + 1); } catch (_) {}
         await finalizeAndClose('turn_limit_reached');
         return;
     }
 
-    _session.waitingForSwan = false;
-    _session.sendBtn.disabled = false;
-    _session.inputEl.disabled = false;
-    _session.inputEl.focus();
+    sess.waitingForSwan = false;
+    sess.sendBtn.disabled = false;
+    sess.inputEl.disabled = false;
+    sess.inputEl.focus();
+}
+
+/**
+ * 사전 설문 첫 진입 — history 빈 상태에서 SWAN 이 오프닝+Q1 생성.
+ */
+async function runPreSurveyTurn() {
+    if (!_session) return;
+    _session.waitingForSwan = true;
+    _session.sendBtn.disabled = true;
+    _session.inputEl.disabled = true;
+    await runSwanTurn({ turnCountAfterUser: 0 });
 }
 
 // ─── 5분 무응답 타이머 ───────────────────────────────────────
@@ -342,7 +450,7 @@ function resetAutoCloseTimer() {
     }, AUTO_CLOSE_MS);
 }
 
-// ─── 종료 + 자동 요약·분류 ──────────────────────────────────
+// ─── 종료 + 자동 요약·분류 (kind 분기) ───────────────────────
 
 async function finalizeAndClose(endReason) {
     if (!_session || _session.finalized) return;
@@ -352,9 +460,21 @@ async function finalizeAndClose(endReason) {
         _session.autoCloseTimer = null;
     }
 
-    const { feedbackId, turns, context } = _session;
+    const { feedbackId, kind, turns, context, copy } = _session;
 
-    // 1) 자동 요약·분류 (실패해도 finalize 는 진행 — turns 는 이미 저장됨)
+    // 1) kind 별 자동 처리 — 실패해도 finalize 는 진행 (turns 는 이미 저장)
+    if (kind === 'preSurvey') {
+        await runPreSurveyFinalize(_userId, feedbackId, turns, endReason);
+    } else {
+        await runFeedbackFinalize(_userId, feedbackId, turns, context, endReason);
+    }
+
+    // 2) 안내 토스트 + 모달 닫기
+    showToast(copy.closeFarewell);
+    try { _session.modalHandle?.close(); } catch (_) {}
+}
+
+async function runFeedbackFinalize(userId, feedbackId, turns, context, endReason) {
     let summary, category, confidence;
     try {
         const res = await callSwanSummary({
@@ -371,10 +491,8 @@ async function finalizeAndClose(endReason) {
         category   = 'other';
         confidence = 0;
     }
-
-    // 2) Firestore finalize
     try {
-        await finalizeFeedback(_userId, feedbackId, {
+        await finalizeFeedback(userId, feedbackId, {
             endReason,
             summary,
             category,
@@ -383,12 +501,35 @@ async function finalizeAndClose(endReason) {
     } catch (e) {
         console.error('[swanFeedback] finalizeFeedback failed:', e);
     }
+}
 
-    // 3) 안내 토스트 + 모달 닫기
-    showToast(COPY.closeFarewell);
-
-    // modalHandle.close() 가 onClose 콜백을 부르지만, finalized 플래그로 이중 처리 방지
-    try { _session.modalHandle?.close(); } catch (_) {}
+async function runPreSurveyFinalize(userId, feedbackId, turns, endReason) {
+    let extract = null;
+    try {
+        const res = await callSwanPreSurveyExtract({ turns });
+        extract = res.extract;
+    } catch (e) {
+        console.warn('[swanFeedback] callSwanPreSurveyExtract failed:', e);
+    }
+    // finalize 본체 — 사전 설문은 category 고정 'other', summary 는 짧은 요약 한 줄
+    const summary = extract?.q10_personalGoal?.testerPriority
+        || extract?.q1_focus?.raw
+        || '사전 설문이 마무리됐어요.';
+    try {
+        await finalizeFeedback(userId, feedbackId, {
+            endReason,
+            summary,
+            category:           'other',
+            categoryConfidence: 0,
+        });
+    } catch (e) {
+        console.error('[swanFeedback] finalizeFeedback failed:', e);
+    }
+    // 구조화 결과 저장 (있을 때만)
+    if (extract) {
+        try { await saveSurveyExtract(userId, feedbackId, extract); }
+        catch (e) { console.warn('[swanFeedback] saveSurveyExtract failed:', e); }
+    }
 }
 
 function handleModalClose() {
@@ -417,31 +558,13 @@ function handleModalClose() {
 }
 
 async function finalizeAfterClose(sess, endReason) {
-    let summary, category, confidence;
     try {
-        const res = await callSwanSummary({
-            turns:         sess.turns,
-            screenPath:    sess.context.screenPath || '',
-            consoleErrors: sess.context.consoleErrors || [],
-        });
-        summary    = res.summary;
-        category   = res.category;
-        confidence = res.confidence;
-    } catch (e) {
-        console.warn('[swanFeedback] post-close summary failed:', e);
-        summary    = '자동 요약을 만들지 못했어요. 대화 원본을 참고해 주세요.';
-        category   = 'other';
-        confidence = 0;
-    }
-
-    try {
-        await finalizeFeedback(_userId, sess.feedbackId, {
-            endReason,
-            summary,
-            category,
-            categoryConfidence: confidence,
-        });
-        showToast(COPY.closeFarewell);
+        if (sess.kind === 'preSurvey') {
+            await runPreSurveyFinalize(_userId, sess.feedbackId, sess.turns, endReason);
+        } else {
+            await runFeedbackFinalize(_userId, sess.feedbackId, sess.turns, sess.context, endReason);
+        }
+        showToast(sess.copy.closeFarewell);
     } catch (e) {
         console.error('[swanFeedback] post-close finalize failed:', e);
         showToast(COPY.summaryFailToast);

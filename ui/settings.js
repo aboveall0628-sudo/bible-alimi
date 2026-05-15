@@ -36,6 +36,7 @@ import { bindMarkdownEditor, getMarkdown, setMarkdown } from './markdownEditor.j
 // (S-D 후속 2026-05-15) 시스템 폰트 + 성경 번역본 옵션
 import { SYSTEM_FONT_SIZES, getSystemFontScale, setSystemFontScale } from '../config/systemFont.js';
 import { BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION } from '../config/onboardingDefaults.js';
+import { isSwanAdmin } from '../config/adminConfig.js';
 import { ensureSelfCard, saveSelfCard } from '../data/personRepo.js';
 
 let _userId = null;
@@ -502,6 +503,33 @@ function injectExtraSections() {
         </div>
     `;
     container.appendChild(economyCard);
+
+    // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 전용 진입 카드 — 피드백 관리 + 사전 설문 시작.
+    //   isSwanAdmin 아닐 때는 카드 자체 안 그림. 사이드바 메뉴와 같은 게이트.
+    if (isSwanAdmin(_userId)) {
+        const adminCard = document.createElement('div');
+        adminCard.className = 'card-section';
+        adminCard.innerHTML = `
+            <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리 (운영자 전용)</h3>
+            <p class="section-desc">베타 사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                <button type="button" id="settings-open-feedback-admin" class="primary-btn">피드백 관리 열기</button>
+                <button type="button" id="settings-start-pre-survey" class="secondary-btn">사전 설문 미리 해보기</button>
+            </div>
+        `;
+        container.appendChild(adminCard);
+
+        adminCard.querySelector('#settings-open-feedback-admin')?.addEventListener('click', () => {
+            if (typeof window.__sanctumSwitchView === 'function') {
+                window.__sanctumSwitchView('feedback-admin');
+            }
+        });
+        adminCard.querySelector('#settings-start-pre-survey')?.addEventListener('click', () => {
+            if (typeof window.__sanctumOpenPreSurvey === 'function') {
+                window.__sanctumOpenPreSurvey();
+            }
+        });
+    }
 
     // (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 진입 자리.
     //   사용자 명시 "설정 많이 안볼테니까 거기에 작은 카드 하나 넣고, 만렙 이후 콘텐츠 하나".
