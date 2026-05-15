@@ -7074,6 +7074,30 @@ body.dg-open { overflow: hidden; }
     background: var(--surface-elev, #f4f1ea);
     border-radius: 10px;
     font-size: 13px;
+    width: 100%;
+    border: 1px solid transparent;
+    text-align: left;
+    font-family: inherit;
+    cursor: default;
+    transition: border-color 160ms, background 160ms;
+}
+button.mission-progress-block {
+    cursor: pointer;
+}
+button.mission-progress-block:hover {
+    border-color: var(--accent, #6d7666);
+    background: var(--surface, #fbfaf6);
+}
+.mission-progress-cta {
+    margin-left: auto;
+    color: var(--accent, #6d7666);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.mission-progress-graduated .mission-progress-label {
+    color: var(--ink-primary, #2c2c28);
+    font-weight: 600;
 }
 .mission-progress-label {
     color: var(--ink-secondary, #6f7068);
@@ -7304,6 +7328,189 @@ body.dg-open { overflow: hidden; }
     /* 사이드바 풋터는 모바일에선 자리 부족 — 숨김. 대시보드 카드 / 모달 카드로 충분 커버. */
     .sidebar-mission-footer {
         display: none;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   (S-E2 2026-05-15) 미션 허브 모달 — 회고 자리
+   도트 진행도 클릭 / 수료 카드 클릭 시 펼침.
+   완료한 미션(클리어 날짜) + 남은 미션([시작]) 한 자리.
+   ───────────────────────────────────────────────────────────── */
+
+.mission-hub-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(36, 36, 32, 0.32);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 9100;       /* 미션 게이트 모달(9000)보다 위 */
+    animation: missionHubFade 200ms ease-out;
+    overflow-y: auto;
+}
+@keyframes missionHubFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.mission-hub-modal {
+    background: var(--surface, #fbfaf6);
+    border-radius: 14px;
+    box-shadow: 0 16px 44px rgba(36, 36, 32, 0.14);
+    width: 100%;
+    max-width: 440px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 22px 22px 18px;
+    animation: missionHubLift 240ms ease-out;
+}
+@keyframes missionHubLift {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+
+.mission-hub-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.mission-hub-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink-primary, #2c2c28);
+    margin: 0;
+}
+.mission-hub-close {
+    background: transparent;
+    border: 0;
+    font-size: 22px;
+    color: var(--ink-tertiary, #a8a8a3);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 140ms, color 140ms;
+}
+.mission-hub-close:hover {
+    background: var(--surface-elev, #f4f1ea);
+    color: var(--ink-primary, #2c2c28);
+}
+.mission-hub-graduated {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    background: var(--surface-elev, #f4f1ea);
+    border-radius: 8px;
+    color: var(--ink-secondary, #6f7068);
+    font-size: 13px;
+}
+.mission-hub-empty {
+    color: var(--ink-secondary, #6f7068);
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 0;
+}
+
+.mission-hub-section {
+    margin-bottom: 16px;
+}
+.mission-hub-section:last-child {
+    margin-bottom: 0;
+}
+.mission-hub-section-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-tertiary, #a8a8a3);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+}
+
+.mission-hub-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mission-hub-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface-elev, #f4f1ea);
+    border-radius: 10px;
+}
+.mission-hub-icon {
+    font-size: 18px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+.mission-hub-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+.mission-hub-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-primary, #2c2c28);
+}
+.mission-hub-hint {
+    font-size: 11.5px;
+    color: var(--ink-secondary, #6f7068);
+    line-height: 1.45;
+}
+.mission-hub-start {
+    margin-left: auto;
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 140ms;
+    flex: 0 0 auto;
+}
+.mission-hub-start:hover {
+    background: var(--accent-deep, #5a6354);
+}
+
+/* 완료 미션은 더 차분한 톤 */
+.mission-hub-item-done {
+    background: transparent;
+    padding: 6px 12px;
+    color: var(--ink-secondary, #6f7068);
+}
+.mission-hub-item-done .mission-hub-title {
+    font-weight: 500;
+    color: var(--ink-secondary, #6f7068);
+}
+.mission-hub-item-done .mission-hub-title::before {
+    content: '✓  ';
+    color: var(--accent, #6d7666);
+    font-weight: 600;
+}
+.mission-hub-date {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: var(--ink-tertiary, #a8a8a3);
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .mission-hub-modal {
+        padding: 18px 16px 14px;
+        max-height: 88vh;
+    }
+    .mission-hub-title {
+        font-size: 15px;
     }
 }
 

@@ -200,10 +200,11 @@ export function closeMissionGateModal() {
 
 /**
  * view-today 머리말의 미션 진행도 도트 블록 렌더.
- *   active 미션 (deferred 제외) 6개 도트로 그림. ●(완료) ○(미완료).
- *   hover/tap 시 미션 title tooltip.
+ *   active 미션 (deferred 제외) 10개 도트로 그림. ●(완료) ○(미완료).
+ *   클릭 시 미션 허브 모달 펼침 (완료/미완료 한 자리에서 회고).
  *
- *   모든 미션 클리어 시 블록 자동 hidden (졸업식 자리는 Q7 후속).
+ *   모든 미션 클리어 시 "수료" 카드로 자리 유지 (자동 숨김 X — S-E2 합의).
+ *   "다 한 거야? 처음부터 없던 거야?" 구분 가능하게.
  *
  * @param {string} containerId - mount 자리 id
  */
@@ -234,11 +235,7 @@ export async function renderMissionProgressBlock(containerId, dek, userId) {
         return moduleId && statusByModule[moduleId];
     }).length;
 
-    // 모든 미션 클리어 시 블록 숨김 (졸업식 자리는 별도)
-    if (completedCount >= activeIds.length) {
-        container.innerHTML = '';
-        return;
-    }
+    const allDone = completedCount >= activeIds.length;
 
     const dotsHtml = activeIds.map(mid => {
         const m = MISSION_CATALOG[mid];
@@ -248,12 +245,177 @@ export async function renderMissionProgressBlock(containerId, dek, userId) {
         return `<span class="${cls}" title="${escapeHtml(tip)}" data-mission-id="${mid}" aria-label="${escapeHtml(tip)}"></span>`;
     }).join('');
 
-    container.innerHTML = `
-      <div class="mission-progress-block" aria-label="튜토리얼 미션 진행도">
-        <span class="mission-progress-label">오늘의 미션 ${completedCount}/${activeIds.length}</span>
-        <span class="mission-progress-dots">${dotsHtml}</span>
+    if (allDone) {
+        // 수료 카드 — 모든 미션 클리어. 클릭 시 허브 모달로 회고.
+        container.innerHTML = `
+          <button type="button" class="mission-progress-block mission-progress-graduated" aria-label="튜토리얼 미션 회고 펼치기" id="mission-progress-clickable">
+            <span class="mission-progress-label">🎉 ${activeIds.length}/${activeIds.length} 미션 모두 끝났어요</span>
+            <span class="mission-progress-dots">${dotsHtml}</span>
+            <span class="mission-progress-cta">회고</span>
+          </button>
+        `;
+    } else {
+        container.innerHTML = `
+          <button type="button" class="mission-progress-block mission-progress-clickable" aria-label="튜토리얼 미션 ${completedCount}/${activeIds.length} — 전체 보기" id="mission-progress-clickable">
+            <span class="mission-progress-label">오늘의 미션 ${completedCount}/${activeIds.length}</span>
+            <span class="mission-progress-dots">${dotsHtml}</span>
+            <span class="mission-progress-cta">전체 보기</span>
+          </button>
+        `;
+    }
+
+    const clickable = container.querySelector('#mission-progress-clickable');
+    if (clickable) {
+        clickable.addEventListener('click', () => {
+            openMissionHubModal(dek, userId).catch(() => {});
+        });
+    }
+}
+
+/**
+ * 미션 허브 모달 — 완료/미완료 한 자리에서 회고.
+ *   완료 미션: 아이콘 + 제목 + 클리어 날짜 (tutorialState.completedAt)
+ *   미완료 미션: 아이콘 + 제목 + 힌트 + [시작] 버튼
+ *
+ *   (S-E2 2026-05-15) 사용자 명시: "내가 했던 것들을 확인할 자리 자체가 없다"
+ */
+export async function openMissionHubModal(dek, userId) {
+    if (!dek || !userId) return;
+    closeMissionHubModal();
+
+    let self;
+    try {
+        self = await getSelfCard(dek, userId);
+    } catch (_) { return; }
+    if (!self) return;
+
+    const tutorialState = self.tutorialState || {};
+    const missionStatus = self.missionStatus || {};
+    const activeIds = getActiveMissionIds();
+
+    // 완료/미완료 분리 + 완료된 건 completedAt 가져오기.
+    const done = [];
+    const todo = [];
+    for (const mid of activeIds) {
+        const m = MISSION_CATALOG[mid];
+        if (!m) continue;
+        const completedAt = tutorialState[mid]?.completedAt
+            || (missionStatus[m.moduleId]?.completed ? (missionStatus[m.moduleId].unlockedAt || null) : null);
+        if (completedAt || missionStatus[m.moduleId]?.completed) {
+            done.push({ missionId: mid, mission: m, completedAt });
+        } else {
+            todo.push({ missionId: mid, mission: m });
+        }
+    }
+    // 완료는 최신순, 미완료는 난이도 오름차순.
+    done.sort((a, b) => {
+        const ta = a.completedAt ? Date.parse(a.completedAt) || 0 : 0;
+        const tb = b.completedAt ? Date.parse(b.completedAt) || 0 : 0;
+        return tb - ta;
+    });
+    todo.sort((a, b) => {
+        const da = a.mission.difficulty ?? 99;
+        const db = b.mission.difficulty ?? 99;
+        return da - db;
+    });
+
+    const completedCount = done.length;
+    const total = activeIds.length;
+    const allDone = completedCount >= total;
+
+    const doneHtml = done.length
+        ? `
+          <div class="mission-hub-section">
+            <h3 class="mission-hub-section-title">완료한 미션 (${done.length})</h3>
+            <ul class="mission-hub-list mission-hub-list-done">
+              ${done.map(d => `
+                <li class="mission-hub-item mission-hub-item-done">
+                  <span class="mission-hub-icon" aria-hidden="true">${escapeHtml(d.mission.icon)}</span>
+                  <span class="mission-hub-title">${escapeHtml(d.mission.title)}</span>
+                  <span class="mission-hub-date">${formatKoreanDate(d.completedAt)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `
+        : '';
+
+    const todoHtml = todo.length
+        ? `
+          <div class="mission-hub-section">
+            <h3 class="mission-hub-section-title">남은 미션 (${todo.length}) — 가벼운 순</h3>
+            <ul class="mission-hub-list">
+              ${todo.map(t => `
+                <li class="mission-hub-item">
+                  <span class="mission-hub-icon" aria-hidden="true">${escapeHtml(t.mission.icon)}</span>
+                  <div class="mission-hub-body">
+                    <span class="mission-hub-title">${escapeHtml(t.mission.title)}</span>
+                    <span class="mission-hub-hint">${escapeHtml(t.mission.hint)}</span>
+                  </div>
+                  <button type="button" class="mission-hub-start" data-mission-id="${escapeHtml(t.missionId)}">시작</button>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `
+        : '';
+
+    const graduatedHtml = allDone
+        ? `<p class="mission-hub-graduated">🎉 모든 미션을 끝냈어요. 천천히 다시 펼쳐봐도 좋아요.</p>`
+        : '';
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'mission-hub-backdrop';
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-labelledby', 'mission-hub-title');
+
+    backdrop.innerHTML = `
+      <div class="mission-hub-modal">
+        <div class="mission-hub-head">
+          <h2 class="mission-hub-title" id="mission-hub-title">튜토리얼 미션 ${completedCount}/${total}</h2>
+          <button type="button" class="mission-hub-close" aria-label="닫기" data-action="close">×</button>
+        </div>
+        ${graduatedHtml}
+        ${todoHtml}
+        ${doneHtml}
+        ${(!done.length && !todo.length) ? '<p class="mission-hub-empty">불러올 미션이 없어요.</p>' : ''}
       </div>
     `;
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeMissionHubModal();
+    });
+    backdrop.querySelector('[data-action="close"]').addEventListener('click', closeMissionHubModal);
+    backdrop.querySelectorAll('[data-mission-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mid = btn.getAttribute('data-mission-id');
+            closeMissionHubModal();
+            routeToMission(mid);
+        });
+    });
+
+    document.body.appendChild(backdrop);
+    backdrop._escHandler = (e) => { if (e.key === 'Escape') closeMissionHubModal(); };
+    document.addEventListener('keydown', backdrop._escHandler);
+}
+
+export function closeMissionHubModal() {
+    const existing = document.querySelector('.mission-hub-backdrop');
+    if (!existing) return;
+    if (existing._escHandler) document.removeEventListener('keydown', existing._escHandler);
+    existing.remove();
+}
+
+function formatKoreanDate(iso) {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        return `${m}월 ${day}일`;
+    } catch (_) { return ''; }
 }
 
 /**
