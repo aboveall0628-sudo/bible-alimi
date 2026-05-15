@@ -103,9 +103,12 @@ function setBootStatus(text, level = 'info') {
 }
 
 function showMainContent() {
+    // (S-E4 2026-05-15) main-layout 통째로 toggle — 사이드바·메인 깜빡임 방지.
+    document.getElementById('main-layout')?.classList.remove('hidden');
     document.getElementById('main-content')?.classList.remove('hidden');
 }
 function hideMainContent() {
+    document.getElementById('main-layout')?.classList.add('hidden');
     document.getElementById('main-content')?.classList.add('hidden');
 }
 
@@ -455,6 +458,17 @@ async function onVaultUnlocked(dek) {
         .catch(e => console.warn('auto reminders failed:', e));
 
     showToast('🔓 안전하게 열렸어요');
+
+    // (S-E4 2026-05-15) 잠금 해제 직후 미션 게이트 UI 첫 렌더 — 사이드바 잠금 톤·
+    //   도트 진행도·추천 카드·사이드바 풋터 모두. switchView 를 거치지 않아도
+    //   첫 화면(today)에서 미션 자리가 바로 보이게.
+    refreshMissionGateUI(
+        dek,
+        currentUserId,
+        'mission-progress-block',
+        'mission-recommend-cards',
+        'sidebar-mission-footer'
+    ).catch(e => console.warn('[missionGate] initial refresh failed:', e?.message || e));
 
     // 단축키 시스템 — 잠금 해제 후 한 번만 초기화 (router 가 중복 호출 가드)
     try { initShortcuts(); } catch (e) { console.warn('[shortcuts] init failed:', e); }

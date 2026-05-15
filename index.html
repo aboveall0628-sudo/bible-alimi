@@ -79,7 +79,8 @@
         },10000);
     </script>
 
-    <div class="main-layout">
+    <!-- (S-E4 2026-05-15) main-layout 처음엔 hidden — 잠금화면 뜨기 전 사이드바·메인이 잠깐 깜빡이던 문제 해소. showMainContent 가 함께 visible. -->
+    <div class="main-layout hidden" id="main-layout">
         <!-- 모바일 메뉴 -->
         <button id="menu-toggle" class="menu-toggle-btn" aria-label="메뉴 열기"><i data-lucide="menu"></i></button>
 
