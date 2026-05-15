@@ -7819,6 +7819,191 @@ button.mission-progress-block:hover {
     margin-top: 0.25rem;
 }
 
+/* ─────────────────────────────────────────────────────────
+   (S-E7 2026-05-15) [6/9] 묵상 트랙 step — 큐티 수준별 추천
+   큰 카드 1 + 작은 옵션 카드 + 한 권 통독 책 picker
+   ───────────────────────────────────────────────────────── */
+.onboarding-card-track .onboarding-track-primary {
+    margin-bottom: 1rem;
+}
+.onboarding-track-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface-elev, #f4f1ea);
+    border: 1.5px solid transparent;
+    border-radius: 0.7rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 160ms, background 160ms, transform 120ms;
+    font-family: inherit;
+    width: 100%;
+    position: relative;
+}
+.onboarding-track-card:hover {
+    border-color: var(--accent-soft, #b5bcae);
+    transform: translateY(-1px);
+}
+.onboarding-track-card.selected {
+    border-color: var(--accent, #6d7666);
+    background: var(--accent-bg, #eef0ea);
+}
+.onboarding-track-card-primary {
+    padding: 1.1rem 1.2rem;
+    background: var(--surface, #fbfaf6);
+    border-color: var(--accent-soft, #b5bcae);
+}
+.onboarding-track-card-primary.selected {
+    border-color: var(--accent, #6d7666);
+    background: var(--accent-bg, #eef0ea);
+}
+.onboarding-track-badge {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+    border-radius: 0.4rem;
+    letter-spacing: 0.04em;
+}
+.onboarding-track-icon {
+    font-size: 1.4em;
+    line-height: 1;
+}
+.onboarding-track-card-primary .onboarding-track-icon {
+    font-size: 1.7em;
+}
+.onboarding-track-label {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--ink-primary, #2a2a26);
+}
+.onboarding-track-card-primary .onboarding-track-label {
+    font-size: 1.1em;
+}
+.onboarding-track-desc {
+    font-size: 0.82em;
+    color: var(--ink-secondary, #6f7068);
+    line-height: 1.45;
+    word-break: keep-all;
+}
+.onboarding-track-others-head {
+    margin: 0.5rem 0;
+    font-size: 0.85em;
+    color: var(--ink-tertiary, #a8a8a3);
+}
+.onboarding-track-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.onboarding-track-card-highlight {
+    border-color: var(--accent-soft, #b5bcae);
+    background: var(--surface, #fbfaf6);
+}
+
+/* ─ 한 권 통독 책 picker ─ */
+.onboarding-book-picker {
+    margin-top: 1rem;
+    padding: 0.9rem;
+    background: var(--surface-elev, #f4f1ea);
+    border-radius: 0.7rem;
+    animation: cardLift 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.onboarding-book-picker-head {
+    margin: 0 0 0.6rem;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--ink-secondary, #6f7068);
+}
+.onboarding-book-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+}
+.onboarding-book-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.6rem 0.4rem;
+    background: var(--surface, #fbfaf6);
+    border: 1.5px solid transparent;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: border-color 140ms, transform 120ms;
+    font-family: inherit;
+}
+.onboarding-book-card:hover { border-color: var(--accent-soft, #b5bcae); }
+.onboarding-book-card.selected {
+    border-color: var(--accent, #6d7666);
+    background: var(--accent-bg, #eef0ea);
+}
+.onboarding-book-icon { font-size: 1.2em; line-height: 1; }
+.onboarding-book-label {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--ink-primary, #2a2a26);
+}
+.onboarding-book-desc {
+    font-size: 0.72em;
+    color: var(--ink-tertiary, #a8a8a3);
+}
+
+/* ─────────────────────────────────────────────────────────
+   (S-E7) [9/9] 본문 카드 — 클릭해서 에디터로 옮기기
+   ───────────────────────────────────────────────────────── */
+.onboarding-verse-card-interactive {
+    cursor: default;
+}
+.onboarding-verse-insert-btn {
+    margin-top: 0.6rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+    border: 0;
+    border-radius: 0.5rem;
+    font-size: 0.88em;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 140ms, transform 120ms;
+    align-self: flex-start;
+}
+.onboarding-verse-insert-btn:hover {
+    background: var(--accent-deep, #5a6354);
+    transform: translateY(-1px);
+}
+.onboarding-verse-insert-btn.inserted {
+    background: var(--surface-elev, #f4f1ea);
+    color: var(--accent, #6d7666);
+    cursor: default;
+}
+.onboarding-verse-insert-btn.inserted:hover {
+    transform: none;
+}
+.onboarding-meditation-textarea {
+    font-family: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;
+    font-size: 0.88em;
+    line-height: 1.6;
+    background: var(--surface-elev, #f4f1ea);
+}
+
+/* 모바일 */
+@media (max-width: 640px) {
+    .onboarding-track-options {
+        grid-template-columns: 1fr;
+    }
+    .onboarding-book-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 /* ─ 도트 시연 마지막 카드 ─ */
 .onboarding-card-demo {
     text-align: center;
@@ -8490,6 +8675,229 @@ button.mission-progress-block:hover {
         border-radius: 0;
         max-height: 100vh;
         overflow-y: auto;
+    }
+}
+
+/* ─── CS AI 트랙 §9 — SWAN 풍선 피드백 (2026-05-15) ──────────────── */
+.swan-balloon {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent, #1a1814);
+    color: var(--bg-card, #fff);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    z-index: 90;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.swan-balloon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+.swan-balloon:active {
+    transform: translateY(0);
+}
+.swan-balloon i {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.7;
+}
+
+.swan-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 24px;
+}
+.swan-overlay.hidden { display: none; }
+
+.swan-modal {
+    width: 100%;
+    max-width: 420px;
+    height: min(640px, 80vh);
+    background: var(--bg-card, #fff);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.swan-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
+    background: var(--bg-card, #fff);
+}
+.swan-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink-primary, #1a1814);
+}
+.swan-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dot-green, #6BBF7B);
+    display: inline-block;
+}
+.swan-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--ink-secondary, #6b6863);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.swan-close-btn:hover {
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+}
+.swan-close-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+.swan-turns {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    margin: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-soft, rgba(0,0,0,0.02));
+}
+.swan-turn {
+    max-width: 80%;
+    padding: 9px 13px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+.swan-turn-swan {
+    align-self: flex-start;
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+    border-bottom-left-radius: 4px;
+    border: 1px solid var(--border, rgba(0,0,0,0.06));
+}
+.swan-turn-user {
+    align-self: flex-end;
+    background: var(--accent, #1a1814);
+    color: var(--bg-card, #fff);
+    border-bottom-right-radius: 4px;
+}
+
+.swan-thinking {
+    padding: 12px 14px;
+}
+.swan-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+.swan-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ink-tertiary, #9c9893);
+    animation: swan-dot-bounce 1.2s infinite ease-in-out;
+}
+.swan-dots span:nth-child(2) { animation-delay: 0.15s; }
+.swan-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes swan-dot-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+    30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+.swan-footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border, rgba(0,0,0,0.08));
+    background: var(--bg-card, #fff);
+    align-items: flex-end;
+}
+.swan-input {
+    flex: 1;
+    resize: none;
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.45;
+    background: var(--bg-card, #fff);
+    color: var(--ink-primary, #1a1814);
+    max-height: 120px;
+}
+.swan-input:focus {
+    outline: none;
+    border-color: var(--accent, #1a1814);
+}
+.swan-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.swan-send-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    background: var(--accent, #1a1814);
+    color: var(--bg-card, #fff);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: stretch;
+}
+.swan-send-btn:hover:not(:disabled) {
+    opacity: 0.9;
+}
+.swan-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .swan-balloon {
+        right: 16px;
+        bottom: 16px;
+        width: 48px;
+        height: 48px;
+    }
+    .swan-overlay {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+    }
+    .swan-modal {
+        max-width: 100%;
+        height: 100%;
+        border-radius: 0;
     }
 }
 

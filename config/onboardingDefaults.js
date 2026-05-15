@@ -101,3 +101,115 @@ export const DEFAULT_FIRST_MEDITATION = FIRST_MEDITATION_BY_LEVEL.basic;
 export function firstMeditationForLevel(levelId) {
     return FIRST_MEDITATION_BY_LEVEL[levelId] || DEFAULT_FIRST_MEDITATION;
 }
+
+/* ─────────────────────────────────────────────────────────
+   (S-E7 2026-05-15) 묵상 트랙 추천 — 온보딩 [6/9] step
+   사용자 명시: "자기가 묵상하고 싶은 성경을 고를 수 있어야 해"
+   ───────────────────────────────────────────────────────── */
+
+/**
+ * 큐티 수준별 추천 트랙.
+ *   primary = 큰 카드 1장 (추천 강조)
+ *   options = 작은 카드들 (대안)
+ *
+ *   id 매핑:
+ *     - 'essentials100'        → DEVOTIONAL_TRACKS.essentials100
+ *     - 'preset-4parts'        → scriptureSettings PRESETS 4파트 통독
+ *     - 'preset-newtestament'  → scriptureSettings PRESETS 신약 중심
+ *     - 'one-book'             → 책 1권 통독 (사용자 정의, addUserPlan)
+ *     - 'custom'               → 자기 만들기 (advanced 강조)
+ */
+export const RECOMMENDED_TRACKS_BY_LEVEL = {
+    basic: {
+        primary: {
+            id: 'essentials100',
+            icon: '🌱',
+            label: '100구절 입문',
+            desc: '창조 → 죄 → 구원 → 종말까지 18주제 100절. 천천히 핵심부터.',
+        },
+        options: [
+            { id: 'one-book',     icon: '📖', label: '성경 한 권 통독', desc: '책 한 권을 정해서 처음부터 끝까지.' },
+            { id: 'preset-4parts', icon: '📜', label: '4파트 통독',     desc: '시가·역사·예언·신약 4파트.' },
+        ],
+    },
+    intermediate: {
+        primary: {
+            id: 'one-book',
+            icon: '📖',
+            label: '성경 한 권 통독',
+            desc: '책 한 권을 정해서 처음부터 끝까지 깊이 보기.',
+        },
+        options: [
+            { id: 'essentials100',       icon: '🌱', label: '100구절 입문', desc: '핵심 100절 빠르게.' },
+            { id: 'preset-4parts',       icon: '📜', label: '4파트 통독',   desc: '시가·역사·예언·신약.' },
+            { id: 'preset-newtestament', icon: '✝', label: '신약 중심',    desc: '신약 27권.' },
+        ],
+    },
+    advanced: {
+        primary: {
+            id: 'preset-4parts',
+            icon: '📜',
+            label: '매일성경 4파트 통독',
+            desc: '하루 4장씩 1년 1독. 시가·역사·예언·신약.',
+        },
+        options: [
+            { id: 'preset-newtestament', icon: '✝', label: '신약 중심', desc: '신약 27권.' },
+            { id: 'one-book',            icon: '📖', label: '한 권 통독', desc: '책 1권 깊이.' },
+            { id: 'custom',              icon: '🛠', label: '직접 만들기', desc: '내가 원하는 책 조합으로.', highlight: true },
+        ],
+    },
+};
+
+/**
+ * "한 권 통독" 선택 시 빠른 책 추천 5종.
+ *   사용자가 책 1권 정해 통독하는 자리. 너무 길지 않거나 묵상하기 좋은 책 위주.
+ *   abbr 는 scripture.js BIBLE_METADATA 안 약자와 동일.
+ *
+ *   각 항목은 addUserPlan({name, books:[{abbr, chapters:[...]}]}) 형태로 박힘.
+ */
+export const ONE_BOOK_QUICK_PICKS = [
+    { abbr: '시', label: '시편',     desc: '150편', chapters: 150 },
+    { abbr: '요', label: '요한복음', desc: '21장',  chapters: 21 },
+    { abbr: '빌', label: '빌립보서', desc: '4장 (짧음)',  chapters: 4 },
+    { abbr: '잠', label: '잠언',     desc: '31장',  chapters: 31 },
+    { abbr: '창', label: '창세기',   desc: '50장',  chapters: 50 },
+];
+
+/**
+ * 트랙 id 별 첫 묵상 본문.
+ *   온보딩 [9/9] 에서 사용자가 고른 트랙·책에 맞춰 자동 추천.
+ *
+ * @param {string} trackId - 'essentials100' | 'preset-4parts' | 'preset-newtestament' | 'one-book:창' 등
+ * @param {string} [levelId] - fallback 시 큐티 수준 기반 디폴트
+ */
+export function firstMeditationForTrack(trackId, levelId) {
+    if (!trackId) return firstMeditationForLevel(levelId);
+
+    if (trackId === 'essentials100') {
+        return FIRST_MEDITATION_BY_LEVEL.basic; // 창세기 1:1
+    }
+    if (trackId === 'preset-4parts' || trackId === 'preset-newtestament') {
+        // 신약 중심·4파트 통독 → 요한복음 1:1 (말씀의 첫 구절)
+        return {
+            ref: '요한복음 1:1',
+            bookKey: '요',
+            chapter: 1,
+            verse: 1,
+            text: '태초에 말씀이 계시니라 이 말씀이 하나님과 함께 계셨으니 이 말씀은 곧 하나님이시니라',
+        };
+    }
+    if (trackId.startsWith('one-book:')) {
+        // 'one-book:창' 같은 형태 — 그 책 1:1 자동
+        const abbr = trackId.slice('one-book:'.length);
+        const firstVerseByBook = {
+            '시': { ref: '시편 1:1', bookKey: '시', chapter: 1, verse: 1, text: '복 있는 사람은 악인들의 꾀를 따르지 아니하며 죄인들의 길에 서지 아니하며 오만한 자들의 자리에 앉지 아니하고' },
+            '요': { ref: '요한복음 1:1', bookKey: '요', chapter: 1, verse: 1, text: '태초에 말씀이 계시니라 이 말씀이 하나님과 함께 계셨으니 이 말씀은 곧 하나님이시니라' },
+            '빌': { ref: '빌립보서 1:1', bookKey: '빌', chapter: 1, verse: 1, text: '그리스도 예수의 종 바울과 디모데는 그리스도 예수 안에서 빌립보에 사는 모든 성도와 또한 감독들과 집사들에게 편지하노니' },
+            '잠': { ref: '잠언 1:1', bookKey: '잠', chapter: 1, verse: 1, text: '다윗의 아들 이스라엘 왕 솔로몬의 잠언이라' },
+            '창': FIRST_MEDITATION_BY_LEVEL.basic,
+        };
+        return firstVerseByBook[abbr] || FIRST_MEDITATION_BY_LEVEL.basic;
+    }
+    // fallback
+    return firstMeditationForLevel(levelId);
+}

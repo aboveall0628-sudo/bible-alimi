@@ -3,15 +3,16 @@
  *
  * (본인 프로필 재기획 트랙 2026-05-14 S-D / 2026-05-15 S-D 후속 대확장)
  *
- * 최종 흐름 (2026-05-15 합의):
- *   [1/8] 이름
- *   [2/8] 별명
- *   [3/8] 생일      → 나이대 어체 자동 적응
- *   [4/8] 큐티 수준  🌱🌿🌳
- *   [5/8] 성경 번역본 (개역개정 디폴트, 다른 번역본은 "준비 중")
- *   [6/8] 폰트 크기 (시스템 + 성경 본문 별도 슬라이더, 즉시 미리보기)
- *   [7/8] 기본 원칙 (추천 1개 자동 채움 + 수정 가능)
- *   [8/8] 첫 묵상 한 절 (큐티 수준 따라 추천 본문 1절 + 한 줄 적기)
+ * 최종 흐름 (2026-05-15 S-E7 갱신):
+ *   [1/9] 이름
+ *   [2/9] 별명
+ *   [3/9] 생일      → 나이대 어체 자동 적응
+ *   [4/9] 큐티 수준  🌱🌿🌳
+ *   [5/9] 성경 번역본 (개역개정 디폴트, 다른 번역본은 "준비 중")
+ *   [6/9] 묵상 트랙 (S-E7 신규) — 큐티 수준별 추천 + 한 권 통독·100구절·4파트·신약 등
+ *   [7/9] 폰트 크기 (시스템 + 성경 본문 별도 슬라이더, 즉시 미리보기)
+ *   [8/9] 기본 원칙 (추천 1개 자동 채움 + 수정 가능)
+ *   [9/9] 첫 묵상 한 절 (선택한 트랙·책 따라 추천 본문 + 클릭으로 에디터에 옮기기 + 한 줄)
  *     ↓
  *   [마침 카드]
  *     · 방금 완료 항목 요약
@@ -33,7 +34,11 @@ import { DEFAULT_TRACK_BY_LEVEL } from '../config/devotionalTracks.js';
 import {
     BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION,
     RECOMMENDED_PRINCIPLE, firstMeditationForLevel,
+    RECOMMENDED_TRACKS_BY_LEVEL, ONE_BOOK_QUICK_PICKS, firstMeditationForTrack,
 } from '../config/onboardingDefaults.js';
+import {
+    setActivePlanId, addUserPlan, getActivePlan,
+} from './scriptureSettings.js';
 import {
     SYSTEM_FONT_SIZES, getSystemFontScale, setSystemFontScale, applySystemFontScale,
 } from '../config/systemFont.js';
@@ -45,7 +50,7 @@ import { savePrinciple } from '../data/principlesRepo.js';
 import { saveRecord, getRecord } from '../data/baseRepo.js';
 import { getActiveMissionIds, MISSION_CATALOG } from '../config/missionCatalog.js';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const CUTI_LEVELS = [
     {
@@ -60,7 +65,7 @@ const CUTI_LEVELS = [
         icon: '🌿',
         title: '가끔 해요',
         sub: '평소 단락 단위로 묵상하고 있어요.',
-        recommendation: '자유 본문 선택',
+        recommendation: '성경 한 권 통독',
     },
     {
         id: 'advanced',
@@ -111,10 +116,15 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
             // 원칙 — 추천 디폴트로 미리 채움
             principleTitle: RECOMMENDED_PRINCIPLE.title,
             principleBody: RECOMMENDED_PRINCIPLE.body,
-            // 첫 묵상 — step 8 에서 큐티 수준 따라 자동 셋업
+            // (S-E7) 묵상 트랙 — step 6 에서 큐티 수준 따라 추천. 'one-book' 선택 시 oneBookAbbr 채워짐.
+            selectedTrack: null,         // 'essentials100' | 'preset-4parts' | 'preset-newtestament' | 'one-book' | 'custom'
+            oneBookAbbr: null,           // 'one-book' 선택 시 책 약자 ('시'·'요'·'빌'·'잠'·'창')
+            // 첫 묵상 — step 9 에서 트랙 따라 자동 셋업
             meditationNote: '',
-            // step 8 시점 사용자가 본 본문 (저장 시 함께 박힘)
+            // step 9 시점 사용자가 본 본문 (저장 시 함께 박힘)
             meditationScripture: null,
+            // 본문 카드 [옮기기] 눌렀는지 — 에디터에 마크다운 박혔는지
+            verseInsertedIntoNote: false,
         },
         snapshots: {
             initialSystemFont,
@@ -182,9 +192,10 @@ function renderStep(step) {
     else if (step === 3) renderBirthdayStep(body);
     else if (step === 4) renderCutiStep(body);
     else if (step === 5) renderBibleVersionStep(body);
-    else if (step === 6) renderFontStep(body);
-    else if (step === 7) renderPrincipleStep(body);
-    else if (step === 8) renderMeditationStep(body);
+    else if (step === 6) renderTrackStep(body);       // (S-E7) 신규 — 묵상 트랙
+    else if (step === 7) renderFontStep(body);
+    else if (step === 8) renderPrincipleStep(body);
+    else if (step === 9) renderMeditationStep(body);
     else if (step === 99) renderFinishCard(body);
 }
 
@@ -363,7 +374,99 @@ function renderBibleVersionStep(body) {
     document.getElementById('onboarding-next').addEventListener('click', () => renderStep(6));
 }
 
-// ─── Step 6: 폰트 크기 ────────────────────────────────────
+// ─── Step 6: 묵상 트랙 (S-E7 신규) ────────────────────────
+function renderTrackStep(body) {
+    const level = _state.draft.devotionalLevel || 'basic';
+    const rec = RECOMMENDED_TRACKS_BY_LEVEL[level] || RECOMMENDED_TRACKS_BY_LEVEL.basic;
+
+    // 'one-book' 이미 선택된 상태에서 다시 들어오면 책 picker 그대로 노출.
+    const showBookPicker = _state.draft.selectedTrack === 'one-book' && !_state.draft.oneBookAbbr;
+
+    body.innerHTML = `
+      <div class="onboarding-card onboarding-card-track">
+        <h2 class="onboarding-title">어디서부터 묵상하실래요?</h2>
+        <p class="onboarding-sub">선택하신 수준에 맞춘 추천이에요. 마음에 닿는 자리로 골라 보세요. 나중에 언제든 바꿀 수 있어요.</p>
+
+        <div class="onboarding-track-primary">
+          <button type="button" class="onboarding-track-card onboarding-track-card-primary${_state.draft.selectedTrack === rec.primary.id ? ' selected' : ''}"
+                  data-track="${escapeAttr(rec.primary.id)}">
+            <span class="onboarding-track-badge">추천</span>
+            <span class="onboarding-track-icon" aria-hidden="true">${escapeHtml(rec.primary.icon)}</span>
+            <span class="onboarding-track-label">${escapeHtml(rec.primary.label)}</span>
+            <span class="onboarding-track-desc">${escapeHtml(rec.primary.desc)}</span>
+          </button>
+        </div>
+
+        <p class="onboarding-track-others-head">다른 결도 둘러볼래요?</p>
+        <div class="onboarding-track-options">
+          ${rec.options.map(opt => `
+            <button type="button" class="onboarding-track-card${_state.draft.selectedTrack === opt.id ? ' selected' : ''}${opt.highlight ? ' onboarding-track-card-highlight' : ''}"
+                    data-track="${escapeAttr(opt.id)}">
+              <span class="onboarding-track-icon" aria-hidden="true">${escapeHtml(opt.icon)}</span>
+              <span class="onboarding-track-label">${escapeHtml(opt.label)}</span>
+              <span class="onboarding-track-desc">${escapeHtml(opt.desc)}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <div id="onboarding-book-picker" class="onboarding-book-picker"${showBookPicker ? '' : ' hidden'}>
+          <p class="onboarding-book-picker-head">어떤 책을 통독하실까요?</p>
+          <div class="onboarding-book-grid">
+            ${ONE_BOOK_QUICK_PICKS.map(b => `
+              <button type="button" class="onboarding-book-card${_state.draft.oneBookAbbr === b.abbr ? ' selected' : ''}"
+                      data-book-abbr="${escapeAttr(b.abbr)}">
+                <span class="onboarding-book-icon" aria-hidden="true">📖</span>
+                <span class="onboarding-book-label">${escapeHtml(b.label)}</span>
+                <span class="onboarding-book-desc">${escapeHtml(b.desc)}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="onboarding-actions onboarding-actions-split">
+          <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
+          <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-next" disabled>다음</button>
+        </div>
+      </div>
+    `;
+
+    const nextBtn = document.getElementById('onboarding-next');
+    const picker = document.getElementById('onboarding-book-picker');
+
+    const updateBtn = () => {
+        const track = _state.draft.selectedTrack;
+        if (!track) { nextBtn.disabled = true; return; }
+        if (track === 'one-book' && !_state.draft.oneBookAbbr) { nextBtn.disabled = true; return; }
+        nextBtn.disabled = false;
+    };
+    updateBtn();
+
+    document.querySelectorAll('.onboarding-track-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const track = btn.dataset.track;
+            _state.draft.selectedTrack = track;
+            // 다른 트랙 누르면 책 선택 초기화
+            if (track !== 'one-book') _state.draft.oneBookAbbr = null;
+            document.querySelectorAll('.onboarding-track-card').forEach(b => b.classList.toggle('selected', b === btn));
+            // 'one-book' 누르면 책 picker 노출
+            if (picker) picker.hidden = track !== 'one-book';
+            updateBtn();
+        });
+    });
+
+    document.querySelectorAll('.onboarding-book-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _state.draft.oneBookAbbr = btn.dataset.bookAbbr;
+            document.querySelectorAll('.onboarding-book-card').forEach(b => b.classList.toggle('selected', b === btn));
+            updateBtn();
+        });
+    });
+
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(5));
+    nextBtn.addEventListener('click', () => renderStep(7));
+}
+
+// ─── Step 7: 폰트 크기 ────────────────────────────────────
 function renderFontStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
@@ -426,11 +529,11 @@ function renderFontStep(body) {
             });
         });
     });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(5));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(7));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(6));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(8));
 }
 
-// ─── Step 7: 기본 원칙 ────────────────────────────────────
+// ─── Step 8: 기본 원칙 ────────────────────────────────────
 function renderPrincipleStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
@@ -457,33 +560,42 @@ function renderPrincipleStep(body) {
     const bodyEl = document.getElementById('onboarding-principle-body');
     titleEl.addEventListener('input', () => { _state.draft.principleTitle = titleEl.value; });
     bodyEl.addEventListener('input', () => { _state.draft.principleBody = bodyEl.value; });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(6));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(8));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(9));
 }
 
-// ─── Step 8: 첫 묵상 한 절 ────────────────────────────────
+// ─── Step 9: 첫 묵상 한 절 + 본문 클릭 → 에디터 (S-E7) ────
 function renderMeditationStep(body) {
     const tone = getTone();
-    const passage = firstMeditationForLevel(_state.draft.devotionalLevel);
+    // (S-E7) 선택한 트랙·책 따라 첫 본문 자동 추천.
+    const trackKey = _state.draft.selectedTrack === 'one-book' && _state.draft.oneBookAbbr
+        ? `one-book:${_state.draft.oneBookAbbr}`
+        : _state.draft.selectedTrack;
+    const passage = firstMeditationForTrack(trackKey, _state.draft.devotionalLevel);
     _state.draft.meditationScripture = passage;
+    _state.draft.verseInsertedIntoNote = false;
+
     body.innerHTML = `
       <div class="onboarding-card onboarding-card-meditation">
         <h2 class="onboarding-title">${escapeHtml(tone.firstDotInvite || '오늘 한 절 만나볼까요?')}</h2>
-        <p class="onboarding-sub">선택하신 큐티 수준에 맞는 추천 본문이에요. 한 줄 적어 보시는 것만으로 첫 묵상이 자리잡아요.</p>
+        <p class="onboarding-sub">실제 묵상하는 것처럼 한 번 해볼까요. 본문을 노트로 옮기고, 떠오른 한 줄을 적어 보세요.</p>
 
-        <div class="onboarding-verse-card">
-          <span class="onboarding-verse-ref">${escapeHtml(passage.ref)}</span>
+        <div class="onboarding-verse-card onboarding-verse-card-interactive" id="onboarding-verse-card">
+          <span class="onboarding-verse-ref">📖 ${escapeHtml(passage.ref)}</span>
           <p class="onboarding-verse-text" id="onboarding-verse-text">${escapeHtml(passage.text)}</p>
+          <button type="button" class="onboarding-verse-insert-btn" id="onboarding-verse-insert">
+            📋 묵상 노트로 옮기기
+          </button>
         </div>
 
         <div id="onboarding-existing-meditation-notice" class="onboarding-existing-notice" hidden>
           <p>오늘 이미 묵상 적으신 게 있어요. 여기 적으시는 한 줄은 <strong>기존 묵상 끝에 추가</strong>돼요. 덮어쓰지 않아요.</p>
         </div>
 
-        <label class="onboarding-label" for="onboarding-meditation-note">이 한 절을 보며 떠오른 한 줄</label>
-        <textarea class="onboarding-textarea" id="onboarding-meditation-note"
-                  rows="3" maxlength="400"
-                  placeholder="짧은 감상·기도·결단·궁금증 — 무엇이든 한 줄이면 충분해요.">${escapeHtml(_state.draft.meditationNote)}</textarea>
+        <label class="onboarding-label" for="onboarding-meditation-note">📝 묵상 노트</label>
+        <textarea class="onboarding-textarea onboarding-meditation-textarea" id="onboarding-meditation-note"
+                  rows="6" maxlength="800"
+                  placeholder="위 [묵상 노트로 옮기기]를 누르면 본문이 여기로 들어와요. 그 아래에 떠오른 한 줄을 적어 보세요.">${escapeHtml(_state.draft.meditationNote)}</textarea>
 
         <div class="onboarding-actions onboarding-actions-split">
           <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
@@ -494,11 +606,39 @@ function renderMeditationStep(body) {
         </div>
       </div>
     `;
+
     const noteEl = document.getElementById('onboarding-meditation-note');
+    const insertBtn = document.getElementById('onboarding-verse-insert');
+
     noteEl.addEventListener('input', () => { _state.draft.meditationNote = noteEl.value; });
+
+    // (S-E7) "묵상 노트로 옮기기" — 본문 마크다운 블록을 에디터에 박음.
+    //   실제 묵상 모듈의 applyScriptureToNote 패턴과 같은 결로 첫 진입 시 자동 자리.
+    insertBtn.addEventListener('click', () => {
+        const block = `### ${passage.ref}\n${passage.text}\n\n`;
+        const current = noteEl.value;
+        // 이미 본문이 있으면 중복 X — 끝에 한 줄 띄움.
+        if (current.includes(passage.text)) {
+            noteEl.focus();
+            // 커서를 끝으로
+            noteEl.setSelectionRange(noteEl.value.length, noteEl.value.length);
+            return;
+        }
+        // 빈 노트면 본문이 처음, 아니면 끝에 append
+        noteEl.value = current.trim() ? `${current.trimEnd()}\n\n${block}` : block;
+        _state.draft.meditationNote = noteEl.value;
+        _state.draft.verseInsertedIntoNote = true;
+        // 버튼 상태 — 옮긴 후 시각 갱신
+        insertBtn.classList.add('inserted');
+        insertBtn.textContent = '✓ 노트로 옮겼어요';
+        // 사용자 한 줄 적기 자리로 포커스
+        noteEl.focus();
+        noteEl.setSelectionRange(noteEl.value.length, noteEl.value.length);
+    });
+
     // 오늘 묵상 이미 있는지 비동기 체크 — 있으면 안내 카드 노출, 합치기 모드로 작동
     checkExistingMeditation().catch(() => {});
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
     document.getElementById('onboarding-skip').addEventListener('click', async () => {
         _state.draft.meditationNote = '';
         await persistAll();
@@ -622,6 +762,31 @@ async function persistAll() {
         setSystemFontScale(draft.systemFont);
         setScriptureFontSize(draft.scriptureFont);
     } catch (e) { console.warn('[onboarding] font persist failed:', e?.message || e); }
+
+    // 2.5) (S-E7) 묵상 트랙 — scriptureSettings localStorage 에 활성 계획 박음.
+    //      'one-book' 은 addUserPlan 으로 사용자 정의 계획을 만든 뒤 활성화.
+    try {
+        const track = draft.selectedTrack;
+        if (track === 'essentials100') {
+            // essentials100 은 별도 트랙 카탈로그. scriptureSettings PRESETS 안에는 없음 —
+            //   해당 트랙은 큐티 수준별 추천 본문 흐름만 따로 살림. activePlanId 는 디폴트(preset-4parts) 유지.
+            //   추후 essentials100 을 PRESET 으로 박는 트랙 별도.
+        } else if (track === 'preset-4parts' || track === 'preset-newtestament') {
+            setActivePlanId(track);
+        } else if (track === 'one-book' && draft.oneBookAbbr) {
+            const pick = ONE_BOOK_QUICK_PICKS.find(b => b.abbr === draft.oneBookAbbr);
+            if (pick) {
+                // scriptureSettings.addUserPlan 시그니처: books = [[abbr, full, chapters], ...]
+                //   addUserPlan 안에서 자동으로 activePlanId 갱신 — setActivePlanId 별도 호출 X.
+                addUserPlan({
+                    name: `${pick.label} 통독`,
+                    books: [[pick.abbr, pick.label, pick.chapters]],
+                });
+            }
+        } else if (track === 'custom') {
+            // 사용자가 추후 설정에서 직접 만들 자리. 디폴트 유지.
+        }
+    } catch (e) { console.warn('[onboarding] track persist failed:', e?.message || e); }
 
     // 3) 원칙 — 제목·본문 비어있지 않으면 savePrinciple
     const pTitle = (draft.principleTitle || '').trim();
