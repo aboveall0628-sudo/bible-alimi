@@ -80,6 +80,11 @@ export function renderSettingsView(userId, userEmail) {
     refreshEmailRecoveryStatus().catch(err => {
         console.warn('[settings] email recovery status refresh failed:', err);
     });
+    // (히든 미션 트랙 v1 2026-05-15) 설정 카드 비동기 갱신.
+    //   잠금해제 조건 만족 시 활성 카드로 자동 전환.
+    refreshHiddenMissionCard().catch(err => {
+        console.warn('[settings] hidden mission card refresh failed:', err);
+    });
 }
 
 /**
@@ -497,6 +502,114 @@ function injectExtraSections() {
         </div>
     `;
     container.appendChild(economyCard);
+
+    // (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 진입 자리.
+    //   사용자 명시 "설정 많이 안볼테니까 거기에 작은 카드 하나 넣고, 만렙 이후 콘텐츠 하나".
+    //   잠금 상태: ✨ 별 + 작은 텍스트만 (이스터에그 톤).
+    //   잠금해제 후: ✨ 별 + 활성 미션 카드 (클릭 → 모달).
+    //   비동기 데이터 필요 → 초기 렌더는 잠금 상태 가정, refreshHiddenMissionCard 에서 자동 갱신.
+    const hiddenMissionCard = document.createElement('div');
+    hiddenMissionCard.id = 'settings-hidden-mission-card';
+    hiddenMissionCard.className = 'card-section hm-settings-card hm-locked';
+    hiddenMissionCard.innerHTML = `
+        <div class="hm-card-row">
+            <span class="hm-card-sparkle">✨</span>
+            <div class="hm-card-body">
+                <div class="hm-card-title">히든 미션</div>
+                <div class="hm-card-hint">조건부 잠금해제 (조건: 미션 올클리어)</div>
+            </div>
+        </div>
+    `;
+    container.appendChild(hiddenMissionCard);
+}
+
+/**
+ * (히든 미션 트랙 v1 2026-05-15) 설정 카드 비동기 갱신.
+ *   잠금해제 조건(베타 + 100% 클리어 + 사후 설문) 만족 시 활성 카드로 자동 전환.
+ */
+async function refreshHiddenMissionCard() {
+    const card = document.getElementById('settings-hidden-mission-card');
+    if (!card || !_userId) return;
+
+    const dek = getDEK();
+    if (!dek) return;
+
+    try {
+        const repo = await import('../data/hiddenMissionsRepo.js');
+        await repo.checkUnlock(dek, _userId);
+        const status = await repo.getStatus(dek, _userId);
+
+        if (!status.unlocked) {
+            // 잠금 상태 유지 — 초기 렌더 그대로
+            return;
+        }
+
+        card.classList.remove('hm-locked');
+        card.classList.add('hm-unlocked');
+
+        const cleared = status.cleared.length;
+        const total = status.totalActive;
+        const next = status.nextMission;
+
+        if (!next && cleared >= total) {
+            // 모두 클리어
+            card.innerHTML = `
+                <div class="hm-card-row">
+                    <span class="hm-card-sparkle hm-sparkle-celebrate">🎉</span>
+                    <div class="hm-card-body">
+                        <div class="hm-card-title">히든 미션 모두 완료</div>
+                        <div class="hm-card-hint">${cleared}개 미션 함께해주셔서 감사해요</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (next) {
+            const title = escapeHtmlInline(next.title);
+            card.innerHTML = `
+                <div class="hm-card-row hm-card-clickable">
+                    <span class="hm-card-sparkle hm-sparkle-active">✨</span>
+                    <div class="hm-card-body">
+                        <div class="hm-card-title">${title}</div>
+                        <div class="hm-card-hint">새 히든 미션이 열렸어요 (${cleared + 1}/${total})</div>
+                    </div>
+                </div>
+            `;
+            card.style.cursor = 'pointer';
+            card.onclick = async () => {
+                const ui = await import('./hiddenMission.js');
+                await ui.openHiddenMission({
+                    userId: _userId,
+                    missionId: next.id,
+                    onClose: () => refreshHiddenMissionCard(),
+                });
+            };
+        } else {
+            // 잠금해제됐지만 다음 미션은 묵상 후 발현 대기
+            card.innerHTML = `
+                <div class="hm-card-row">
+                    <span class="hm-card-sparkle">✨</span>
+                    <div class="hm-card-body">
+                        <div class="hm-card-title">히든 미션</div>
+                        <div class="hm-card-hint">다음 묵상 후 새 자리가 열려요</div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.warn('[hiddenMission] settings card refresh failed:', e);
+    }
+}
+
+function escapeHtmlInline(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 async function bindShortcutSettings() {

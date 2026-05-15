@@ -8200,3 +8200,296 @@ button.mission-progress-block:hover {
     padding: 0.15rem 0.5rem;
     border-radius: 9999px;
 }
+
+
+/* ─────────────────────────────────────────────────────────
+   히든 미션 트랙 v1 (2026-05-15) — 베타 + 14일 100% 클리어자 전용 만렙 시스템
+   - 진입 자리(설정 카드): 잠금 상태 = 매우 절제, 잠금해제 = ✨ 활성
+   - 모달: 모노톤 + ✨ 별 + 회고·간증 톤
+   ───────────────────────────────────────────────────────── */
+
+/* 설정 안 진입 카드 */
+.hm-settings-card {
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+.hm-settings-card.hm-locked {
+    opacity: 0.55;
+    background: var(--surface-quiet, var(--bg-quiet));
+}
+.hm-settings-card.hm-unlocked {
+    opacity: 1;
+    background: var(--surface-elevated);
+    border-color: var(--brand-accent);
+}
+.hm-card-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+.hm-card-row.hm-card-clickable:hover {
+    background: var(--surface-hover, rgba(0,0,0,0.02));
+    border-radius: 0.5rem;
+}
+.hm-card-sparkle {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    filter: grayscale(0.5);
+}
+.hm-card-sparkle.hm-sparkle-active {
+    filter: none;
+    animation: hm-sparkle-pulse 2.4s ease-in-out infinite;
+}
+.hm-card-sparkle.hm-sparkle-celebrate {
+    filter: none;
+}
+.hm-card-body { flex: 1; min-width: 0; }
+.hm-card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink-primary);
+    margin-bottom: 0.15rem;
+}
+.hm-card-hint {
+    font-size: 0.78rem;
+    color: var(--ink-secondary);
+}
+
+@keyframes hm-sparkle-pulse {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* 모달 — 인트로 / 질문 / 클리어 후 */
+.hm-overlay {
+    /* modal-overlay 기본 톤 그대로 사용 */
+}
+.hm-modal {
+    max-width: 520px;
+    background: var(--surface);
+    border-radius: 0.85rem;
+    padding: 2rem 1.75rem;
+    position: relative;
+    font-family: 'Noto Serif KR', 'Pretendard', serif;
+}
+.hm-modal .hm-modal-close {
+    position: absolute;
+    top: 0.85rem;
+    right: 1rem;
+    background: transparent;
+    border: 0;
+    font-size: 1.4rem;
+    color: var(--ink-tertiary);
+    cursor: pointer;
+    line-height: 1;
+}
+.hm-modal .hm-sparkle {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    animation: hm-sparkle-pulse 2.4s ease-in-out infinite;
+}
+.hm-modal .hm-sparkle-large {
+    font-size: 2.6rem;
+    margin-bottom: 0.85rem;
+}
+.hm-modal .hm-headline {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--ink-primary);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+.hm-modal .hm-subtitle {
+    text-align: center;
+    color: var(--ink-secondary);
+    font-size: 0.92rem;
+    margin-bottom: 1rem;
+}
+.hm-modal .hm-body {
+    color: var(--ink-primary);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+.hm-modal .hm-meta {
+    display: flex;
+    justify-content: center;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.82rem;
+    color: var(--ink-secondary);
+}
+.hm-modal .hm-tag {
+    background: var(--surface-elevated);
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+}
+.hm-modal .hm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+/* 질문 단계 */
+.hm-modal.hm-questions {
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.hm-q-header {
+    margin-bottom: 1.25rem;
+}
+.hm-q-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    margin-bottom: 0.3rem;
+}
+.hm-q-subtitle {
+    font-size: 0.85rem;
+    color: var(--ink-secondary);
+}
+.hm-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+.hm-question { display: flex; flex-direction: column; gap: 0.45rem; }
+.hm-q-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink-primary);
+    line-height: 1.5;
+}
+.hm-q-input,
+.hm-q-textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--bg);
+    color: var(--ink-primary);
+    font-size: 0.92rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.hm-q-textarea {
+    resize: vertical;
+    min-height: 5.5rem;
+    line-height: 1.6;
+}
+.hm-q-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+.hm-radio {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    cursor: pointer;
+    font-size: 0.88rem;
+}
+.hm-radio input { margin: 0; }
+
+/* 익명 토글·공개 동의 */
+.hm-anonymous,
+.hm-sharing {
+    margin-top: 0.85rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface-quiet, rgba(0,0,0,0.02));
+    border-radius: 0.5rem;
+}
+.hm-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.hm-toggle input { margin: 0; }
+.hm-anon-desc,
+.hm-share-note {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--ink-secondary);
+    line-height: 1.5;
+}
+.hm-share-options { margin-top: 0.75rem; }
+.hm-share-options.hidden { display: none; }
+.hm-share-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* 클리어 후 보상 */
+.hm-reward {
+    text-align: center;
+    margin: 1rem 0;
+    padding: 1.25rem 1rem;
+    background: var(--surface-elevated);
+    border-radius: 0.65rem;
+}
+.hm-reward-icon {
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+}
+.hm-reward-badge {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+    margin-bottom: 0.4rem;
+}
+.hm-reward-copy {
+    font-size: 0.85rem;
+    color: var(--ink-secondary);
+    line-height: 1.6;
+}
+.hm-future-reward {
+    margin-top: 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.5rem;
+    text-align: center;
+}
+.hm-future-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    color: var(--ink-tertiary);
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    margin-bottom: 0.4rem;
+}
+.hm-future-feature {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink-primary);
+    margin-bottom: 0.3rem;
+}
+.hm-future-copy {
+    font-size: 0.78rem;
+    color: var(--ink-secondary);
+    line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+    .hm-modal {
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+}
+

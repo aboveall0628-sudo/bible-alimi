@@ -288,7 +288,16 @@ export const POLICY = {
             // (S-D 후속 2026-05-15) 사용자가 읽는 성경 번역본 id.
             //   현재 본문 데이터는 'krv'(개역개정) 단일. 다른 옵션은 자리만(preparing=true).
             //   기기 동기화용 — 폰·PC 어디서 들어와도 같은 번역본. 평문이라 사이드바·헤더 표기에 빠르게 사용.
-            'bibleVersion'
+            'bibleVersion',
+            // ─── (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 만렙 시스템 ───
+            // (R1) 히든 미션 자리 잠금해제 상태 — 베타 코호트 + missionStatus 전 7 모듈 'completed' + 사후 설문 완료 시 true.
+            //   조건 만족 시 hiddenMissionsRepo.checkUnlock 가 자동 갱신. 설정 화면 ✨ 카드 노출 가드용.
+            //   cohortId 체크는 SWAN 트랙 A 진입 후 추가 (현재는 missionStatus 만으로 1차 판정).
+            'hiddenMissionUnlocked',
+            // (R1) 클리어한 히든 미션 ID 목록 — ['hm-01', 'hm-02', ...]
+            //   다음 미션 발현 조건(prerequisiteHiddenMission) 빠른 평문 체크용.
+            //   상세 응답(answers)·익명 토글·공개 동의는 암호화(hiddenMissionAnswers) 자리.
+            'hiddenMissionsCleared'
         ],
         encrypted: [
             'name', 'nicknames', 'avatarUrl',
@@ -358,7 +367,14 @@ export const POLICY = {
             // (R18) 튜토리얼 상태 사적 — 미션 진행 디테일·완료 시점·완료 카피
             //   shape: { [missionId]: { completedAt, signal, contextDotId? } }
             //   사이드바 잠금 가드는 평문 missionStatus 만 보고 결정. 이 자리는 졸업식·리포트 시드용.
-            'tutorialState'
+            'tutorialState',
+            // ─── (히든 미션 트랙 v1 2026-05-15) HM-1~HM-5 응답 본문 ───
+            //   shape: { [missionId]: { answers, anonymousResponse, publicShareConsent, displayName, completedAt } }
+            //   answers 안에는 미션별 자유 응답·선택 답. 회고·간증 톤 자유 길이.
+            //   anonymousResponse=true → 분석 시 testerId 해시화. 솔직한 답 안전망.
+            //   publicShareConsent=true → 정식 출시 후 "베타 개척자들의 한 마디" 자리 노출 (1차 베타엔 저장만).
+            //   displayName 'real' | 'nickname' | 'anonymous' — 공개 시 표기 방식.
+            'hiddenMissionAnswers'
         ]
     },
     // (B-4 본인 프로필 트랙 2026-05-13) 본인 프로필 시점 스냅샷 — 1차엔 컬렉션 자리만 박아둠.
