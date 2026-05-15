@@ -459,15 +459,15 @@ async function onVaultUnlocked(dek) {
 
     showToast('🔓 안전하게 열렸어요');
 
-    // (S-E4 2026-05-15) 잠금 해제 직후 미션 게이트 UI 첫 렌더 — 사이드바 잠금 톤·
-    //   도트 진행도·추천 카드·사이드바 풋터 모두. switchView 를 거치지 않아도
-    //   첫 화면(today)에서 미션 자리가 바로 보이게.
+    // (S-E4 / S-E6 2026-05-15) 잠금 해제 직후 미션 게이트 UI 첫 렌더 —
+    //   사이드바 잠금 톤·도트 진행도·추천 카드. switchView 를 거치지 않아도 첫 화면에서 자리잡음.
+    //   사이드바 풋터는 S-E6 에서 제거.
     refreshMissionGateUI(
         dek,
         currentUserId,
         'mission-progress-block',
         'mission-recommend-cards',
-        'sidebar-mission-footer'
+        null
     ).catch(e => console.warn('[missionGate] initial refresh failed:', e?.message || e));
 
     // 단축키 시스템 — 잠금 해제 후 한 번만 초기화 (router 가 중복 호출 가드)
@@ -799,24 +799,22 @@ function switchView(viewId) {
         requestAnimationFrame(() => scrollTimelineToNow());
         // 2026-05-13 재기획: '오늘의 시작' 영역 (시간대 인사 + 핀 원칙 + 어제 질문) 갱신
         renderTodayStartIntoView(currentUserId).catch(() => {});
-        // (본인 프로필 재기획 트랙 2026-05-14 S-C / S-E) 미션 게이트 UI 한 번에 갱신.
-        //   사이드바 회색 톤·진행도 도트·추천 카드·사이드바 풋터 모두.
+        // (S-C / S-E / S-E6) 미션 게이트 UI 한 번에 갱신 — 사이드바 회색 톤·진행도·추천 카드.
         refreshMissionGateUI(
             getDEK(),
             currentUserId,
             'mission-progress-block',
             'mission-recommend-cards',
-            'sidebar-mission-footer'
+            null
         ).catch(() => {});
     } else {
-        // (S-E 2026-05-15) today 가 아닌 뷰에서도 사이드바 풋터·잠금 톤은 갱신.
-        //   대시보드 카드/도트 블록은 today 뷰에만 있으므로 해당 자리는 건드리지 X.
+        // today 가 아닌 뷰는 사이드바 잠금 톤만 갱신.
         refreshMissionGateUI(
             getDEK(),
             currentUserId,
             null,
             null,
-            'sidebar-mission-footer'
+            null
         ).catch(() => {});
     }
 

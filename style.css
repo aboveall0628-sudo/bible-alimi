@@ -352,8 +352,9 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
     padding: var(--sp-6) var(--sp-7);
     max-width: 1080px;
 }
-/* (S-E6 2026-05-15) 카드 등장 애니메이션 통일 — 사용자 명시
-   "어느 메뉴 들어가도 카드 등장할 때 애니메이션 있도록". */
+/* (S-E6.2 2026-05-15) 카드 등장 애니메이션 — .view 한 자리만.
+   사용자 피드백 "뜨는 속도가 제각각" — 카드별 개별 애니메이션은 비동기 데이터 로드 시점이 달라
+   각자 따로 등장. .view 단일 애니메이션이면 그 안 카드는 한 덩어리로 함께 fade·lift. */
 .view {
     animation: viewLift 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
@@ -361,22 +362,8 @@ small { font-size: var(--fs-small); color: var(--ink-secondary); }
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-.card-section,
-.dash-section,
-.mission-progress-block,
-.mission-recommend-wrap {
-    animation: cardLift 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-@keyframes cardLift {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
 @media (prefers-reduced-motion: reduce) {
-    .view,
-    .card-section, .dash-section,
-    .mission-progress-block, .mission-recommend-wrap {
-        animation: none;
-    }
+    .view { animation: none; }
 }
 .hidden { display: none !important; }
 /* 다른 자리에서 참조하는 fadeIn 보존 (헤더 dropdown 등). */
