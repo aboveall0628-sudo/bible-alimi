@@ -13,8 +13,8 @@
  */
 
 // ─── Swan 관리자 UID (1차 베타 1인 관리자) ────────────────────
-// TODO: 사용자가 본인 Firebase Auth UID 채우기
-export const SWAN_ADMIN_UID = 'PLACEHOLDER_REPLACE_WITH_YOUR_UID';
+// 2026-05-15 채움: aboveall0628@gmail.com (Google 로그인, 2026-05-10 생성)
+export const SWAN_ADMIN_UID = 'Zb3FjbyIboUr5hXsfms9v5AreTd2';
 
 // ─── 헬퍼 ───────────────────────────────────────────────────
 /**
@@ -28,6 +28,5 @@ export const SWAN_ADMIN_UID = 'PLACEHOLDER_REPLACE_WITH_YOUR_UID';
  */
 export function isSwanAdmin(uid) {
     if (!uid) return false;
-    if (SWAN_ADMIN_UID === 'PLACEHOLDER_REPLACE_WITH_YOUR_UID') return false;
     return uid === SWAN_ADMIN_UID;
 }

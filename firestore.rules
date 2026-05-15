@@ -4,11 +4,11 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────────────────────
     //  Swan 관리자 UID (CS AI 트랙 §9 1단계, 2026-05-15)
-    //  TODO: 사용자가 본인 Firebase Auth UID 채우기.
-    //  config/adminConfig.js 의 SWAN_ADMIN_UID 와 동일한 값 사용.
+    //  config/adminConfig.js 의 SWAN_ADMIN_UID 와 동일한 값.
+    //  aboveall0628@gmail.com (Google 로그인)
     // ─────────────────────────────────────────────────────────────
     function swanAdminUid() {
-      return 'PLACEHOLDER_REPLACE_WITH_YOUR_UID';
+      return 'Zb3FjbyIboUr5hXsfms9v5AreTd2';
     }
 
     function isSwanAdmin() {
