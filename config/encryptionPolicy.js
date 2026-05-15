@@ -541,6 +541,49 @@ export const POLICY = {
             'userNote'
         ]
     },
+
+    // ═══════════════════════════════════════════════════
+    //  CS AI 트랙 §9 1단계 (2026-05-15) — feedbacks 컬렉션
+    //
+    //  ⚠️ 다른 컬렉션과 달리 전 필드 평문 저장.
+    //
+    //  근거:
+    //   - 사용자가 *의도적으로* 개발자(Swan)에게 전달하는 메시지
+    //   - 일기·도트·기도가 아니라 시스템에 대한 의견·버그·요청
+    //   - Swan UID가 firestore.rules 에서 읽기 권한을 가지므로
+    //     사용자 DEK 로 암호화하면 Swan이 읽을 수 없음
+    //   - 동의 모달 §2.2-C 4번 체크박스에 명시
+    //
+    //  Zero-Knowledge 정체성과의 관계:
+    //   - 사용자 *일상 데이터*(일기·도트·기도)는 그대로 암호화 유지
+    //   - feedbacks 는 사용자가 의도적으로 *공유하는 메시지* 자리
+    //   - 사용자가 동의 모달에서 명시적으로 동의해야 가입 진행
+    //
+    //  컬렉션 위치: users/{userId}/feedbacks/{feedbackId}
+    //   - 사용자 본인은 자기 피드백 조회 가능
+    //   - Swan UID는 firestore.rules 에서 추가 읽기 권한 (관리자 페이지 용)
+    // ═══════════════════════════════════════════════════
+    feedbacks: {
+        plaintext: [
+            // 메타
+            'id', 'userId', 'nickname', 'createdAt', 'endedAt', 'endReason',
+
+            // 자동 라벨 9종 (디버깅·환경 추적)
+            'screenPath', 'moduleName', 'viewport', 'userAgent',
+            'consoleErrors',  // 직전 5초 console.error/warn 배열
+
+            // 대화
+            'turns',  // [{ role: 'swan'|'user', text, at }]
+
+            // 자동 처리 결과
+            'summary', 'category', 'categoryConfidence',
+
+            // 관리자 상태
+            'status',  // 'unread' | 'read'
+            'swanNote'
+        ],
+        encrypted: []  // 평문 정책 — 의도적으로 비움
+    }
 };
 
 /**

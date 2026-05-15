@@ -4,8 +4,8 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
 import {
-    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc,
-    collection, query, where, orderBy, limit, serverTimestamp
+    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc,
+    collection, collectionGroup, query, where, orderBy, limit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
 import {
     getAuth, GoogleAuthProvider, signInWithCredential, signOut,
@@ -28,7 +28,7 @@ const auth = getAuth(app);
 
 export {
     db, auth,
-    doc, setDoc, getDoc, getDocs, deleteDoc,
-    collection, query, where, orderBy, limit, serverTimestamp,
+    doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc,
+    collection, collectionGroup, query, where, orderBy, limit, serverTimestamp,
     GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
 };

@@ -3,6 +3,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
+    //  Swan 관리자 UID (CS AI 트랙 §9 1단계, 2026-05-15)
+    //  TODO: 사용자가 본인 Firebase Auth UID 채우기.
+    //  config/adminConfig.js 의 SWAN_ADMIN_UID 와 동일한 값 사용.
+    // ─────────────────────────────────────────────────────────────
+    function swanAdminUid() {
+      return 'PLACEHOLDER_REPLACE_WITH_YOUR_UID';
+    }
+
+    function isSwanAdmin() {
+      return request.auth != null && request.auth.uid == swanAdminUid();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     //  v3.0 — 사용자 캐비닛 (users/{uid} 자체 + 모든 서브컬렉션)
     //  본인 UID와 일치할 때만 읽고 쓸 수 있음. 한 줄로 격리 끝.
     //  여기에 들어가는 것: persons, organizations, interactions,
@@ -13,10 +26,40 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
 
+      // ───────────────────────────────────────────────────────────
+      //  CS AI 트랙 (2026-05-15) — feedbacks 서브컬렉션 예외 규칙
+      //
+      //  사용자가 의도적으로 개발자에게 보내는 평문 메시지.
+      //  본인은 자기 피드백 읽기·쓰기.
+      //  Swan UID 는 모든 사용자 피드백 읽기·상태 토글 (단, 본문 변경 X).
+      //
+      //  ⚠️ 이 규칙은 아래 깊이 와일드카드 규칙보다 먼저 매칭되어야 함.
+      // ───────────────────────────────────────────────────────────
+      match /feedbacks/{feedbackId} {
+        // 본인: 전체 권한
+        allow read, create, update, delete: if request.auth != null
+          && request.auth.uid == uid;
+
+        // Swan 관리자: 읽기 + 상태·메모만 업데이트 가능 (turns·본문 변경 X)
+        allow read: if isSwanAdmin();
+        allow update: if isSwanAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'swanNote', 'category', 'categoryConfidence']);
+      }
+
       // 사용자 서브컬렉션의 모든 깊이 — 캐비닛 안은 통째로 본인만 접근
       match /{document=**} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  collection group query — Swan 관리자 페이지에서 전 사용자 피드백 스캔
+    //  (위 users/{uid}/feedbacks 규칙이 적용되긴 하지만,
+    //   collectionGroup 쿼리는 별도 규칙 매칭이 필요)
+    // ─────────────────────────────────────────────────────────────
+    match /{path=**}/feedbacks/{feedbackId} {
+      allow read: if isSwanAdmin();
     }
 
     // ─────────────────────────────────────────────────────────────
