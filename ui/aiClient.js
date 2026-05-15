@@ -1419,6 +1419,113 @@ function _parseExtractResponse(raw) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  CS AI 트랙 §9-4 — SWAN 에이전트 호출 (2026-05-15)
+//  llmProxy.ts task 'swanAgent' (다중턴) + 'swanSummary' (종료 시 1회) 와 1:1 대응.
+//  feedbacksRepo 가 turns/요약을 저장. 여기는 호출 + 파싱·폴백만.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * SWAN 다음 발화 호출.
+ *
+ * @param {Object} args
+ *   @param {Array}  args.history       [{role:'swan'|'user', text}]
+ *   @param {string} args.screenPath
+ *   @param {Array}  args.consoleErrors
+ *   @param {number} args.turnCount
+ *
+ * @returns {Promise<{ text: string, fallback: boolean }>}
+ */
+export async function callSwanAgent({ history = [], screenPath = '', consoleErrors = [], turnCount = 0 }) {
+    const plain = {
+        history,
+        screenPath,
+        consoleErrors,
+        turnCount,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanAgent', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { text: '', fallback: true };
+    }
+    return { text: String(result.text || '').trim(), fallback: false };
+}
+
+/**
+ * 대화 종료 시 자동 요약·분류 호출.
+ *
+ * @param {Object} args
+ *   @param {Array}  args.turns         [{role:'swan'|'user', text}]
+ *   @param {string} args.screenPath
+ *   @param {Array}  args.consoleErrors
+ *
+ * @returns {Promise<{
+ *   summary: string,
+ *   category: 'error'|'ux_ui'|'feature_request'|'other',
+ *   confidence: number,
+ *   fallback: boolean
+ * }>}
+ */
+export async function callSwanSummary({ turns = [], screenPath = '', consoleErrors = [] }) {
+    const plain = {
+        turns,
+        screenPath,
+        consoleErrors,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanSummary', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { ...buildSwanSummaryFallback(turns), fallback: true };
+    }
+    const parsed = parseSwanSummaryResponse(result.text);
+    return { ...parsed, fallback: false };
+}
+
+function parseSwanSummaryResponse(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return buildSwanSummaryFallback([]);
+
+    // 코드블록 안 JSON 또는 raw JSON 추출
+    const fenced = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+    const candidate = fenced ? fenced[1] : text;
+    const braceStart = candidate.indexOf('{');
+    const braceEnd   = candidate.lastIndexOf('}');
+    if (braceStart < 0 || braceEnd < 0 || braceEnd < braceStart) {
+        console.warn('[swanSummary] no JSON braces:', text.slice(0, 100));
+        return buildSwanSummaryFallback([]);
+    }
+    try {
+        const obj = JSON.parse(candidate.slice(braceStart, braceEnd + 1));
+        const validCats = ['error', 'ux_ui', 'feature_request', 'other'];
+        return {
+            summary:    String(obj.summary || '').trim(),
+            category:   validCats.includes(obj.category) ? obj.category : 'other',
+            confidence: typeof obj.confidence === 'number'
+                ? Math.max(0, Math.min(1, obj.confidence))
+                : 0.5,
+        };
+    } catch (e) {
+        console.warn('[swanSummary] JSON parse failed:', e.message);
+        return buildSwanSummaryFallback([]);
+    }
+}
+
+function buildSwanSummaryFallback(turns) {
+    const userTexts = (turns || []).filter(t => t.role === 'user').map(t => t.text);
+    const joined = userTexts.join(' ').slice(0, 120);
+    return {
+        summary:    joined || '자동 요약을 만들지 못했어요. 대화 원본을 참고해 주세요.',
+        category:   'other',
+        confidence: 0,
+    };
+}
+
 function buildDailyReportFallback(stats) {
     const ds    = stats.dotStats || {};
     const sat   = stats.satisfactionDistribution || {};

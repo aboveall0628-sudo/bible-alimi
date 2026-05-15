@@ -50,6 +50,10 @@ import { generateAllAutoReminders } from '../data/reminderGenerator.js';
 import { mountDecisionGate } from './decisionGate.js';
 // 단축키 / 모달 매니저 — Phase E-9 (Step 1)
 import { initShortcuts } from '../shortcuts/router.js';
+// CS AI 트랙 §9 (2026-05-15): SWAN 풍선 피드백
+import { mountSwanFeedback } from './swanFeedback.js';
+import { installConsoleErrorCapture } from '../infra/feedbackContext.js';
+import { getSelfCard } from '../data/personRepo.js';
 
 // 옛 형식(v1) 데이터를 처음 만난 순간에 한 번만 사용자에게 알림.
 // cryptoService.readDocument 가 dispatchEvent 함. 모듈 로드 시 한 번 등록.
@@ -206,6 +210,8 @@ async function init() {
 
     // 0. 글로벌 에러 핸들러 (가장 먼저 — 이후 모든 에러를 안전하게 잡기)
     initGlobalErrorHandler();
+    // CS AI 트랙 §9-2 — 부팅 직후 콘솔 에러 캡처 설치. 풍선 클릭 시점에 직전 5초 큐를 자동 라벨로 부착.
+    installConsoleErrorCapture();
     disablePasswordManagerOnNonPasswordInputs();
 
     setBootStatus('잠깐만요, 준비 중이에요...');
@@ -472,6 +478,27 @@ async function onVaultUnlocked(dek) {
 
     // 단축키 시스템 — 잠금 해제 후 한 번만 초기화 (router 가 중복 호출 가드)
     try { initShortcuts(); } catch (e) { console.warn('[shortcuts] init failed:', e); }
+
+    // CS AI 트랙 §9 (2026-05-15): SWAN 풍선 피드백 마운트.
+    // getNickname 은 selfCard 의 name 을 가져오되, 실패해도 빈 문자열로 진행.
+    try {
+        mountSwanFeedback({
+            userId: currentUserId,
+            getNickname: () => {
+                try {
+                    // 동기 캐시가 없으므로 lazy fetch — startFeedback 호출 시점엔 빈 문자열일 수 있음.
+                    // 이후 selfCard 로딩이 캐시되면 다음 진입부터 채워짐 (Phase 1 단순 구조).
+                    return window.__sanctumSelfName || '';
+                } catch (_) { return ''; }
+            },
+        });
+        // selfCard.name 백그라운드 로드 → 다음 진입부터 nickname 채움
+        getSelfCard(dek, currentUserId)
+            .then(self => { if (self?.name) window.__sanctumSelfName = self.name; })
+            .catch(() => {});
+    } catch (e) {
+        console.warn('[swanFeedback] mount failed:', e);
+    }
 
     // (본인 프로필 재기획 트랙 2026-05-14 S-D) 신규 사용자 첫 진입 자동 라우팅.
     //   selfCard.name 빈 값이면 onboarding 모달 강제. 완료 후 view-today 진입 + 미션 진행도 갱신.
