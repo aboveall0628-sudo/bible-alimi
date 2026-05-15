@@ -163,7 +163,7 @@ export async function getMyFeedbacks(userId, maxCount = 50) {
 /**
  * Swan 관리자 페이지 — 모든 사용자 feedbacks 시간순 묶음.
  *
- * collection group query 사용 — users/*/feedbacks 모두 스캔.
+ * collection group query 사용 — users/{userId}/feedbacks 전부 스캔.
  * 호출 측에서 SWAN_ADMIN_UID 권한 체크 후에만 호출.
  *
  * @param {Object} opts
