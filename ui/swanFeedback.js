@@ -30,6 +30,7 @@ import {
     finalizeFeedback,
     saveSurveyExtract,
 } from '../data/feedbacksRepo.js';
+import { THINKING_COPY, typeText, shouldReduceMotion } from './aiThinking.js';
 
 // ─── 카피 (Rule 9 §10-1~4 디폴트, 2026-05-15) ─────────────────
 const COPY = {
@@ -277,18 +278,62 @@ function appendTurnDOM(listEl, turn) {
     listEl.scrollTop = listEl.scrollHeight;
 }
 
-function appendThinkingDOM(listEl) {
+// (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 회전 + 도트 한 묶음.
+// 채팅 거품 안 — progress bar 는 풍선 톤 어색해서 빼고 라벨만 + 기존 도트 유지.
+const THINKING_ROTATE_MS = 2500;
+
+function appendThinkingDOM(listEl, kind) {
+    const labels = kind === 'preSurvey'
+        ? ['질문 다듬는 중...', '답변 살피는 중...', '정리하는 중...']
+        : THINKING_COPY.swan;
+
     const li = document.createElement('li');
     li.className = 'swan-turn swan-turn-swan swan-thinking';
     li.id = 'swan-thinking-bubble';
-    li.innerHTML = `<span class="swan-dots"><span></span><span></span><span></span></span>`;
+    li.innerHTML = `
+        <span class="swan-thinking-label" data-stage="0">${labels[0]}</span>
+        <span class="swan-dots"><span></span><span></span><span></span></span>
+    `;
     listEl.appendChild(li);
     listEl.scrollTop = listEl.scrollHeight;
+
+    // 단계 라벨 회전
+    const labelEl = li.querySelector('.swan-thinking-label');
+    let stage = 0;
+    const timer = setInterval(() => {
+        if (!labelEl.isConnected) { clearInterval(timer); return; }
+        stage = (stage + 1) % labels.length;
+        labelEl.style.opacity = '0';
+        setTimeout(() => {
+            labelEl.textContent = labels[stage];
+            labelEl.style.opacity = '';
+        }, 150);
+    }, THINKING_ROTATE_MS);
+    // li 사라질 때 자연 종료
+    li._thinkingTimer = timer;
 }
 
 function removeThinkingDOM(listEl) {
     const el = listEl.querySelector('#swan-thinking-bubble');
-    if (el) el.remove();
+    if (!el) return;
+    if (el._thinkingTimer) clearInterval(el._thinkingTimer);
+    el.remove();
+}
+
+// (Phase C 2026-05-16) SWAN 응답 한 자씩 노출 — typing breath.
+async function appendSwanTurnTyping(listEl, turn) {
+    const li = document.createElement('li');
+    li.className = `swan-turn swan-turn-${turn.role}`;
+    listEl.appendChild(li);
+    listEl.scrollTop = listEl.scrollHeight;
+
+    if (shouldReduceMotion()) {
+        li.textContent = turn.text;
+        return;
+    }
+    await typeText(li, turn.text, { delay: 22 });
+    // 자동 스크롤 한 번 더 (긴 응답일 때 끝까지)
+    listEl.scrollTop = listEl.scrollHeight;
 }
 
 // ─── 사용자 메시지 처리 ──────────────────────────────────────
@@ -341,7 +386,7 @@ async function runSwanTurn({ turnCountAfterUser = null } = {}) {
     if (!_session) return;
     const sess = _session;
 
-    appendThinkingDOM(sess.listEl);
+    appendThinkingDOM(sess.listEl, sess.kind);
 
     let swanText = '';
     let preSurveyMeta = null;
@@ -379,7 +424,8 @@ async function runSwanTurn({ turnCountAfterUser = null } = {}) {
         text: swanText,
         at:   new Date().toISOString(),
     };
-    appendTurnDOM(sess.listEl, swanTurn);
+    // (Phase C 2026-05-16) SWAN 응답 typing breath 노출 — 한 자씩 자연 자리.
+    await appendSwanTurnTyping(sess.listEl, swanTurn);
     sess.turns.push(swanTurn);
 
     // 사전 설문 메타 반영

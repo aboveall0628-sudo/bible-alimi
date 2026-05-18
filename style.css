@@ -9024,7 +9024,16 @@ button.mission-progress-block:hover {
 }
 
 .swan-thinking {
-    padding: 12px 14px;
+    /* (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 + 도트 한 묶음 */
+    padding: 10px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.swan-thinking-label {
+    font-size: 12px;
+    color: var(--color-ink-secondary, var(--ink-secondary));
+    transition: opacity var(--motion-fast, 150ms) var(--ease-out);
 }
 .swan-dots {
     display: inline-flex;
@@ -9498,5 +9507,100 @@ button.mission-progress-block:hover {
     .fbadmin-toolbar .fbadmin-btn { width: 100%; }
     .fbadmin-row { padding: 10px; }
     .fbadmin-row-summary { white-space: normal; }
+}
+
+/* ─── 디자인 시스템 v1 Phase C — AI 로딩 보강 3종 (2026-05-16) ──────
+   ui/aiThinking.js 와 짝꿍. 단계 라벨 회전 + 가짜 progress bar + typing breath.
+   ─────────────────────────────────────────────────────────────────── */
+.ai-thinking {
+    position: relative;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface, var(--bg-card));
+    border: 1px solid var(--color-border, var(--border));
+    overflow: hidden;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+}
+.ai-thinking-sm {
+    padding: 8px 12px;
+    min-height: 30px;
+    font-size: 12px;
+}
+.ai-thinking-bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: var(--accent-soft);
+    overflow: hidden;
+    pointer-events: none;
+}
+.ai-thinking-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: thinking-progress 8000ms cubic-bezier(0.16, 0.8, 0.4, 1) forwards;
+}
+@keyframes thinking-progress {
+    0%   { transform: scaleX(0); }
+    30%  { transform: scaleX(0.35); }
+    60%  { transform: scaleX(0.65); }
+    100% { transform: scaleX(0.85); }
+}
+.ai-thinking.is-done .ai-thinking-bar::after {
+    animation: none;
+    transform: scaleX(1);
+    transition: transform var(--motion-fast) var(--ease-out);
+}
+.ai-thinking-label {
+    font-size: 13px;
+    color: var(--color-ink-secondary, var(--ink-secondary));
+    transition: opacity var(--motion-fast) var(--ease-out);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.ai-thinking-label::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: thinking-pulse 1.2s ease-in-out infinite;
+    flex: 0 0 auto;
+}
+@keyframes thinking-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+/* Typing breath — 글자 한 자씩 노출 중 깜빡이는 커서 */
+.ai-typing::after {
+    content: '▍';
+    display: inline-block;
+    margin-left: 2px;
+    color: var(--accent);
+    animation: typing-cursor 1s steps(2) infinite;
+    font-weight: normal;
+}
+@keyframes typing-cursor {
+    0%, 50%  { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* 모션 줄이기 자리잡힌 사용자 — 모든 애니메이션 0 */
+@media (prefers-reduced-motion: reduce) {
+    .ai-thinking-bar::after,
+    .ai-thinking-label::before,
+    .ai-typing::after {
+        animation: none;
+    }
+    .ai-thinking.is-done .ai-thinking-bar::after { transform: scaleX(1); }
+    .ai-thinking-label::before { opacity: 0.7; }
+    .ai-typing::after { opacity: 1; }
 }
 
