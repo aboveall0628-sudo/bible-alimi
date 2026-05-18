@@ -197,15 +197,31 @@ export async function getMyFeedbacks(userId, maxCount = 50) {
 export async function getAllFeedbacksForAdmin(opts = {}) {
     const { status = null, category = null, limit: lim = 100, orderDir = 'desc' } = opts;
 
-    const constraints = [];
-    if (status)   constraints.push(where('status',   '==', status));
-    if (category) constraints.push(where('category', '==', category));
-    constraints.push(orderBy('createdAt', orderDir));
-    constraints.push(limit(lim));
-
-    const q = query(collectionGroup(db, SUB), ...constraints);
+    // (2026-05-16 fix) collectionGroup 쿼리는 composite index 자동 안 잡힘.
+    //   feedback_firestore_index_pattern.md 정책(index 의존 금지) 따라
+    //   서버 필터·정렬 빼고 클라이언트에서 처리. 1차 베타 분량(< 1000건) 안전.
+    const q = query(collectionGroup(db, SUB), limit(500));
     const snap = await getDocs(q);
-    return snap.docs.map(d => d.data());
+    let rows = snap.docs.map(d => d.data());
+
+    if (status)   rows = rows.filter(r => r.status === status);
+    if (category) rows = rows.filter(r => (r.category || 'other') === category);
+
+    rows.sort((a, b) => {
+        const av = _tsToMs(a.createdAt);
+        const bv = _tsToMs(b.createdAt);
+        return orderDir === 'asc' ? av - bv : bv - av;
+    });
+
+    return rows.slice(0, lim);
+}
+
+function _tsToMs(ts) {
+    if (!ts) return 0;
+    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+    if (ts.seconds) return ts.seconds * 1000;
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
 // ─── 상태 토글 (Swan용) ──────────────────────────────────────

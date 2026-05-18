@@ -360,6 +360,33 @@ async function init() {
     setupDatePicker();
     // 성경 데이터 사전 로드 (인증 없이도 가능, 캐시 워밍업)
     loadBibleDataModule().catch(e => console.warn('bible preload failed:', e));
+
+    // (2026-05-16) 뒤로가기 자연 자리잡기 — 초기 entry 를 sanctum view 자리로 덮어쓰고
+    //   popstate 시 view 전환. 사용자 뒤로가기 = 이전 view 자연 복원.
+    setupBrowserNav();
+}
+
+// (2026-05-16) 브라우저 history 와 internal nav 연결.
+function setupBrowserNav() {
+    if (typeof history === 'undefined' || typeof window === 'undefined') return;
+    try {
+        // 첫 entry 덮어쓰기 — 랜딩 또는 외부에서 들어온 자리를 sanctum 자리로.
+        //   첫 view 는 'today' 로 가정. 실제 첫 switchView 가 자연 갱신.
+        if (!history.state || !history.state.sanctum) {
+            history.replaceState({ sanctum: true, view: 'today' }, '', location.pathname + location.search);
+        }
+    } catch (_) {}
+
+    window.addEventListener('popstate', (e) => {
+        const target = e.state && e.state.sanctum && e.state.view;
+        if (target) {
+            _navSilent = true;
+            try { switchView(target); } catch (_) {}
+            _navSilent = false;
+        }
+        // sanctum 자리 아닌 entry (랜딩 등) 는 막지 않음 — 강제 트랩 자리 잡으면 사용자 갇힘.
+        //   landing.js 가 location.replace 쓰기로 한 자리라 자연스럽게 history 에서 사라짐.
+    });
 }
 
 // ─── Boot Flow 분기 ───
@@ -799,6 +826,17 @@ window.__sanctumNavHistory = {
 
 function switchView(viewId) {
     _recordNav(viewId);
+    // (2026-05-16) 브라우저 뒤로가기 자연 자리잡기 — view 전환 시 history 에 자리.
+    //   popstate 리스너(아래)가 e.state.view 를 보고 다시 switchView 호출.
+    //   _navSilent 일 때(popstate 처리 중)는 push 안 함 — 무한 루프 방지.
+    if (!_navSilent && typeof history !== 'undefined') {
+        try {
+            const current = history.state || {};
+            if (current.view !== viewId) {
+                history.pushState({ sanctum: true, view: viewId }, '', location.pathname + location.search);
+            }
+        } catch (_) { /* incognito·private 환경 가드 */ }
+    }
 
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     const target = document.getElementById(`view-${viewId}`);
