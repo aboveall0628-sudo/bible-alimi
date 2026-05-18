@@ -1048,6 +1048,9 @@ async function handleSave() {
             // 정직성 인프라: 모달에서 사용자가 직접 입력한 도트 — self_report 명시.
             // 기존 도트 수정 시엔 옛 source 보존 (있다면), 없으면 self_report 로 시작.
             source: _currentExistingDot?.source || 'self_report',
+            // (2026-05-18 후속) 슬림 베타 정합 — quickReview 평가 = 실행 체크 자리 → kind='execution'.
+            //   기존 'event'(거래) 자리와 명확 구분. weeklyAggregator 자연 자리.
+            kind: _currentExistingDot?.kind || 'execution',
         };
         if (_selectedCategoryId) pushRecentCategory(_selectedCategoryId);
         // 기존 도트가 있으면 id 유지하여 덮어쓰기

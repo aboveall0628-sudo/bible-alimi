@@ -293,6 +293,17 @@
                     <div id="meditation-note" class="note-editor collapsible-body" contenteditable="true" spellcheck="false" data-placeholder="한 호흡 머무는 자리. 말씀을 곱씹다 떠오른 생각을 적어 보세요."></div>
                 </section>
 
+                <!-- (2026-05-18 후속) 적용 다짐 — 슬림 베타 핵심 자리 (사업기획서 §4.2.1 (b)).
+                     묵상 다음에 *오늘 실천할 한 줄* 자리. 저장 시 kind='commitment' 도트 자동. -->
+                <section id="section-commitment" class="card-section">
+                    <div class="section-header-flex">
+                        <h2 class="section-title"><i class="section-icon" data-lucide="target"></i> 적용 다짐</h2>
+                        <span id="commitment-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
+                        <button class="collapsible-toggle" data-target="commitment-note">접기</button>
+                    </div>
+                    <div id="commitment-note" class="note-editor collapsible-body" contenteditable="true" spellcheck="false" data-placeholder="오늘 한 가지만 실천한다면? 짧고 분명한 한 줄로 적어 보세요. 예: 퇴근 후 어머니께 전화."></div>
+                </section>
+
                 <!-- 기도 — 묵상 Phase B (2026-05-13): "말씀 → 묵상 → 기도" 흐름의 종착.
                      prayer 필드는 기존 meditations 정책에 박혀있음 (encryptionPolicy.js).
                      content와 함께 한 블롭으로 저장 (todayView.js). -->

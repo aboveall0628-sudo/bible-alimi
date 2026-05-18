@@ -1061,11 +1061,13 @@ async function loadPinnedPrinciple(dek) {
 // → content / prayer 를 따로 저장하면 서로 덮어써서 데이터 손실.
 // → 항상 한 묶음으로 저장 (인메모리 캐시 _meditationCache).
 let _saveTimer = null;
-let _meditationCache = { content: '', prayer: '' };
+let _meditationCache = { content: '', prayer: '', commitment: '' };
 
 function bindMeditationAutosave() {
     bindNoteEditor('meditation-note', 'content');
     bindNoteEditor('prayer-note', 'prayer');
+    // (2026-05-18 후속) 적용 다짐 자동 저장 — meditation 도큐먼트의 commitment 필드
+    bindNoteEditor('commitment-note', 'commitment');
 }
 
 function bindNoteEditor(editorId, field) {
@@ -1160,7 +1162,9 @@ async function saveMeditationDoc() {
         const meta = { id, userId: _userId, date: _date, createdAt: serverTimestamp() };
         const sensitive = {
             content: _meditationCache.content || '',
-            prayer:  _meditationCache.prayer  || ''
+            prayer:  _meditationCache.prayer  || '',
+            // (2026-05-18 후속) 적용 다짐 — 슬림 베타 핵심 자리
+            commitment: _meditationCache.commitment || ''
         };
         const document_ = await prepareDocument(dek, meta, sensitive);
         await setDoc(doc(db, 'meditations', id), document_, { merge: true });
@@ -1180,24 +1184,42 @@ async function saveMeditationDoc() {
                 console.warn('[saveMeditationDoc] mission trigger failed:', e?.message || e);
             }
 
-            // (2026-05-18 후속) 슬림 베타 자리 정합 — 묵상 저장 시 kind='meditation' 도트 1건 자동 자리.
+            // (2026-05-18 후속) 슬림 베타 자리 정합 — 묵상·다짐 저장 시 도트 자동 자리.
             //   주간 리포트 통계가 도트 기반이라 슬림 사용자도 *진짜 리포트* 받을 수 있게.
-            //   같은 날 묵상 도트는 *덮어쓰기* — id 고정 'dot_meditation_{userId}_{date}'.
+            //   같은 날 도트는 *덮어쓰기* — id 고정.
             try {
                 const { saveDot } = await import('../data/dotsRepo.js');
-                const dotId = `dot_meditation_${_userId}_${_date}`;
-                await saveDot(dek, {
-                    id: dotId,
-                    userId: _userId,
-                    date: _date,
-                    kind: 'meditation',
-                    plannedTask: '오늘의 묵상',
-                    actualTask: '묵상 노트 작성',
-                    executed: 'done',
-                    executionSatisfaction: 4,
-                    outcomeSatisfaction: 4,
-                    reason: (sensitive.content || '').slice(0, 80),
-                });
+                // (a) 묵상 도트 — content 또는 prayer 있을 때
+                if ((sensitive.content && sensitive.content.trim()) ||
+                    (sensitive.prayer  && sensitive.prayer.trim())) {
+                    await saveDot(dek, {
+                        id: `dot_meditation_${_userId}_${_date}`,
+                        userId: _userId,
+                        date: _date,
+                        kind: 'meditation',
+                        plannedTask: '오늘의 묵상',
+                        actualTask: '묵상 노트 작성',
+                        executed: 'done',
+                        executionSatisfaction: 4,
+                        outcomeSatisfaction: 4,
+                        reason: (sensitive.content || '').slice(0, 80),
+                    });
+                }
+                // (b) 다짐 도트 — commitment 한 줄 있을 때
+                if (sensitive.commitment && sensitive.commitment.trim()) {
+                    await saveDot(dek, {
+                        id: `dot_commitment_${_userId}_${_date}`,
+                        userId: _userId,
+                        date: _date,
+                        kind: 'commitment',
+                        plannedTask: '오늘의 적용 다짐',
+                        actualTask: sensitive.commitment.slice(0, 80),
+                        executed: 'done',
+                        executionSatisfaction: 4,
+                        outcomeSatisfaction: 4,
+                        reason: sensitive.commitment.slice(0, 200),
+                    });
+                }
             } catch (e) {
                 console.warn('[saveMeditationDoc] auto-dot failed:', e?.message || e);
             }
@@ -1218,28 +1240,30 @@ async function saveMeditationDoc() {
 }
 
 async function loadMeditationDoc(dek) {
-    const noteEditor   = document.getElementById('meditation-note');
-    const prayerEditor = document.getElementById('prayer-note');
+    const noteEditor      = document.getElementById('meditation-note');
+    const prayerEditor    = document.getElementById('prayer-note');
+    const commitmentEditor = document.getElementById('commitment-note');
 
     try {
         const id = `meditation_${_userId}_${_date}`;
         const snap = await getDoc(doc(db, 'meditations', id));
         if (snap.exists()) {
             const data = await readDocument(dek, snap.data());
-            _meditationCache.content = data.content || '';
-            _meditationCache.prayer  = data.prayer  || '';
+            _meditationCache.content    = data.content    || '';
+            _meditationCache.prayer     = data.prayer     || '';
+            _meditationCache.commitment = data.commitment || '';
         } else {
-            _meditationCache = { content: '', prayer: '' };
+            _meditationCache = { content: '', prayer: '', commitment: '' };
         }
     } catch (e) {
         console.warn('meditation load failed:', e);
-        _meditationCache = { content: '', prayer: '' };
+        _meditationCache = { content: '', prayer: '', commitment: '' };
     }
 
     // (2026-05-13 #23) markdown string → HTML 렌더링.
-    //   기존 plain text 노트도 그대로 호환 (마크다운 패턴 없으면 줄바꿈만 div 로).
-    if (noteEditor)   setMarkdown(noteEditor,   _meditationCache.content);
-    if (prayerEditor) setMarkdown(prayerEditor, _meditationCache.prayer);
+    if (noteEditor)       setMarkdown(noteEditor,       _meditationCache.content);
+    if (prayerEditor)     setMarkdown(prayerEditor,     _meditationCache.prayer);
+    if (commitmentEditor) setMarkdown(commitmentEditor, _meditationCache.commitment);
 
     // (2026-05-14 #23 후속) a2: 노트가 비어있고 사용자 템플릿이 default 아니면 자동 적용.
     //   템플릿이 default('{{scripture}}') 이면 빈 노트 유지 — 사용자가 절 붙여넣기로 채움.

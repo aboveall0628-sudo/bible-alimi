@@ -47,12 +47,13 @@ export const POLICY = {
     },
     meditations: {
         plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
-        encrypted: ['content', 'decisions', 'prayer']
+        // (2026-05-18 후속) commitment — 슬림 베타 적용 다짐 자리. content·prayer 와 같은 결.
+        encrypted: ['content', 'decisions', 'prayer', 'commitment']
     },
     // memos: v1 빌드의 묵상 컬렉션. meditations와 동일 구조로 마이그레이션됨.
     memos: {
         plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
-        encrypted: ['content', 'decisions', 'prayer']
+        encrypted: ['content', 'decisions', 'prayer', 'commitment']
     },
     principles: {
         plaintext: [
