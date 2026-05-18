@@ -1008,21 +1008,12 @@ function updateDateDisplay() {
     //   오늘 날짜와 다르면 강조 표시(다른 날짜 작업 중임을 시각적으로 알림).
     const sidebarDate = document.getElementById('sidebar-current-date');
     if (sidebarDate) {
-        const today = (() => {
-            const t = new Date();
-            const y = t.getFullYear();
-            const m = String(t.getMonth() + 1).padStart(2, '0');
-            const dd = String(t.getDate()).padStart(2, '0');
-            return `${y}-${m}-${dd}`;
-        })();
-        const short = `${d.getMonth() + 1}월 ${d.getDate()}일 (${dayName})`;
-        if (currentDate === today) {
-            sidebarDate.textContent = `📅 ${short} · 오늘`;
-            sidebarDate.classList.remove('is-other-day');
-        } else {
-            sidebarDate.textContent = `📅 ${short}`;
-            sidebarDate.classList.add('is-other-day');
-        }
+        // (2026-05-18 fix) 사이드바는 시스템 오늘 날짜 고정 — currentDate 가 변해도 변하지 않음.
+        //   아이콘 제거, 텍스트만.
+        const t = new Date();
+        const todayDayName = ['일', '월', '화', '수', '목', '금', '토'][t.getDay()];
+        sidebarDate.textContent = `${t.getMonth() + 1}월 ${t.getDate()}일 (${todayDayName}) · 오늘`;
+        sidebarDate.classList.remove('is-other-day');
     }
 }
 

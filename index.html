@@ -111,7 +111,7 @@
             <!-- (2026-05-13 #30) 현재 묵상 날짜 상시 표기 — 어느 화면에 있어도 보임. setCurrentDate 가 갱신. -->
             <div id="sidebar-current-date" class="sidebar-current-date" title="지금 작업 중인 날짜"></div>
             <!-- (베타 슬림 v1, 2026-05-18) 슬림 모드일 때만 보이는 배지 — featureFlags.js -->
-            <div class="slim-mode-badge" title="베타 슬림 모드 — 6 화면 루프만 보여요">🌱 베타 슬림 모드</div>
+            <div class="slim-mode-badge" title="베타 버전 — 핵심 6 화면 루프">베타 버전</div>
             <nav class="sidebar-nav">
                 <!-- 2026-05-13 v2: 사용자 명시 메뉴 순서 (HC#1 후 검증 피드백 #11).
                      Alt+1~9 단축키도 이 순서대로 매핑됨 (shortcuts/registry.js). -->
@@ -506,73 +506,159 @@
             <div id="view-settings" class="view hidden">
                 <header class="page-header">
                     <h1><i class="page-icon" data-lucide="settings"></i> 설정</h1>
-                    <p class="subtitle">계정과 본문, 디자인을 한곳에서 다듬어요.</p>
+                    <p class="subtitle">필요한 자리만 찾아 다듬을 수 있게 카테고리로 묶어 뒀어요.</p>
                 </header>
                 <div id="settings-container">
-                    <div class="card-section" style="border-left: 3px solid var(--brand-primary)">
-                        <div class="section-header-flex">
-                            <h3 class="section-title"><i class="section-icon" data-lucide="package"></i> 데이터 복구</h3>
-                        </div>
-                        <p class="section-desc">
-                            예전에 적은 묵상·도트·원칙·목표를 다시 가져올 수 있어요.<br>
-                            [진단 시작]을 누르면 어떤 데이터가 어디에 있는지 알려드려요.
-                        </p>
-                        <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--ink-secondary);">
-                            <p>준비됐어요. [진단 시작]을 눌러볼까요?</p>
-                        </div>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button id="btn-diagnose" class="primary-btn">진단 시작</button>
-                            <button id="btn-migrate" class="primary-btn" style="background: var(--dot-orange);" disabled>데이터 옮기기</button>
-                            <button id="btn-backup" class="text-btn" disabled><i data-lucide="download" class="btn-icon"></i> 백업 파일로 받기</button>
-                        </div>
-                    </div>
+                    <!--
+                        (2026-05-18) 옵션 A 카테고리 묶음.
+                        - settings.js 의 injectExtraSections 가 카드별 그룹 body 에 append.
+                        - 슬림 모드 = [data-slim="hidden"] 그룹 단위 통째 숨김.
+                        - 단독 자리 1개: 내 프로필 (settings.js 가 selfCard 를 컨테이너 firstChild 로 prepend).
+                    -->
 
-                    <div class="card-section">
-                        <h3 class="section-title"><i class="section-icon" data-lucide="shield-check"></i> 내 데이터 백업</h3>
-                        <p class="section-desc">내 모든 데이터를 안전하게 암호화한 파일로 받아둘 수 있어요. 브라우저를 벗어나기 전에 잠겨요.</p>
-                        <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);"><i data-lucide="download" class="btn-icon"></i> 전체 데이터 받기</button>
-                    </div>
+                    <!-- ── 🎨 보이는 방식 ── (슬림 노출) -->
+                    <section class="settings-group" id="settings-group-appearance">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🎨</span> 보이는 방식
+                            <span class="group-hint">글자·색·테마</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-appearance">
+                            <!-- (settings.js append) 베타 슬림 모드 / 시스템 글자 크기 / 강조 색 -->
 
-                    <!-- 화면 가리기 (민감 정보 마스킹) -->
-                    <div class="card-section">
-                        <div class="settings-row">
-                            <div class="settings-row-text">
-                                <h3 class="section-title"><i class="section-icon" data-lucide="eye-off"></i> 화면 가리기</h3>
-                                <p class="section-desc">옆 사람 눈에 띌까 걱정될 때 켜두세요. 인물 이름·메모처럼 민감한 칸이 흐리게 가려지고, 한 번 누르면 5초 동안만 보여요.</p>
+                            <!-- 화면 모드 -->
+                            <div class="card-section">
+                                <div class="settings-row">
+                                    <div class="settings-row-text">
+                                        <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
+                                        <p class="section-desc">어두운 곳에서는 다크모드가 눈에 편해요. 한 번 정하면 다음에도 그대로예요.</p>
+                                    </div>
+                                    <label class="switch" for="theme-setting-toggle">
+                                        <input type="checkbox" id="theme-setting-toggle">
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="section-desc" style="margin-top:8px">켜짐 = 다크모드 · 꺼짐 = 라이트모드</p>
                             </div>
-                            <label class="switch" for="sensitive-setting-toggle">
-                                <input type="checkbox" id="sensitive-setting-toggle">
-                                <span class="switch-slider"></span>
-                            </label>
-                        </div>
-                    </div>
 
-                    <!-- 자동 잠금 시간 -->
-                    <div class="card-section">
-                        <h3 class="section-title"><i class="section-icon" data-lucide="lock"></i> 자동 잠금 시간</h3>
-                        <p class="section-desc">아무 동작이 없으면 설정한 시간 뒤 자동으로 잠겨요. 브라우저를 다른 창으로 옮겨두면 3분 뒤 즉시 잠겨요.</p>
-                        <div class="settings-inline">
-                            <input type="number" id="autolock-minutes-input" min="1" max="120" step="1" class="settings-number-input"> <span class="settings-unit">분 뒤 잠금</span>
-                            <button id="autolock-save-btn" class="text-btn">저장</button>
-                            <span id="autolock-save-status" class="settings-status"></span>
-                        </div>
-                        <p class="section-desc" style="margin-top:8px">남은 시간: <span id="lock-timer-display" class="lock-timer-inline">—</span></p>
-                    </div>
-
-                    <!-- 화면 모드 -->
-                    <div class="card-section">
-                        <div class="settings-row">
-                            <div class="settings-row-text">
-                                <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
-                                <p class="section-desc">어두운 곳에서는 다크모드가 눈에 편해요. 한 번 정하면 다음에도 그대로예요.</p>
+                            <!-- 화면 가리기 (민감 정보 마스킹) -->
+                            <div class="card-section">
+                                <div class="settings-row">
+                                    <div class="settings-row-text">
+                                        <h3 class="section-title"><i class="section-icon" data-lucide="eye-off"></i> 화면 가리기</h3>
+                                        <p class="section-desc">옆 사람 눈에 띌까 걱정될 때 켜두세요. 인물 이름·메모처럼 민감한 칸이 흐리게 가려지고, 한 번 누르면 5초 동안만 보여요.</p>
+                                    </div>
+                                    <label class="switch" for="sensitive-setting-toggle">
+                                        <input type="checkbox" id="sensitive-setting-toggle">
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
                             </div>
-                            <label class="switch" for="theme-setting-toggle">
-                                <input type="checkbox" id="theme-setting-toggle">
-                                <span class="switch-slider"></span>
-                            </label>
                         </div>
-                        <p class="section-desc" style="margin-top:8px">켜짐 = 다크모드 · 꺼짐 = 라이트모드</p>
-                    </div>
+                    </section>
+
+                    <!-- ── 📖 묵상 자리 ── (슬림 노출) -->
+                    <section class="settings-group" id="settings-group-meditation">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">📖</span> 묵상 자리
+                            <span class="group-hint">말씀·템플릿·알람</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-meditation">
+                            <!-- (settings.js append) 성경 번역본 / 말씀 본문 / 묵상 템플릿 / 매일 묵상 알람 / 생일 알람 -->
+                        </div>
+                    </section>
+
+                    <!-- ── 🔐 보안·복구 ── (슬림 노출) -->
+                    <section class="settings-group" id="settings-group-security">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🔐</span> 보안·복구
+                            <span class="group-hint">비밀번호·잠금·백업</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-security">
+                            <!-- (settings.js append) 비밀번호 바꾸기 / 이메일 복구 -->
+
+                            <!-- 자동 잠금 시간 -->
+                            <div class="card-section">
+                                <h3 class="section-title"><i class="section-icon" data-lucide="lock"></i> 자동 잠금 시간</h3>
+                                <p class="section-desc">아무 동작이 없으면 설정한 시간 뒤 자동으로 잠겨요. 브라우저를 다른 창으로 옮겨두면 3분 뒤 즉시 잠겨요.</p>
+                                <div class="settings-inline">
+                                    <input type="number" id="autolock-minutes-input" min="1" max="120" step="1" class="settings-number-input"> <span class="settings-unit">분 뒤 잠금</span>
+                                    <button id="autolock-save-btn" class="text-btn">저장</button>
+                                    <span id="autolock-save-status" class="settings-status"></span>
+                                </div>
+                                <p class="section-desc" style="margin-top:8px">남은 시간: <span id="lock-timer-display" class="lock-timer-inline">—</span></p>
+                            </div>
+
+                            <!-- 내 데이터 백업 -->
+                            <div class="card-section">
+                                <h3 class="section-title"><i class="section-icon" data-lucide="shield-check"></i> 내 데이터 백업</h3>
+                                <p class="section-desc">내 모든 데이터를 안전하게 암호화한 파일로 받아둘 수 있어요. 브라우저를 벗어나기 전에 잠겨요.</p>
+                                <button id="btn-export-backup" class="primary-btn" style="background: var(--dot-green);"><i data-lucide="download" class="btn-icon"></i> 전체 데이터 받기</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ── 🌱 모드·진입 ── (슬림 숨김) -->
+                    <section class="settings-group" id="settings-group-modes" data-slim="hidden">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🌱</span> 모드·진입
+                            <span class="group-hint">온보딩·히든 미션</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-modes">
+                            <!-- (settings.js append) 처음 안내 다시 보기 / 히든 미션 ✨ -->
+                        </div>
+                    </section>
+
+                    <!-- ── 🧹 정리 ── (슬림 숨김) -->
+                    <section class="settings-group" id="settings-group-cleanup" data-slim="hidden">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🧹</span> 정리
+                            <span class="group-hint">옛 데이터 정돈</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-cleanup">
+                            <!-- 데이터 복구 (v1 마이그레이션) -->
+                            <div class="card-section" style="border-left: 3px solid var(--brand-primary)">
+                                <div class="section-header-flex">
+                                    <h3 class="section-title"><i class="section-icon" data-lucide="package"></i> 데이터 복구</h3>
+                                </div>
+                                <p class="section-desc">
+                                    예전에 적은 묵상·도트·원칙·목표를 다시 가져올 수 있어요.<br>
+                                    [진단 시작]을 누르면 어떤 데이터가 어디에 있는지 알려드려요.
+                                </p>
+                                <div id="migration-status-box" style="margin-bottom: 16px; font-size: 13px; color: var(--ink-secondary);">
+                                    <p>준비됐어요. [진단 시작]을 눌러볼까요?</p>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button id="btn-diagnose" class="primary-btn">진단 시작</button>
+                                    <button id="btn-migrate" class="primary-btn" style="background: var(--dot-orange);" disabled>데이터 옮기기</button>
+                                    <button id="btn-backup" class="text-btn" disabled><i data-lucide="download" class="btn-icon"></i> 백업 파일로 받기</button>
+                                </div>
+                            </div>
+
+                            <!-- (settings.js append) 예전 결단 정리하기 -->
+                        </div>
+                    </section>
+
+                    <!-- ── 🛠 더보기 ── (슬림 숨김) -->
+                    <section class="settings-group" id="settings-group-more" data-slim="hidden">
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🛠</span> 더보기
+                            <span class="group-hint">단축키·임계값</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-more">
+                            <!-- (settings.js append) 키보드 단축키 / 경제 임계값 -->
+                        </div>
+                    </section>
+
+                    <!-- ── 🦢 운영 ── (슬림 숨김 · 관리자만, settings.js 에서 isSwanAdmin 일 때만 [hidden] 제거) -->
+                    <section class="settings-group" id="settings-group-admin" data-slim="hidden" hidden>
+                        <h2 class="settings-group-title">
+                            <span class="group-emoji">🦢</span> 운영
+                            <span class="group-hint">관리자만</span>
+                        </h2>
+                        <div class="settings-group-body" id="settings-group-body-admin">
+                            <!-- (settings.js append) 피드백 관리 -->
+                        </div>
+                    </section>
                 </div>
             </div>
         </main>
