@@ -15,7 +15,17 @@
       "Bash(node --check ui/feedbackAdmin.js)",
       "Bash(node --check ui/aiClient.js)",
       "Bash(node --check ui/todayView.js)",
-      "Bash(node --check data/feedbacksRepo.js)"
+      "Bash(node --check data/feedbacksRepo.js)",
+      "Bash(node --check ui/aiThinking.js)",
+      "Bash(node --check ui/decisionGate.js)",
+      "Bash(node --check ui/reportQna.js)",
+      "Bash(git -C \"c:/Users/MSI/Desktop/개발/Sanctum OS\" status --short)",
+      "Bash(git -C \"c:/Users/MSI/Desktop/개발/Sanctum OS\" log --oneline -5)",
+      "Bash(git -C \"c:/Users/MSI/Desktop/개발/Sanctum OS\" diff --stat ui/app.js ui/settings.js index.html style.css \"docs/현재상태_로드맵.md\")",
+      "Bash(git -C \"c:/Users/MSI/Desktop/개발/Sanctum OS\" add config/featureFlags.js index.html style.css ui/app.js ui/settings.js \"docs/현재상태_로드맵.md\")",
+      "Bash(git -C 'c:/Users/MSI/Desktop/개발/Sanctum OS' commit -m ' *)",
+      "Bash(git -C \"c:/Users/MSI/Desktop/개발/Sanctum OS\" push origin main)",
+      "Bash(node --check ui/selfProfile.js)"
     ]
   }
 }

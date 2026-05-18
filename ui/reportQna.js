@@ -15,6 +15,8 @@
  */
 
 import { callReportQuestion } from './aiClient.js';
+// (Phase C 2026-05-16) AI 로딩 보강 — 단계 라벨 회전 + typing breath
+import { THINKING_COPY, typeText, shouldReduceMotion } from './aiThinking.js';
 import {
     saveReportQuestion, listQuestionsByReport, markQuestionSeen,
     countArchivedByReport, listArchivedQuestionsByReport,
@@ -197,12 +199,14 @@ export async function mountReportQna(anchorEl, cfg) {
                 returnToMeditation: res.returnToMeditation,
             });
 
-            // 임시 카드 → 정식 답변으로 교체
+            // 임시 카드 → 정식 답변으로 교체 (typing breath 적용)
+            card_clearThinkingTimer(tempCard);
             tempCard.classList.remove('qna-card-pending');
-            tempCard.querySelector('.qna-answer').innerHTML = renderAnswerHtml(res);
+            await fillAnswerWithTyping(tempCard.querySelector('.qna-answer'), res);
             input.value = '';
         } catch (e) {
             console.error('reportQuestion failed:', e);
+            card_clearThinkingTimer(tempCard);
             tempCard.querySelector('.qna-answer').innerHTML =
                 `<p class="qna-error">답을 부르지 못했어요. 잠시 후 다시 시도해 주세요.</p>`;
         } finally {
@@ -240,12 +244,76 @@ function appendPendingCard(historyEl, question) {
     historyEl.dataset.empty = 'false';
     const card = document.createElement('article');
     card.className = 'qna-card qna-card-pending';
+    // (Phase C 2026-05-16) 단계 라벨 회전 + 가짜 progress bar
     card.innerHTML = `
         <p class="qna-question">${escapeHtml(question)}</p>
-        <div class="qna-answer"><p class="qna-loading">관찰된 흐름을 짚고 있어요…</p></div>
+        <div class="qna-answer">
+            <div class="ai-thinking ai-thinking-sm">
+                <div class="ai-thinking-bar"></div>
+                <span class="ai-thinking-label">${escapeHtml(THINKING_COPY.reportQna[0])}</span>
+            </div>
+        </div>
     `;
     historyEl.prepend(card);
+
+    // 라벨 회전
+    const labelEl = card.querySelector('.ai-thinking-label');
+    const labels = THINKING_COPY.reportQna;
+    let stage = 0;
+    const timer = setInterval(() => {
+        if (!labelEl.isConnected) { clearInterval(timer); return; }
+        stage = (stage + 1) % labels.length;
+        labelEl.style.opacity = '0';
+        setTimeout(() => {
+            labelEl.textContent = labels[stage];
+            labelEl.style.opacity = '';
+        }, 150);
+    }, 2500);
+    card._thinkingTimer = timer;
+
     return card;
+}
+
+/**
+ * (Phase C 2026-05-16) 응답 노출 — typing breath. 본문(flow)만 한 자씩, 종결 두 줄은 한 번에.
+ */
+async function fillAnswerWithTyping(answerEl, res) {
+    if (card_clearThinkingTimer(answerEl)) {/* noop, helper handles */}
+    const flow = res.observationFlow || res.full || '';
+    const tail = res.returnToMeditation || '';
+    answerEl.innerHTML = `
+        <div class="qna-flow ai-typing"></div>
+        ${tail ? `<div class="qna-tail" hidden>${escapeHtml(tail).replace(/\n/g, '<br>')}</div>` : ''}
+    `;
+    const flowEl = answerEl.querySelector('.qna-flow');
+    const tailEl = answerEl.querySelector('.qna-tail');
+    if (!flowEl) return;
+
+    if (shouldReduceMotion() || !flow) {
+        flowEl.classList.remove('ai-typing');
+        flowEl.innerHTML = escapeHtml(flow).replace(/\n/g, '<br>');
+        if (tailEl) tailEl.hidden = false;
+        return;
+    }
+    // 한 자씩 노출 — \n 만나면 <br>
+    for (let i = 0; i < flow.length; i++) {
+        const ch = flow[i];
+        if (ch === '\n') flowEl.appendChild(document.createElement('br'));
+        else flowEl.appendChild(document.createTextNode(ch));
+        await new Promise(r => setTimeout(r, 22));
+    }
+    flowEl.classList.remove('ai-typing');
+    if (tailEl) tailEl.hidden = false;
+}
+
+function card_clearThinkingTimer(scopeEl) {
+    // 카드 (또는 그 안 자리)에서 thinking timer 정리
+    const card = scopeEl.closest?.('.qna-card') || scopeEl;
+    if (card?._thinkingTimer) {
+        clearInterval(card._thinkingTimer);
+        card._thinkingTimer = null;
+    }
+    return true;
 }
 
 /**

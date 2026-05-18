@@ -31,6 +31,8 @@ import {
 } from '../config/principleEnums.js';
 // (B-2 트랙 2026-05-13) 소크라테스 흐름 — AI는 답을 주지 않고 질문만 던짐
 import { callDecisionSocratic } from './aiClient.js';
+// (Phase C 2026-05-16) AI 로딩 보강 — 단계 라벨 회전 + typing breath
+import { THINKING_COPY, typeText, shouldReduceMotion } from './aiThinking.js';
 // (B-2 v2) 27 자동 추천 + 탓 톤 데이터 근거용 repo
 import { db, collection, query, where, getDocs } from '../data/firebase.js';
 import { readDocument } from '../crypto/cryptoService.js';
@@ -427,10 +429,93 @@ function _renderSocraticSection() {
     inputWrap.classList.toggle('hidden', !lastWasQuestion || ended);
     loading.classList.toggle('hidden', !_state.socraticLoading);
 
+    // (Phase C 2026-05-16) 로딩 중 단계 라벨 회전 — 소크라테스 카피 4단계
+    _setSocraticLoadingRotation(_state.socraticLoading);
+
     // 버튼 비활성 (로딩 중)
     [startBtn, nextBtn, opinionBtn, summaryBtn, endBtn].forEach(b => {
         if (b) b.disabled = _state.socraticLoading;
     });
+}
+
+// (Phase C 2026-05-16) 소크라테스 로딩 라벨 회전 + progress bar 자리.
+let _socraticLoadingTimer = null;
+const SOCRATIC_ROTATE_MS = 2500;
+
+function _setSocraticLoadingRotation(active) {
+    const loadingEl = document.getElementById('dg-socratic-loading');
+    if (!loadingEl) return;
+
+    if (active && !_socraticLoadingTimer) {
+        // progress bar 자리 잡힘 (없으면 추가)
+        if (!loadingEl.querySelector('.dg-socratic-progress')) {
+            const bar = document.createElement('div');
+            bar.className = 'dg-socratic-progress';
+            loadingEl.appendChild(bar);
+        }
+        const labelEl = loadingEl.querySelector('.dg-socratic-loading-text');
+        if (!labelEl) return;
+        const labels = THINKING_COPY.socratic;
+        let stage = 0;
+        labelEl.textContent = labels[0];
+        // 진입 시 게이지 재시작 — animation 다시 박-... 트리거
+        loadingEl.classList.remove('is-done');
+        // restart progress animation by reflow
+        const bar = loadingEl.querySelector('.dg-socratic-progress');
+        if (bar) {
+            bar.style.animation = 'none';
+            void bar.offsetWidth;
+            bar.style.animation = '';
+        }
+        _socraticLoadingTimer = setInterval(() => {
+            if (!labelEl.isConnected) {
+                clearInterval(_socraticLoadingTimer);
+                _socraticLoadingTimer = null;
+                return;
+            }
+            stage = (stage + 1) % labels.length;
+            labelEl.style.opacity = '0';
+            setTimeout(() => {
+                labelEl.textContent = labels[stage];
+                labelEl.style.opacity = '';
+            }, 150);
+        }, SOCRATIC_ROTATE_MS);
+    } else if (!active && _socraticLoadingTimer) {
+        clearInterval(_socraticLoadingTimer);
+        _socraticLoadingTimer = null;
+        loadingEl.classList.add('is-done');
+    }
+}
+
+// (Phase C 2026-05-16) 마지막 AI 턴에 typing breath 적용 — 응답 직후 한 자씩 노출.
+async function _typeLastAiTurn() {
+    if (shouldReduceMotion()) return;
+    const turn = _state.socraticHistory[_state.socraticHistory.length - 1];
+    if (!turn || turn.role !== 'ai') return;
+    const historyEl = document.getElementById('dg-socratic-history');
+    if (!historyEl) return;
+    const turnEls = historyEl.querySelectorAll('.dg-socratic-turn-ai');
+    if (turnEls.length === 0) return;
+    const lastEl = turnEls[turnEls.length - 1];
+    const textEl = lastEl.querySelector('.dg-socratic-turn-text');
+    if (!textEl) return;
+    const fullText = turn.text || '';
+    if (!fullText) return;
+    // 줄바꿈 <br> 처리 — typeText 는 textContent 만 다루니까 한 자씩 교체하되 \n 만나면 br 로
+    textEl.textContent = '';
+    textEl.classList.add('ai-typing');
+    for (let i = 0; i < fullText.length; i++) {
+        const ch = fullText[i];
+        if (ch === '\n') {
+            textEl.appendChild(document.createElement('br'));
+        } else {
+            textEl.appendChild(document.createTextNode(ch));
+        }
+        if (i % 4 === 0) historyEl.scrollTop = historyEl.scrollHeight;
+        await new Promise(r => setTimeout(r, 22));
+    }
+    textEl.classList.remove('ai-typing');
+    historyEl.scrollTop = historyEl.scrollHeight;
 }
 
 /**
@@ -596,7 +681,12 @@ async function _socraticAsk(mode) {
         _state.socraticLoading = false;
         _renderSocraticSection();
 
-        // 답변 textarea로 포커스 (질문 모드일 때만)
+        // (Phase C 2026-05-16) AI 응답 typing breath — 한 자씩 자연 노출.
+        //   _renderSocraticSection 이 history 통째로 재렌더하니까 그 다음 자리에 typeText 적용.
+        //   사용자가 답 적기 전까진 _renderSocraticSection 재호출 X — typing 안전.
+        _typeLastAiTurn().catch(e => console.warn('[decisionGate] typing breath:', e?.message));
+
+        // 답변 textarea로 포커스 (질문 모드일 때만) — typing 진행 중이라도 포커스 가능
         if (mode === 'question' && !_state.socraticEnded) {
             setTimeout(() => document.getElementById('dg-socratic-answer')?.focus(), 50);
         }

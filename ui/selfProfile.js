@@ -27,6 +27,8 @@ import { ensureSelfCard, saveSelfCard } from '../data/personRepo.js';
 import { showToast } from './quickReview.js';
 // (53번 본인 프로필 AI 부트스트랩 — 2026-05-14) 묶음당 2~3 짧은 질문 + 일괄 제안
 import { callProfileBootstrap } from './aiClient.js';
+// (Phase C 2026-05-16) AI 로딩 보강 — 단계 라벨 회전 + progress bar
+import { THINKING_COPY } from './aiThinking.js';
 // (#58 후속 2026-05-14) 음력 → 올해 양력 자동 표시
 import { parseBirthdayMonthDay, lunarBirthdayToUpcomingSolar } from '../infra/lunarCalendar.js';
 
@@ -726,8 +728,10 @@ function renderBody() {
             </div>
         ` : `
             <div class="sf-bs-loading">
-                <span class="sf-bs-dots"><span></span><span></span><span></span></span>
-                <span>${_bootstrapState.loading ? '호흡 한 번...' : '잠시만요...'}</span>
+                <div class="ai-thinking ai-thinking-sm">
+                    <div class="ai-thinking-bar"></div>
+                    <span class="ai-thinking-label">${escapeHtml(THINKING_COPY.profileBootstrap[0])}</span>
+                </div>
             </div>
         `;
 
@@ -747,8 +751,10 @@ function renderBody() {
     } else if (_bootstrapState.phase === 'extracting') {
         root.innerHTML = `
             <div class="sf-bs-loading sf-bs-loading-big">
-                <span class="sf-bs-dots"><span></span><span></span><span></span></span>
-                <span>답변을 정리하는 중...</span>
+                <div class="ai-thinking">
+                    <div class="ai-thinking-bar"></div>
+                    <span class="ai-thinking-label">${escapeHtml(THINKING_COPY.profileBootstrap[0])}</span>
+                </div>
             </div>
         `;
 
@@ -800,6 +806,28 @@ function renderBody() {
         `;
         document.getElementById('sf-bs-done-close')?.addEventListener('click', closeBootstrap);
     }
+
+    // (Phase C 2026-05-16) 노출된 ai-thinking 자리 단계 라벨 회전 — renderBody 매번 새 element 라 자연 자리잡힘.
+    _activateProfileBootstrapRotation();
+}
+
+// (Phase C 2026-05-16) profileBootstrap 단계 라벨 회전 — DOM 안 ai-thinking-label 만 자연 자리.
+function _activateProfileBootstrapRotation() {
+    const root = document.getElementById('sf-bs-body');
+    if (!root) return;
+    const labelEl = root.querySelector('.ai-thinking-label');
+    if (!labelEl) return;
+    const labels = THINKING_COPY.profileBootstrap;
+    let stage = 0;
+    const timer = setInterval(() => {
+        if (!labelEl.isConnected) { clearInterval(timer); return; }
+        stage = (stage + 1) % labels.length;
+        labelEl.style.opacity = '0';
+        setTimeout(() => {
+            labelEl.textContent = labels[stage];
+            labelEl.style.opacity = '';
+        }, 150);
+    }, 2500);
 }
 
 async function askNextQuestion() {
