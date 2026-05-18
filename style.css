@@ -9945,3 +9945,37 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     line-height: 1.5;
 }
 
+/* ─── (2026-05-16) 어제 묵상이 남긴 질문 카드 ──────────────────
+   말씀 자리 직전. 사용자가 회개·감사 기도 → 본문 이어가는 자연 흐름. */
+.yesterday-questions-section {
+    border-left: 3px solid var(--accent, var(--brand-primary));
+    background: var(--accent-soft, var(--brand-soft));
+}
+.yesterday-questions-section.hidden {
+    display: none;
+}
+.yesterday-questions-intro {
+    font-size: 13px;
+    color: var(--color-ink-secondary, var(--ink-secondary));
+    margin: 0 0 var(--sp-3, 12px);
+    line-height: 1.55;
+}
+.yesterday-questions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2, 8px);
+}
+.yesterday-question-item {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-ink-primary, var(--ink-primary));
+    padding: var(--sp-3, 12px) var(--sp-4, 16px);
+    background: var(--color-surface, var(--bg-card));
+    border-radius: var(--radius-md, 10px);
+    border: 1px solid var(--color-border, var(--border));
+}
+

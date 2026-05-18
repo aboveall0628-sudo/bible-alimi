@@ -122,7 +122,27 @@ export async function renderTodayStartIntoView(userId) {
         getDayReport(dek, userId, yesterdayStr).catch(() => null),
     ]);
     renderTodayStart(pinned, yesterdayReport);
+    // (2026-05-16) 어제 묵상이 남긴 질문 — 말씀 자리 직전 큰 카드. 사용자가 자연 흐름으로 회개·감사 기도 → 본문 이어가도록.
+    renderYesterdayQuestionsCard(yesterdayReport);
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
+}
+
+// ─── (2026-05-16) 어제 묵상이 남긴 질문 카드 ──────────────────
+function renderYesterdayQuestionsCard(yesterdayReport) {
+    const section = document.getElementById('section-yesterday-questions');
+    const listEl = document.getElementById('yesterday-questions-list');
+    if (!section || !listEl) return;
+
+    const questions = (yesterdayReport?.questionsForMeditation || []).filter(q => q && q.trim());
+    if (questions.length === 0) {
+        section.classList.add('hidden');
+        listEl.innerHTML = '';
+        return;
+    }
+    section.classList.remove('hidden');
+    listEl.innerHTML = questions.map(q =>
+        `<li class="yesterday-question-item">${escapeHtml(q)}</li>`
+    ).join('');
 }
 
 function renderLocked() {
@@ -156,25 +176,15 @@ function renderTodayStart(pinned, yesterdayReport) {
             </div>
         ` : '';
 
-    const yesterdayQ = (yesterdayReport?.questionsForMeditation || [])[0] || null;
-    const yesterdayBlock = yesterdayQ
-        ? `
-            <div class="today-start-line today-start-line-quiet">
-                <i class="today-start-icon" data-lucide="sparkles"></i>
-                <span class="today-start-label">어제 묵상에 가져간 질문</span>
-                <span class="today-start-text">${escapeHtml(yesterdayQ)}</span>
-            </div>
-        ` : '';
-
+    // (2026-05-16) 한 줄 "어제 묵상에 가져간 질문" 자리 제거 — 사용자 명시 "한 줄 자리 안 본다".
+    //   대신 말씀 자리 직전 큰 카드(#section-yesterday-questions)로 옮김. renderYesterdayQuestionsCard.
     root.innerHTML = `
         <div class="today-start-card">
             <div class="today-start-greeting">${escapeHtml(greeting)}${escapeHtml(namePart)}</div>
             ${pinnedBlock}
-            ${yesterdayBlock}
-            ${(!pinned && !yesterdayQ) ? `
+            ${!pinned ? `
                 <div class="today-start-empty">
-                    오늘의 핀 원칙을 정하면 여기에 나타나요.<br>
-                    어제 묵상에 가져간 질문도 자동으로 이어집니다.
+                    오늘의 핀 원칙을 정하면 여기에 나타나요.
                 </div>
             ` : ''}
             <div id="today-start-unseen-qna"></div>
