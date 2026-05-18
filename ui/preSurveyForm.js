@@ -24,12 +24,12 @@ const TYPING_DELAY_MS = 38;
 const PRE_TYPING_DELAY_MS = 600;
 
 // ─── 카탈로그 (v2 합의 12 질문) ─────────────────────────────────
-const RAPPORT_COPY = '잠깐, 5~9분 정도 평소 묵상·신앙 흐름 들려주세요.<br>정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';
+const RAPPORT_COPY = '잠깐, 5~9분 정도 평소 묵상·신앙 흐름 들려주세요. 정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';
 
 const QUESTIONS = [
     {
         id: 'Q1',
-        title: '요즘 신앙 생활에서<br>가장 마음에 두고 있는 게 뭐예요?',
+        title: '요즘 신앙 생활에서 가장 마음에 두고 있는 게 뭐예요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -42,7 +42,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q2',
-        title: '최근 한 달 묵상·QT를<br>며칠 정도 하셨어요?',
+        title: '최근 한 달 묵상·QT를 며칠 정도 하셨어요?',
         chipBlocks: [{
             mode: 'single',
             hint: '하나만 골라요',
@@ -55,7 +55,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q3',
-        title: '묵상 못 한 최근 사례 —<br>가장 큰 원인이 뭐였어요?',
+        title: '묵상 못 한 최근 사례 — 가장 큰 원인이 뭐였어요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -68,7 +68,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q4',
-        title: '그 문제 풀어보려고<br>시도해본 게 있어요?',
+        title: '그 문제 풀어보려고 시도해본 게 있어요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -81,7 +81,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q5',
-        title: '지금 쓰는<br>묵상·성경 앱 있어요?',
+        title: '지금 쓰는 묵상·성경 앱 있어요?',
         chipBlocks: [
             {
                 mode: 'single',
@@ -103,7 +103,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q6',
-        title: '묵상 끝난 뒤 그 내용이<br>그날 하루로 이어진다고 느끼세요?',
+        title: '묵상 끝난 뒤 그 내용이 그날 하루로 이어진다고 느끼세요?',
         chipBlocks: [{
             mode: 'single',
             hint: '하나만 골라요',
@@ -117,7 +117,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q7',
-        title: '평소 할 일·목표 관리할 때<br>쓰는 도구 있어요?',
+        title: '평소 할 일·목표 관리할 때 쓰는 도구 있어요?',
         chipBlocks: [
             {
                 mode: 'multi',
@@ -136,7 +136,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q8',
-        title: '묵상이나 신앙 관련해서<br>돈·시간 써본 적 있어요?',
+        title: '묵상이나 신앙 관련해서 돈·시간 써본 적 있어요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -149,7 +149,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q9',
-        title: '어떤 가치가 있어야<br>한 달 비용이 의미 있다고 느낄까요?',
+        title: '어떤 가치가 있어야 한 달 비용이 의미 있다고 느낄까요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -162,7 +162,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q10',
-        title: '이번 2주 동안 본인이<br>가장 알아보고 싶은 게 뭐예요?',
+        title: '이번 2주 동안 본인이 가장 알아보고 싶은 게 뭐예요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -175,7 +175,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q11',
-        title: '묵상·신앙 관련 공동체나<br>모임에 지금 참여하고 계세요?',
+        title: '묵상·신앙 관련 공동체나 모임에 지금 참여하고 계세요?',
         chipBlocks: [
             {
                 mode: 'multi',
@@ -199,7 +199,7 @@ const QUESTIONS = [
     },
     {
         id: 'Q12',
-        title: '부부·가족 단위로<br>함께 하는 신앙 자리가 있어요?',
+        title: '부부·가족 단위로 함께 하는 신앙 자리가 있어요?',
         chipBlocks: [{
             mode: 'multi',
             hint: '여러 개 골라도 좋아요',
@@ -328,7 +328,7 @@ function renderQuestionCard(body, idx) {
     // Phase 2-1: AI 가공 질문 캐시 우선, 없으면 정적 카피 fallback
     const aiTitle = _state.aiQuestions?.[q.id];
     const titleHtml = aiTitle || q.title;
-    // 타이핑용 plain text — <br> → 줄바꿈
+    // 타이핑용 plain text —  → 줄바꿈
     const titleForTyping = titleHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
 
     // AI 가공 질문이 라포 흡수 한 결이면 별도 라포 카드 카피 X
@@ -457,7 +457,7 @@ function renderFreeTextBlocks(q, stored) {
 function renderFinishCard(body) {
     body.innerHTML = `
         <div class="onboarding-card presurvey-card-wrap presurvey-finish-card">
-            <h2 class="onboarding-title presurvey-question">잘 들려주셔서 고마워요.<br>이제 Sanctum OS를 통한<br>묵상을 시작해 볼까요?</h2>
+            <h2 class="onboarding-title presurvey-question">잘 들려주셔서 고마워요. 이제 Sanctum OS를 통한 묵상을 시작해 볼까요?</h2>
             <div class="onboarding-actions presurvey-footer presurvey-finish-footer">
                 <button type="button" class="onboarding-btn presurvey-btn-prev" id="presurvey-finish-prev">← 이전</button>
                 <button type="button" class="onboarding-btn onboarding-btn-primary presurvey-btn-finish">말씀 묵상하기</button>
