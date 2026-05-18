@@ -1135,10 +1135,11 @@ function showToast(msg) {
         .trim();
     document.body.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 10);
+    // (2026-05-18 후속) 사용자 명시 "엄청 빨리 사라지네" — 1000 → 3500ms
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 1000);
+    }, 3500);
 }
 
 export { showToast };

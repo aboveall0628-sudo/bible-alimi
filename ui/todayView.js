@@ -402,7 +402,17 @@ async function handleWeekReportClick(btn) {
         });
     } catch (e) {
         console.error('weekly report generate failed:', e);
-        showToast('주간 리포트 생성이 잠깐 막혔어요');
+        // (2026-05-18 후속) 진짜 에러 메시지를 inline 자리에 표시 — 콘솔 안 봐도 진단 가능
+        if (inline) {
+            const safe = String(e?.message || e).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+            inline.innerHTML = `
+                <div style="margin-top:12px; padding:12px 14px; background:rgba(229,101,74,0.08); border:1px solid rgba(229,101,74,0.25); border-radius:10px; font-size:13px;">
+                    <p style="margin:0 0 6px; font-weight:600;">⚠️ 주간 리포트 자리에서 막혔어요.</p>
+                    <p style="margin:0; font-size:12.5px; color:var(--ink-secondary, #6a6a6a); line-height:1.55;">${safe}</p>
+                </div>
+            `;
+        }
+        showToast('주간 리포트 자리: ' + (String(e?.message || '').slice(0, 50) || '알 수 없는 자리'));
         btn.disabled = false;
         btn.textContent = originalLabel;
     }
