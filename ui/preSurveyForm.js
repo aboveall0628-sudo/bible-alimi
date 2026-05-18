@@ -19,9 +19,9 @@ import { showToast } from './quickReview.js';
 import { callSwanPreSurveyQuestions } from './aiClient.js';
 import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
 
-const MIN_LOADING_MS = 1800;
-const TYPING_DELAY_MS = 32;
-const PRE_TYPING_DELAY_MS = 450;
+const MIN_LOADING_MS = 1200;
+const TYPING_DELAY_MS = 38;
+const PRE_TYPING_DELAY_MS = 600;
 
 // ─── 카탈로그 (v2 합의 12 질문) ─────────────────────────────────
 const RAPPORT_COPY = '잠깐, 5~9분 정도 평소 묵상·신앙 흐름 들려주세요.<br>정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';

@@ -659,7 +659,8 @@ function injectExtraSections() {
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
                 <button type="button" id="settings-open-feedback-admin" class="primary-btn">피드백 관리 열기</button>
                 <button type="button" id="settings-start-pre-survey" class="secondary-btn">사전 설문 미리 해보기 (채팅 v1)</button>
-                <button type="button" id="settings-start-pre-survey-form" class="secondary-btn">사전 설문 폼 v2 시안 (Q1)</button>
+                <button type="button" id="settings-start-pre-survey-form" class="secondary-btn">사전 설문 폼 v2 시안</button>
+                <button type="button" id="settings-start-onboarding-presurvey" class="secondary-btn">온보딩 → 사전 설문 한 흐름 테스트</button>
             </div>
         `;
         appendToGroup('settings-group-body-admin', adminCard, container);
@@ -682,6 +683,29 @@ function injectExtraSections() {
         adminCard.querySelector('#settings-start-pre-survey-form')?.addEventListener('click', () => {
             if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
                 window.__sanctumOpenPreSurveyForm();
+            }
+        });
+        // (2026-05-18) 온보딩 → 사전 설문 한 흐름 테스트 — 사용자 명시 "시작 온보딩에 이거 합쳐서 넣어줘"
+        adminCard.querySelector('#settings-start-onboarding-presurvey')?.addEventListener('click', async () => {
+            if (!_userId || _userId === 'anonymous') return;
+            const dek = getDEK();
+            if (!dek) return;
+            try {
+                const { showOnboardingModal } = await import('./onboarding.js');
+                await showOnboardingModal({
+                    userId: _userId,
+                    dek,
+                    onComplete: () => {
+                        // 마침 카드 자연 호흡 후 사전 설문 자연 진입
+                        setTimeout(() => {
+                            if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
+                                window.__sanctumOpenPreSurveyForm();
+                            }
+                        }, 600);
+                    },
+                });
+            } catch (e) {
+                console.warn('[settings] onboarding → presurvey 흐름 진입 실패:', e);
             }
         });
     }

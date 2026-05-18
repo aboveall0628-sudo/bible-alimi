@@ -10287,11 +10287,11 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     50%      { opacity: 0; }
 }
 
-/* 카드 enter — step 전환 시 부드럽게 등장 */
+/* 카드 enter — step 전환 시 부드럽게 등장 (사용자 결 천천히 통일, 2026-05-18 v77+) */
 .onboarding-card-enter {
     opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 280ms ease-out, transform 280ms ease-out;
+    transform: translateY(12px);
+    transition: opacity 500ms ease-out, transform 500ms ease-out;
 }
 .onboarding-card-enter.onboarding-card-enter-active {
     opacity: 1;
@@ -10877,7 +10877,7 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    transition: opacity 360ms ease-out, transform 360ms ease-out;
+    transition: opacity 480ms ease-out, transform 480ms ease-out;
 }
 .presurvey-card-typing-locked .presurvey-after-typing {
     opacity: 0;
