@@ -1214,8 +1214,8 @@ export const llmProxy = onCall<LLMRequest, Promise<LLMResponse>>(
     {
         secrets: [GEMINI_API_KEY],
         region: "asia-northeast3",
-        memory: "256MiB",
-        timeoutSeconds: 60,
+        memory: "512MiB",       // (2026-05-18 후속) 256 → 512MiB — 주간 리포트 큰 stats 자리
+        timeoutSeconds: 540,    // (2026-05-18 후속) 60 → 540s (9분) — 주간 리포트 Gemini 응답 시간
         cors: true,
     },
     async (req) => {
