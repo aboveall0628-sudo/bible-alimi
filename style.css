@@ -9752,6 +9752,41 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     color: var(--ink-secondary, #6a6a6a);
     margin: 0 0 4px;
 }
+
+/* (2026-05-18 후속) 다시보기 닫기 버튼 — 우상단 X
+ * 신규 사용자는 안 보임. 재시청 시만 보여서 언제든 원래 화면으로 복귀 가능. */
+.onboarding-modal {
+    position: relative;
+}
+.onboarding-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: var(--surface-soft, #f7f5f0);
+    color: var(--ink-secondary, #6a6a6a);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    z-index: 5;
+}
+.onboarding-close-btn:hover {
+    background: rgba(124, 139, 111, 0.14);
+    color: var(--ink, #2a2a2a);
+}
+.onboarding-close-btn:active {
+    transform: scale(0.94);
+}
+@media (max-width: 480px) {
+    .onboarding-close-btn { width: 32px; height: 32px; font-size: 20px; top: 10px; right: 10px; }
+}
 .onboarding-btn-block {
     width: 100%;
 }

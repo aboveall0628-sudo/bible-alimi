@@ -144,6 +144,10 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
         cardSnapshot: card,
     };
 
+    // (2026-05-18 후속) 다시보기 닫기 버튼 — 신규 사용자(name 빈 값)는 닫기 X.
+    //   재시청(name 자리잡혀 있음) 시만 우상단 X 버튼 노출 → 저장 없이 원래 화면 복귀.
+    const isReplay = !!(card && card.name && card.name.trim());
+
     const backdrop = document.createElement('div');
     backdrop.className = 'onboarding-backdrop';
     backdrop.id = 'onboarding-backdrop';
@@ -152,6 +156,12 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
     backdrop.setAttribute('aria-labelledby', 'onboarding-title');
     backdrop.innerHTML = `
       <div class="onboarding-modal age-tone-young" id="onboarding-modal">
+        ${isReplay ? `
+          <button type="button" class="onboarding-close-btn" id="onboarding-close-btn"
+                  aria-label="안내 닫기 — 원래 화면으로 돌아가기" title="원래 화면으로">
+            <span aria-hidden="true">×</span>
+          </button>
+        ` : ''}
         <div class="onboarding-stepper" id="onboarding-stepper" aria-label="진행도">
           ${Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map(n =>
             `<span class="onboarding-step-dot${n === 1 ? ' active' : ''}" data-step="${n}"></span>`
@@ -161,6 +171,14 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
       </div>
     `;
     document.body.appendChild(backdrop);
+
+    // 닫기 버튼 — 저장 없이 모달만 닫고 원래 화면 그대로 보여줌.
+    if (isReplay) {
+        document.getElementById('onboarding-close-btn')?.addEventListener('click', () => {
+            closeOnboardingModal();
+            // onComplete 는 호출 X — 사용자가 어디서 띄웠든 그 화면 그대로 유지.
+        });
+    }
 
     renderStep(1);
 }
