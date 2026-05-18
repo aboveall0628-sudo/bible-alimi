@@ -36,6 +36,8 @@ import { bindMarkdownEditor, getMarkdown, setMarkdown } from './markdownEditor.j
 // (S-D 후속 2026-05-15) 시스템 폰트 + 성경 번역본 옵션
 import { SYSTEM_FONT_SIZES, getSystemFontScale, setSystemFontScale } from '../config/systemFont.js';
 import { ACCENT_COLORS, getAccentColor, setAccentColor } from '../config/accentColor.js';
+// 베타 슬림 v1 (2026-05-18) — tier 토글
+import { TIERS, getTier, setTier } from '../config/featureFlags.js';
 import { BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION } from '../config/onboardingDefaults.js';
 import { isSwanAdmin } from '../config/adminConfig.js';
 import { ensureSelfCard, saveSelfCard } from '../data/personRepo.js';
@@ -242,6 +244,22 @@ function injectExtraSections() {
         <div id="settings-accent-color-row" class="settings-font-chip-row"></div>
     `;
     container.appendChild(accentColorCard);
+
+    // (베타 슬림 v1 2026-05-18) tier 토글 카드 — 6 화면 루프만 보이는 모드.
+    //   <html data-tier="slim"> + [data-slim="hidden"] 사이드바 분기로 라이브 전환.
+    //   디폴트 = 'full' (현재 모든 메뉴 노출 그대로).
+    //   사업기획서 §4.2 — 1차 베타 14명은 'beta_unlimited' 자동 발급, 실무는 'slim' 으로 노출 조정.
+    const tierCard = document.createElement('div');
+    tierCard.id = 'settings-tier-card';
+    tierCard.className = 'card-section';
+    tierCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="layers"></i> 베타 슬림 모드</h3>
+        <p class="section-desc">
+            지금은 1차 베타라서 사용자분이 직접 두 모드를 오갈 수 있어요. 슬림은 묵상 → 다짐 → 시간표 → 했/안함 → 주간 거울만 보이고, 전체는 도트·인물·가계부·의사결정까지 같이 보여요.
+        </p>
+        <div id="settings-tier-row" class="settings-tier-row"></div>
+    `;
+    container.appendChild(tierCard);
 
     // (S-D 후속 2026-05-15) 성경 번역본 안내 카드 — 본문 데이터는 개역개정 단일.
     //   다른 번역본은 자리만 노출 ("준비 중"). 가입 시 selfCard.bibleVersion 박힘.
@@ -1290,6 +1308,7 @@ function bindEvents() {
     // ─── (S-D 후속 2026-05-15) 시스템 글자 크기 + 성경 번역본 안내 ───
     bindSystemFontSettings();
     bindAccentColorSettings();
+    bindTierSettings();
     bindBibleVersionSettings();
 
     // ─── 자동 잠금 시간(분) ───
@@ -1632,6 +1651,36 @@ function bindAccentColorSettings() {
             setAccentColor(id);
             row.querySelectorAll('.settings-font-chip').forEach(b => {
                 b.classList.toggle('selected', b === btn);
+            });
+        });
+    });
+}
+
+/**
+ * (베타 슬림 v1 2026-05-18) tier 토글 칩 — 'full' vs 'slim'.
+ *   클릭 즉시 <html data-tier> 적용 + localStorage 저장 + 사이드바 메뉴 자동 분기.
+ */
+function bindTierSettings() {
+    const row = document.getElementById('settings-tier-row');
+    if (!row) return;
+    const current = getTier();
+    row.innerHTML = Object.entries(TIERS).map(([id, cfg]) => `
+        <button type="button"
+                class="settings-tier-chip"
+                role="radio"
+                aria-checked="${current === id ? 'true' : 'false'}"
+                data-tier="${id}">
+            <span class="settings-tier-chip-label">${escapeText(cfg.label)}</span>
+            <span class="settings-tier-chip-desc">${escapeText(cfg.desc)}</span>
+        </button>
+    `).join('');
+    row.querySelectorAll('.settings-tier-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.tier;
+            if (!TIERS[id]) return;
+            setTier(id);
+            row.querySelectorAll('.settings-tier-chip').forEach(b => {
+                b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
             });
         });
     });

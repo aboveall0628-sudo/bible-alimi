@@ -6165,13 +6165,46 @@ body.dg-open { overflow: hidden; }
 }
 
 .dg-socratic-loading {
+    /* (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 회전 + 가짜 progress bar */
+    position: relative;
     display: flex; align-items: center; gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-3);
     margin-bottom: var(--sp-3);
-    color: var(--ink-tertiary);
+    color: var(--color-ink-secondary, var(--ink-tertiary));
     font-size: var(--fs-caption);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    min-height: 28px;
 }
 .dg-socratic-loading.hidden { display: none; }
+.dg-socratic-loading-text {
+    transition: opacity var(--motion-fast, 150ms) var(--ease-out);
+}
+.dg-socratic-progress {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: var(--accent-soft);
+    overflow: hidden;
+    pointer-events: none;
+}
+.dg-socratic-progress::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: thinking-progress 8000ms cubic-bezier(0.16, 0.8, 0.4, 1) forwards;
+}
+.dg-socratic-loading.is-done .dg-socratic-progress::after {
+    animation: none;
+    transform: scaleX(1);
+    transition: transform var(--motion-fast, 150ms) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+    .dg-socratic-progress::after { animation: none; transform: scaleX(0.6); }
+}
 .dg-socratic-dots { display: inline-flex; gap: 4px; }
 .dg-socratic-dots span {
     width: 6px; height: 6px;
@@ -9602,5 +9635,76 @@ button.mission-progress-block:hover {
     .ai-thinking.is-done .ai-thinking-bar::after { transform: scaleX(1); }
     .ai-thinking-label::before { opacity: 0.7; }
     .ai-typing::after { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * 베타 슬림 모드 (config/featureFlags.js, 2026-05-18)
+ *
+ * <html data-tier="slim"> 일 때 [data-slim="hidden"] 메뉴 자동 숨김.
+ * 6 화면 루프 (말씀 → 묵상 → 다짐 → 시간표 → 했/안함 → 주간 거울) 만 노출.
+ * ───────────────────────────────────────────────────────────── */
+html[data-tier="slim"] [data-slim="hidden"] {
+    display: none !important;
+}
+
+/* 슬림 모드 사이드바 상단 배지 — 사용자가 지금 어느 모드인지 한눈에 보임 */
+.slim-mode-badge {
+    display: none;
+    margin: 8px 12px 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(124, 139, 111, 0.12);
+    color: var(--accent-strong, #5a6850);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+html[data-tier="slim"] .slim-mode-badge {
+    display: block;
+}
+html[data-accent="lavender"] .slim-mode-badge {
+    background: rgba(143, 134, 166, 0.14);
+    color: var(--accent-strong, #6a6286);
+}
+html[data-accent="beige"] .slim-mode-badge {
+    background: rgba(184, 158, 120, 0.16);
+    color: var(--accent-strong, #7a6447);
+}
+
+/* 슬림 모드 토글 카드 (설정 화면) — accent 카드 패턴과 같은 결 */
+#settings-tier-card .settings-tier-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+.settings-tier-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 10px;
+    background: var(--surface, #fff);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.settings-tier-chip:hover {
+    border-color: var(--accent, #7c8b6f);
+}
+.settings-tier-chip[aria-checked="true"] {
+    border-color: var(--accent, #7c8b6f);
+    background: rgba(124, 139, 111, 0.06);
+}
+.settings-tier-chip-label {
+    font-weight: 600;
+    color: var(--ink, #2a2a2a);
+}
+.settings-tier-chip-desc {
+    font-size: 12px;
+    color: var(--ink-secondary, #6a6a6a);
+    line-height: 1.5;
 }
 

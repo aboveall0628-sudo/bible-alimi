@@ -24,6 +24,8 @@ import { renderScriptureForDate, loadBibleData as loadBibleDataModule, bindScrip
 import { applyFontSizeToCSS as applyScriptureFontSize } from './scriptureSettings.js';
 import { applySystemFontFromStorage } from '../config/systemFont.js';
 import { applyAccentFromStorage } from '../config/accentColor.js';
+// 베타 슬림 v1 (2026-05-18): tier 분기 — ?tier=slim 또는 설정 토글로 6 화면만 노출
+import { applyTierFromURL, applyTierFromStorage } from '../config/featureFlags.js';
 import { initTodayView, refreshTodayView } from './todayView.js';
 import { initTimeline, refreshTimeline, scrollTimelineToNow } from './timeline.js';
 // 워크플로우 트랙 STEP 2 (2026-05-13) — 등산로 카드
@@ -345,6 +347,9 @@ async function init() {
     applySystemFontFromStorage();
     // (디자인 시스템 v1 2026-05-15) 강조 색 — <html data-accent> 자동 적용
     applyAccentFromStorage();
+    // (베타 슬림 v1 2026-05-18) tier — URL ?tier=slim 우선, 없으면 localStorage 값으로 <html data-tier> 적용
+    applyTierFromURL();
+    applyTierFromStorage();
     setupNavigation();
     renderLucideIcons();
 
