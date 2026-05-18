@@ -115,9 +115,8 @@
             <nav class="sidebar-nav">
                 <!-- 2026-05-13 v2: 사용자 명시 메뉴 순서 (HC#1 후 검증 피드백 #11).
                      Alt+1~9 단축키도 이 순서대로 매핑됨 (shortcuts/registry.js). -->
-                <!-- (2026-05-18 후속) 운영자 전용 단독 메뉴 — isSwanAdmin 시 JS 가 hidden 제거.
-                     슬림이든 메인이든 항상 보임. 안에서 슬림/메인 토글 + 피드백 관리 진입. -->
-                <button class="sidebar-item hidden" id="nav-admin"><i class="icon" data-lucide="shield"></i> 운영자</button>
+                <!-- (2026-05-18 v73) 사이드바 운영자 자리 폐기 — 사용자 명시 "설정의 운영자메뉴로 다 옮겨버려".
+                     기존 nav-admin / admin-quick-tools / nav-feedback-admin 3 자리 모두 설정 운영자 카테고리로 통합. -->
                 <button class="sidebar-item" id="nav-self-profile" data-slim="visible"><i class="icon" data-lucide="user-circle"></i> 내 프로필</button>
                 <button class="sidebar-item active" id="nav-today" data-slim="visible"><i class="icon" data-lucide="calendar"></i> 오늘</button>
                 <button class="sidebar-item" id="nav-dashboard" data-slim="hidden"><i class="icon" data-lucide="layout-dashboard"></i> 대시보드</button>
@@ -134,8 +133,7 @@
             <div class="sidebar-bottom">
                 <!-- (S-E6 2026-05-15) 사이드바 풋터 "다음 미션" 제거 — 사용자 명시 "별로다".
                      추천 미션은 대시보드 카드 3개 + 잠긴 모듈 모달 안 추천 2자리로 충분. -->
-                <!-- (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 전용 — JS 가 isSwanAdmin 일 때만 노출 -->
-                <button class="sidebar-item hidden" id="nav-feedback-admin"><i class="icon" data-lucide="inbox"></i> 피드백 관리<span id="feedback-unread-badge" class="feedback-unread-badge hidden">0</span></button>
+                <!-- (2026-05-18 v73) 피드백 관리 사이드바 자리 폐기 — 설정 운영자 카테고리 안 카드로 흡수. -->
                 <button class="sidebar-item" id="nav-settings"><i class="icon" data-lucide="settings"></i> 설정</button>
                 <div id="boot-status" class="boot-status">초기화 중...</div>
             </div>
@@ -527,6 +525,7 @@
 
             <!-- ── 피드백 관리 뷰 (CS AI 트랙 §9-6, Swan 관리자 전용) ── -->
             <div id="view-feedback-admin" class="view hidden"></div>
+            <!-- (2026-05-18 v73) view-admin 폐기 — 운영자 자리 전부 설정 운영자 카테고리로 흡수. -->
             <div id="view-admin" class="view hidden"></div>
 
             <!-- ── 설정 뷰 ── -->

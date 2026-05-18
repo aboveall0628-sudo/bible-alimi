@@ -61,7 +61,7 @@ import { mountSwanFeedback, openSwanPreSurvey } from './swanFeedback.js';
 import { openPreSurveyForm } from './preSurveyForm.js';
 import { installConsoleErrorCapture } from '../infra/feedbackContext.js';
 import { getSelfCard } from '../data/personRepo.js';
-import { renderFeedbackAdminView, startFeedbackUnreadBadgeWatch } from './feedbackAdmin.js';
+import { renderFeedbackAdminView } from './feedbackAdmin.js';
 import { isSwanAdmin } from '../config/adminConfig.js';
 
 // 옛 형식(v1) 데이터를 처음 만난 순간에 한 번만 사용자에게 알림.
@@ -554,15 +554,12 @@ async function onVaultUnlocked(dek) {
         console.warn('[swanFeedback] mount failed:', e);
     }
 
-    // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 메뉴 노출 + 사전 설문 트리거 전역 노출
+    // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 전용 자리 노출 — 사전 설문 트리거 전역 노출.
+    //   (2026-05-18 v73) 사이드바 nav-admin / nav-feedback-admin / admin-quick-tools 전부 폐기 —
+    //     설정 운영자 카테고리 한 곳으로 통합. 사용자 명시 "설정의 운영자메뉴로 다 옮겨버려".
+    //   미확인 피드백 뱃지도 사이드바 자리 사라졌으므로 watcher 호출 X (필요 시 설정 화면 안에서 별도).
     if (isSwanAdmin(currentUserId)) {
-        const adminBtn = document.getElementById('nav-feedback-admin');
-        if (adminBtn) adminBtn.classList.remove('hidden');
-        // (2026-05-18 후속) 운영자 단독 메뉴 — 슬림이든 메인이든 항상 보임 (사용자 명시)
-        const navAdmin = document.getElementById('nav-admin');
-        if (navAdmin) navAdmin.classList.remove('hidden');
-        // (2026-05-18) 미확인 피드백 뱃지 실시간 갱신 — 사용자 풍선 보내면 즉시 빨간 숫자.
-        try { startFeedbackUnreadBadgeWatch(currentUserId); } catch (e) { console.warn('[feedbackBadge] start failed:', e); }
+        // 사이드바 자리는 모두 사라짐. 운영자는 [설정] → [운영자] 카테고리 한 자리에서 모든 도구 진입.
     }
     // 설정 페이지·외부 진입에서 사전 설문 시작할 수 있도록 전역 노출.
     window.__sanctumOpenPreSurvey = openSwanPreSurvey;
@@ -686,8 +683,9 @@ function setupNavigation() {
         'nav-persons': 'persons',
         'nav-organizations': 'organizations',
         'nav-economy': 'economy',
-        'nav-admin': 'admin',                // (2026-05-18 후속) 운영자 단독 페이지
-        'nav-feedback-admin': 'feedback-admin',
+        // (2026-05-18 v73) nav-admin / nav-feedback-admin 사이드바 자리 폐기 —
+        //   getElementById 결과 null 이라 forEach 가 자연 건너뜀.
+        //   설정 운영자 카테고리 안에서 직접 view 전환은 window.__sanctumSwitchView 활용.
         'nav-settings': 'settings',
     };
 
@@ -919,13 +917,9 @@ function switchView(viewId) {
         renderEconomyView(currentUserId);
     } else if (viewId === 'feedback-admin') {
         renderFeedbackAdminView(currentUserId);
-    } else if (viewId === 'admin') {
-        // (2026-05-18 후속) 운영자 페이지 — dynamic import (한 번도 안 들어가면 다운로드 X)
-        import('./admin.js').then(({ renderAdminView }) => {
-            const root = document.getElementById('view-admin');
-            renderAdminView(root);
-        }).catch(e => console.warn('[app] admin view failed:', e));
     }
+    // (2026-05-18 v73) viewId === 'admin' 라우팅 폐기 — 운영자 자리 전부 설정 운영자 카테고리로 통합.
+    //   사이드바 nav-admin 자리가 사라져 자연 도달 X. URL 직접 입력 진입 시에도 빈 화면.
 
     // 뷰 전환 직후엔 항상 새 뷰의 최상단에서 시작 (main-content + window 둘 다).
     const main = document.getElementById('main-content');

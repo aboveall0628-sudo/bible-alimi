@@ -312,20 +312,19 @@ function injectExtraSections() {
     appendToGroup('settings-group-body-appearance', accentColorCard, container);
 
     // (베타 슬림 v1 2026-05-18) tier 토글 카드 — 6 화면 루프만 보이는 모드.
-    //   (2026-05-18 fix) 사용자 명시: 베타 사용자는 메인 전환 X, 관리자만.
-    //   isSwanAdmin 일 때만 카드 자체 노출. 베타 사용자는 카드 안 보임 → 슬림 디폴트 유지.
+    //   (v73 2026-05-18) 운영자 카테고리로 이동. 운영자 전용 분기 자리 일관성.
     if (isSwanAdmin(_userId)) {
         const tierCard = document.createElement('div');
         tierCard.id = 'settings-tier-card';
         tierCard.className = 'card-section';
         tierCard.innerHTML = `
-            <h3 class="section-title"><i class="section-icon" data-lucide="layers"></i> 베타 / 전체 모드 (운영자 전용)</h3>
+            <h3 class="section-title"><i class="section-icon" data-lucide="layers"></i> 베타 / 전체 모드</h3>
             <p class="section-desc">
                 베타는 핵심 6 화면(묵상 → 다짐 → 시간표 → 했/안함 → 주간 거울)만, 전체는 도트·인물·가계부·의사결정까지 같이 보여요. 베타 사용자에겐 이 카드 자체가 안 보여요.
             </p>
             <div id="settings-tier-row" class="settings-tier-row"></div>
         `;
-        appendToGroup('settings-group-body-appearance', tierCard, container);
+        appendToGroup('settings-group-body-admin', tierCard, container);
     }
 
     // (S-D 후속 2026-05-15) 성경 번역본 안내 카드 — 본문 데이터는 개역개정 단일.
