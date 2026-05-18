@@ -19,6 +19,9 @@ import { saveConsent } from '../data/consentsRepo.js';
 
 const CURRENT_VERSION = 'v1.1';
 
+// (2026-05-19) 중복 호출 방지 — 모달 1번에 1개만
+let _modalOpen = false;
+
 const CONSENT_ITEMS = [
     {
         key: 'agreeTerms',
@@ -60,6 +63,11 @@ const CONSENT_ITEMS = [
  * @returns {Promise<{ agreed: boolean }>}
  */
 export function showConsentModal({ userId }) {
+    if (_modalOpen) {
+        console.warn('[consentModal] 이미 열림 — 중복 호출 무시');
+        return Promise.resolve({ agreed: false });
+    }
+    _modalOpen = true;
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'consent-overlay';
@@ -123,6 +131,7 @@ export function showConsentModal({ userId }) {
         function close() {
             overlay.remove();
             document.documentElement.classList.remove('consent-modal-open');
+            _modalOpen = false;
         }
     });
 }
