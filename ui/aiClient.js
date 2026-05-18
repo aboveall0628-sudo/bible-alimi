@@ -65,15 +65,24 @@ export async function callLLM(task, plain, opts = {}) {
     if (callable) {
         try {
             const model = opts.deep ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-            const res = await callable({ task, payload: JSON.parse(masked), model });
+            // (2026-05-18 후속) 45초 timeout — Cloud Function 응답 안 오면 fallback 으로 자연 진입.
+            //   기존엔 httpsCallable 디폴트 70초 → 사용자 "만드는 중이에요..." 너무 오래 stuck.
+            const callPromise = callable({ task, payload: JSON.parse(masked), model });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('timeout_45s')), 45_000)
+            );
+            const res = await Promise.race([callPromise, timeoutPromise]);
             const text = res?.data?.text;
             if (text) {
                 setCachedLLM(cacheKey, text).catch(() => {});
                 return { text: depseudonymize(text, mapping), fallback: false };
             }
+            console.warn('[ai] llmProxy returned empty text — fallback used. task:', task);
         } catch (e) {
-            console.warn('[ai] llmProxy call failed:', e?.message);
+            console.warn('[ai] llmProxy call failed:', e?.message || e, 'task:', task);
         }
+    } else {
+        console.warn('[ai] callable not available — fallback used. task:', task);
     }
 
     // 폴백
