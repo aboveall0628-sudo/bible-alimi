@@ -1106,6 +1106,8 @@ function bindEvents() {
     const notifStatus = document.getElementById('notif-permission-status');
     const btnEnableNotif = document.getElementById('btn-enable-notif');
     const btnTestNotif = document.getElementById('btn-test-notif');
+    // (2026-05-18 후속) [지금 테스트] 은 운영자만 — 베타 사용자에겐 안 보임
+    const canSeeTestBtn = isSwanAdmin(_userId);
     const updateNotifPermissionRow = () => {
         if (!notifStatus) return;
         const p = getNotificationPermission();
@@ -1113,7 +1115,7 @@ function bindEvents() {
             notifStatus.textContent = '✓ 허용됨';
             notifStatus.style.color = 'var(--accent-strong, #5a6850)';
             if (btnEnableNotif) btnEnableNotif.style.display = 'none';
-            if (btnTestNotif) btnTestNotif.style.display = '';
+            if (btnTestNotif) btnTestNotif.style.display = canSeeTestBtn ? '' : 'none';
         } else if (p === 'denied') {
             notifStatus.textContent = '✕ 차단됨 (브라우저 설정에서 변경 가능)';
             notifStatus.style.color = 'var(--dot-red, #E5654A)';
