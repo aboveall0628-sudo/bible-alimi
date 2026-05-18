@@ -772,9 +772,17 @@ function injectExtraSections() {
         //   운영자가 진짜 신규 가입자처럼 처음부터 끝까지 자연 체험.
         //   ⚠️ consents 컬렉션에 실제 기록이 누적되니, 운영자 본인 자리 정리는 별도.
         adminCard.querySelector('#settings-test-full-signup-flow')?.addEventListener('click', async () => {
-            if (!_userId || _userId === 'anonymous') return;
+            console.log('[settings] 전체 가입 흐름 테스트 클릭 — _userId:', _userId);
+            const { showToast } = await import('./quickReview.js');
+            if (!_userId || _userId === 'anonymous') {
+                showToast('로그인 자리 확인이 안 돼요');
+                return;
+            }
             const dek = getDEK();
-            if (!dek) return;
+            if (!dek) {
+                showToast('잠금 해제 후 다시 시도해 주세요');
+                return;
+            }
             try {
                 // 1단계 — 동의 모달
                 const { showConsentModal } = await import('./consentModal.js');
