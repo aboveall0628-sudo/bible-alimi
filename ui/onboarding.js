@@ -847,7 +847,17 @@ function renderFontStep(body) {
     });
     // (의사결정 제거 후속 2026-05-18) font: back=8(track) · next=10(meditation으로 직접 — principle 빈 자리)
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(10));
+    // (Phase 2-1 / 2026-05-18 사용자 명시 "폰트 크기 선택하고 바로 설문으로 들어가는게 좋을 것 같아")
+    //   폰트 후 → 사전 설문 자연 진입 → 마침 시 step 10 자연 이어. 사전 설문 미준비 시 곧장 step 10.
+    document.getElementById('onboarding-next').addEventListener('click', () => {
+        if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
+            window.__sanctumOpenPreSurveyForm({
+                onComplete: () => renderStep(10),
+            });
+            return;
+        }
+        renderStep(10);
+    });
 }
 
 // ─── Step 10: 기본 원칙 ────────────────────────────────────
@@ -1042,6 +1052,19 @@ function renderDailyAlarmStep(body) {
                  value="${escapeAttr(_state.draft.dailyAlarmTime || '08:00')}" />
           <p class="onboarding-sub onboarding-sub-mini">정한 시간에 "오늘 묵상" 알림이 한 번 와요. 설정에서 언제든 바꿀 수 있어요.</p>
         </div>
+
+        <!-- (2026-05-18 후속) 브라우저 알림 권한 — 자연 흐름 안에서 자리잡기 -->
+        <div id="onboarding-notif-permission" class="onboarding-notif-permission">
+          <div class="onboarding-notif-permission-row">
+            <span class="onboarding-notif-permission-icon">📣</span>
+            <div class="onboarding-notif-permission-body">
+              <p class="onboarding-notif-permission-title">정한 시각에 OS 알림으로도 받으실래요?</p>
+              <p class="onboarding-notif-permission-sub" id="onboarding-notif-permission-status">아직 허용 안 하셨어요.</p>
+            </div>
+            <button type="button" class="onboarding-btn onboarding-btn-secondary onboarding-btn-sm" id="onboarding-notif-allow-btn">허용하기</button>
+          </div>
+        </div>
+
         <div class="onboarding-actions onboarding-actions-split">
           <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
           <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-finish">저장하고 마무리</button>
@@ -1057,6 +1080,39 @@ function renderDailyAlarmStep(body) {
         else timeWrap.classList.add('hidden');
     });
     timeInput.addEventListener('input', () => { _state.draft.dailyAlarmTime = timeInput.value; });
+
+    // (2026-05-18 후속) 권한 상태 표시 + 허용 버튼
+    const notifStatus = document.getElementById('onboarding-notif-permission-status');
+    const notifBtn = document.getElementById('onboarding-notif-allow-btn');
+    const updateNotifRow = () => {
+        if (typeof Notification === 'undefined') {
+            if (notifStatus) notifStatus.textContent = '이 브라우저는 알림 미지원이에요.';
+            if (notifBtn) notifBtn.style.display = 'none';
+            return;
+        }
+        const p = Notification.permission;
+        if (p === 'granted') {
+            if (notifStatus) { notifStatus.textContent = '✓ 허용됨 — 정한 시각에 알림이 떠요.'; }
+            if (notifBtn) notifBtn.style.display = 'none';
+        } else if (p === 'denied') {
+            if (notifStatus) notifStatus.textContent = '✕ 차단됨 — 브라우저 설정에서 변경하실 수 있어요.';
+            if (notifBtn) notifBtn.style.display = 'none';
+        } else {
+            if (notifStatus) notifStatus.textContent = '허용해주시면 OS 알림으로도 받으실 수 있어요.';
+            if (notifBtn) notifBtn.style.display = '';
+        }
+    };
+    updateNotifRow();
+    if (notifBtn) {
+        notifBtn.addEventListener('click', async () => {
+            try {
+                const { requestNotificationPermission } = await import('./notifications.js');
+                await requestNotificationPermission();
+            } catch (e) { console.warn('[onboarding] notif permission failed:', e); }
+            updateNotifRow();
+        });
+    }
+
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(12));
     document.getElementById('onboarding-finish').addEventListener('click', async () => {
         const finishBtn = document.getElementById('onboarding-finish');

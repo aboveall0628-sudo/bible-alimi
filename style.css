@@ -10705,7 +10705,7 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     position: fixed;
     inset: 0;
     background: var(--surface-base, var(--surface, #fbfaf6));
-    z-index: 9000;
+    z-index: 9600;  /* onboarding-backdrop(9500) 위로 — 폰트 후 자연 등장 결 */
     display: flex;
     align-items: flex-start;
     justify-content: center;

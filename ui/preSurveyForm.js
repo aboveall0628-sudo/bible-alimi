@@ -216,9 +216,10 @@ const QUESTIONS = [
 let _backdropEl = null;
 let _state = null;
 let _escHandler = null;
+let _onComplete = null;
 
 // ─── 진입점 ─────────────────────────────────────────────────
-export async function openPreSurveyForm({ userContext = {} } = {}) {
+export async function openPreSurveyForm({ userContext = {}, onComplete = null } = {}) {
     if (_backdropEl) return;
 
     _state = {
@@ -227,6 +228,7 @@ export async function openPreSurveyForm({ userContext = {} } = {}) {
         aiQuestions: null,  // Phase 2-1: 일괄 호출 결과 { Q1: '...', ..., Q12: '...' }
         aborted: false,
     };
+    _onComplete = onComplete;
 
     const backdrop = document.createElement('div');
     backdrop.id = 'presurvey-backdrop';
@@ -621,6 +623,12 @@ function closeForm() {
     _backdropEl.remove();
     _backdropEl = null;
     _state = null;
+    // onComplete 콜백 자연 호출 (마침·닫기 둘 다 동일 결로 처리 — 시안 단계)
+    const completeFn = _onComplete;
+    _onComplete = null;
+    if (typeof completeFn === 'function') {
+        try { completeFn(); } catch (e) { console.warn('[preSurveyForm] onComplete 호출 실패:', e); }
+    }
 }
 
 function stripHtml(s) {

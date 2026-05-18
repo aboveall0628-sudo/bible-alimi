@@ -583,13 +583,8 @@ async function onVaultUnlocked(dek) {
                     switchView('today');
                     // 어체 따라 시간대 인사 등 갱신 위해 오늘의 시작 영역 다시 렌더
                     renderTodayStartIntoView(currentUserId, currentDate).catch(() => {});
-                    // (Phase 2-1 / 2026-05-18 사용자 명시 "시작 온보딩에 이거 합쳐서 넣어줘")
-                    //   마침 카드 후 자연 호흡 → 사전 설문 폼 진입.
-                    //   베타 코호트 분기는 Phase 3에서 자연 추가.
-                    setTimeout(() => {
-                        openPreSurveyForm({ userContext: {} })
-                            .catch(e => console.warn('[app] preSurveyForm 자연 진입 실패:', e?.message || e));
-                    }, 600);
+                    // (Phase 2-1 / 2026-05-18) 사전 설문은 폰트(step 9) 직후 자연 진입 →
+                    //   onboarding 안에서 자연 끼움. 여기 마침 카드 후엔 호출 X (중복 방지).
                 }
             });
         }

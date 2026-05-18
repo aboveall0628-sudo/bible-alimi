@@ -773,7 +773,8 @@ function injectExtraSections() {
                 window.__sanctumOpenPreSurveyForm();
             }
         });
-        // (2026-05-18) 온보딩 → 사전 설문 한 흐름 테스트 — 사용자 명시 "시작 온보딩에 이거 합쳐서 넣어줘"
+        // (2026-05-18) 온보딩 → 사전 설문 한 흐름 테스트 — 사용자 명시 "폰트 후 바로 설문"
+        //   사전 설문 진입은 onboarding step 9(폰트) [다음] 안에서 자연 끼움 → 별도 hook 불필요
         adminCard.querySelector('#settings-start-onboarding-presurvey')?.addEventListener('click', async () => {
             if (!_userId || _userId === 'anonymous') return;
             const dek = getDEK();
@@ -783,14 +784,7 @@ function injectExtraSections() {
                 await showOnboardingModal({
                     userId: _userId,
                     dek,
-                    onComplete: () => {
-                        // 마침 카드 자연 호흡 후 사전 설문 자연 진입
-                        setTimeout(() => {
-                            if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
-                                window.__sanctumOpenPreSurveyForm();
-                            }
-                        }, 600);
-                    },
+                    onComplete: () => {},
                 });
             } catch (e) {
                 console.warn('[settings] onboarding → presurvey 흐름 진입 실패:', e);
