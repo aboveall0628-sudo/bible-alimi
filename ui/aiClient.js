@@ -1620,6 +1620,33 @@ function _parseExtractJson(raw) {
     }
 }
 
+/**
+ * 사전 설문 폼 v2 Phase 2-1 — 12 질문 일괄 SWAN 톤 가공 호출 (2026-05-18).
+ *
+ * @param {Object} args
+ *   @param {Object} args.userContext  { devotionalLevel?: string|null }
+ *   @param {Array}  args.questions    [{ id: 'Q1', originalTitle: '...' }, ...]
+ *
+ * @returns {Promise<{ questions: Object|null, fallback: boolean }>}
+ *   questions = { Q1: '...', Q2: '...', ..., Q12: '...' } 또는 null
+ */
+export async function callSwanPreSurveyQuestions({ userContext = {}, questions = [] }) {
+    const plain = {
+        userContext,
+        questions,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanPreSurveyQuestions', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { questions: null, fallback: true };
+    }
+    const parsed = _parseExtractJson(result.text);
+    return { questions: parsed, fallback: false };
+}
+
 function buildSwanSummaryFallback(turns) {
     const userTexts = (turns || []).filter(t => t.role === 'user').map(t => t.text);
     const joined = userTexts.join(' ').slice(0, 120);

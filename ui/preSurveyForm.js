@@ -16,6 +16,7 @@
  */
 
 import { showToast } from './quickReview.js';
+import { callSwanPreSurveyQuestions } from './aiClient.js';
 
 // ─── 카탈로그 (v2 합의 12 질문) ─────────────────────────────────
 const RAPPORT_COPY = '잠깐, 5~9분 정도 평소 묵상·신앙 흐름 들려주세요.<br>정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';
@@ -212,12 +213,14 @@ let _state = null;
 let _escHandler = null;
 
 // ─── 진입점 ─────────────────────────────────────────────────
-export function openPreSurveyForm() {
+export async function openPreSurveyForm({ userContext = {} } = {}) {
     if (_backdropEl) return;
 
     _state = {
         currentIdx: 0,
         responses: {},
+        aiQuestions: null,  // Phase 2-1: 일괄 호출 결과 { Q1: '...', ..., Q12: '...' }
+        aborted: false,
     };
 
     const backdrop = document.createElement('div');
@@ -247,6 +250,29 @@ export function openPreSurveyForm() {
     };
     document.addEventListener('keydown', _escHandler);
 
+    // Phase 2-1: 시작 시 일괄 호출로 12 질문 SWAN 톤 발화 캐싱.
+    // 호출 진행 중엔 로딩 카드 노출. 끝나면 첫 카드 자연 전환.
+    renderLoadingCard();
+    try {
+        const payload = {
+            userContext: { devotionalLevel: userContext.devotionalLevel || null },
+            questions: QUESTIONS.map(q => ({ id: q.id, originalTitle: stripHtml(q.title) })),
+        };
+        const result = await callSwanPreSurveyQuestions(payload);
+        if (_state?.aborted) return;
+        if (result.fallback || !result.questions) {
+            console.warn('[preSurveyForm] AI 가공 실패 — 정적 카피로 진입');
+            _state.aiQuestions = null;
+        } else {
+            _state.aiQuestions = result.questions;
+        }
+    } catch (e) {
+        console.warn('[preSurveyForm] AI 호출 예외:', e?.message || e);
+        if (_state?.aborted) return;
+        _state.aiQuestions = null;
+    }
+
+    if (!_state || _state.aborted) return;
     renderCurrentCard();
 }
 
@@ -285,11 +311,18 @@ function renderQuestionCard(body, idx) {
     const isLast = idx === QUESTIONS.length - 1;
     const stepLabel = `${idx + 1} / ${QUESTIONS.length}`;
 
+    // Phase 2-1: AI 가공 질문 캐시 우선, 없으면 정적 카피 fallback
+    const aiTitle = _state.aiQuestions?.[q.id];
+    const titleHtml = aiTitle || q.title;
+
+    // AI 가공 질문이 라포 흡수 한 결이면 별도 라포 카드 카피 X
+    const showStaticRapport = isFirst && !aiTitle;
+
     body.innerHTML = `
         <div class="onboarding-card presurvey-card-wrap">
             <p class="presurvey-step-count">${stepLabel}</p>
-            ${isFirst ? `<p class="presurvey-rapport">${RAPPORT_COPY}</p>` : ''}
-            <h2 class="onboarding-title presurvey-question">${q.title}</h2>
+            ${showStaticRapport ? `<p class="presurvey-rapport">${RAPPORT_COPY}</p>` : ''}
+            <h2 class="onboarding-title presurvey-question">${titleHtml}</h2>
 
             ${renderChipBlocks(q, stored)}
             ${renderFreeTextBlocks(q, stored)}
@@ -303,6 +336,28 @@ function renderQuestionCard(body, idx) {
 
     bindCardEvents(body, q);
     updateNextButton(q);
+}
+
+function renderLoadingCard() {
+    const body = document.getElementById('presurvey-body');
+    if (!body) return;
+    body.innerHTML = `
+        <div class="onboarding-card presurvey-card-wrap presurvey-loading-card">
+            <p class="presurvey-rapport">${RAPPORT_COPY}</p>
+            <div class="presurvey-loading-body">
+                <span class="swan-thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                <p class="presurvey-loading-text">SWAN이 잠깐 질문 결 다듬는 중이에요…</p>
+            </div>
+        </div>
+    `;
+    // 카드 enter 애니메이션
+    const card = body.querySelector('.onboarding-card');
+    if (card) {
+        card.classList.add('onboarding-card-enter');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => card.classList.add('onboarding-card-enter-active'));
+        });
+    }
 }
 
 function renderChipBlocks(q, stored) {
@@ -524,6 +579,7 @@ function updateStepperDots(currentStep) {
 
 function closeForm() {
     if (!_backdropEl) return;
+    if (_state) _state.aborted = true;
     if (_escHandler) {
         document.removeEventListener('keydown', _escHandler);
         _escHandler = null;
@@ -531,6 +587,10 @@ function closeForm() {
     _backdropEl.remove();
     _backdropEl = null;
     _state = null;
+}
+
+function stripHtml(s) {
+    return String(s || '').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').trim();
 }
 
 function escapeHtml(str) {
