@@ -58,6 +58,57 @@ export const RECOMMENDED_PRINCIPLE = {
 };
 
 /**
+ * (베타 슬림 v1 / 본인 프로필 A 묶음 2026-05-18) 사는 지역 + 타임존.
+ *   사업기획서 §1.3 디아스포라 시드 정합 — 서울·파리·도쿄·홍콩·LA + 기타.
+ *   사용자가 '기타' 선택 시 타임존만 드롭다운에서 직접 고름.
+ *   selfCard.city + selfCard.timezone 두 필드에 저장.
+ */
+export const CITY_PRESETS = [
+    { id: 'seoul',    label: '서울',     timezone: 'Asia/Seoul',     offset: '+09:00', flag: '🇰🇷' },
+    { id: 'tokyo',    label: '도쿄',     timezone: 'Asia/Tokyo',     offset: '+09:00', flag: '🇯🇵' },
+    { id: 'hongkong', label: '홍콩',     timezone: 'Asia/Hong_Kong', offset: '+08:00', flag: '🇭🇰' },
+    { id: 'paris',    label: '파리',     timezone: 'Europe/Paris',   offset: '+01:00', flag: '🇫🇷' },
+    { id: 'la',       label: 'LA',       timezone: 'America/Los_Angeles', offset: '-08:00', flag: '🇺🇸' },
+    { id: 'other',    label: '다른 곳',  timezone: null,             offset: null,      flag: '🌏' },
+];
+
+/**
+ * 타임존 드롭다운 옵션 — '기타' 선택 시 노출.
+ *   IANA timezone id + 한국어 라벨.
+ */
+export const TIMEZONE_OPTIONS = [
+    { id: 'Asia/Seoul',          label: '서울 (UTC+9)' },
+    { id: 'Asia/Tokyo',          label: '도쿄 (UTC+9)' },
+    { id: 'Asia/Shanghai',       label: '베이징·상하이 (UTC+8)' },
+    { id: 'Asia/Hong_Kong',      label: '홍콩 (UTC+8)' },
+    { id: 'Asia/Singapore',      label: '싱가포르 (UTC+8)' },
+    { id: 'Asia/Bangkok',        label: '방콕·자카르타 (UTC+7)' },
+    { id: 'Asia/Kolkata',        label: '인도 (UTC+5:30)' },
+    { id: 'Asia/Dubai',          label: '두바이 (UTC+4)' },
+    { id: 'Europe/London',       label: '런던 (UTC+0)' },
+    { id: 'Europe/Paris',        label: '파리·베를린 (UTC+1)' },
+    { id: 'Europe/Athens',       label: '아테네·이스탄불 (UTC+2)' },
+    { id: 'America/Sao_Paulo',   label: '상파울루 (UTC-3)' },
+    { id: 'America/New_York',    label: '뉴욕·토론토 (UTC-5)' },
+    { id: 'America/Chicago',     label: '시카고 (UTC-6)' },
+    { id: 'America/Denver',      label: '덴버 (UTC-7)' },
+    { id: 'America/Los_Angeles', label: 'LA·밴쿠버 (UTC-8)' },
+    { id: 'Pacific/Auckland',    label: '오클랜드 (UTC+13)' },
+];
+
+/**
+ * 브라우저 timezone 자동 감지 — Intl.DateTimeFormat resolvedOptions.
+ *   '기타' 선택 시 드롭다운 디폴트 값으로 활용.
+ */
+export function detectBrowserTimezone() {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
+    } catch (_) {
+        return 'Asia/Seoul';
+    }
+}
+
+/**
  * 큐티 수준별 첫 묵상 추천 본문 1절.
  *   essentials100 트랙 안에서 "처음 만나도 강한 한 절" 을 골라요.
  *   - 🌱 처음(basic):       창세기 1:1   ("태초에 하나님이…") — 가장 짧고 시작점

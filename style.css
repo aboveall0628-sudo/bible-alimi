@@ -9672,6 +9672,169 @@ html[data-accent="beige"] .slim-mode-badge {
     color: var(--accent-strong, #7a6447);
 }
 
+/* ─── 온보딩 A 묶음 (베타 슬림 v1, 2026-05-18) ─────────────────
+ * SWAN 말풍선 + 양/음력 토글 + 도시 칩 + 타임존 드롭다운 + Freemium 안내
+ * ──────────────────────────────────────────────────────────── */
+
+.onboarding-swan-bubble {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(124, 139, 111, 0.08);
+    border-left: 3px solid var(--accent, #7c8b6f);
+}
+html[data-accent="lavender"] .onboarding-swan-bubble {
+    background: rgba(143, 134, 166, 0.10);
+}
+html[data-accent="beige"] .onboarding-swan-bubble {
+    background: rgba(184, 158, 120, 0.12);
+}
+.onboarding-swan-icon {
+    flex: 0 0 auto;
+    font-size: 20px;
+    line-height: 1;
+}
+.onboarding-swan-text {
+    flex: 1 1 auto;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink, #2a2a2a);
+}
+.onboarding-swan-intro-meta {
+    margin: 16px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-soft, #f7f5f0);
+    font-size: 12px;
+    color: var(--ink-secondary, #6a6a6a);
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+.onboarding-btn-block {
+    width: 100%;
+}
+
+.onboarding-birthday-toggle {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+.onboarding-toggle-chip {
+    flex: 1 1 0;
+    padding: 10px 14px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 10px;
+    background: var(--surface, #fff);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink, #2a2a2a);
+    transition: border-color 0.15s, background 0.15s;
+}
+.onboarding-toggle-chip:hover {
+    border-color: var(--accent, #7c8b6f);
+}
+.onboarding-toggle-chip.selected {
+    border-color: var(--accent, #7c8b6f);
+    background: rgba(124, 139, 111, 0.08);
+    font-weight: 600;
+}
+
+.onboarding-city-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+}
+@media (max-width: 480px) {
+    .onboarding-city-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.onboarding-city-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    padding: 14px 8px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 12px;
+    background: var(--surface, #fff);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.onboarding-city-chip:hover {
+    border-color: var(--accent, #7c8b6f);
+    transform: translateY(-1px);
+}
+.onboarding-city-chip.selected {
+    border-color: var(--accent, #7c8b6f);
+    background: rgba(124, 139, 111, 0.08);
+}
+.onboarding-city-flag {
+    font-size: 22px;
+    line-height: 1;
+}
+.onboarding-city-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink, #2a2a2a);
+}
+.onboarding-city-offset {
+    font-size: 11px;
+    color: var(--ink-secondary, #6a6a6a);
+}
+
+.onboarding-tz-wrap {
+    margin: 12px 0 4px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--surface-soft, #f7f5f0);
+}
+.onboarding-tz-wrap.hidden {
+    display: none;
+}
+.onboarding-tz-label {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--ink-secondary, #6a6a6a);
+}
+
+.onboarding-finish-freemium {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 20px 0 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(124, 139, 111, 0.06);
+    border: 1px solid rgba(124, 139, 111, 0.18);
+}
+.onboarding-finish-freemium-icon {
+    flex: 0 0 auto;
+    font-size: 22px;
+    line-height: 1;
+}
+.onboarding-finish-freemium-body {
+    flex: 1 1 auto;
+}
+.onboarding-finish-freemium-title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink, #2a2a2a);
+}
+.onboarding-finish-freemium-sub {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-secondary, #6a6a6a);
+}
+
 /* 슬림 모드 토글 카드 (설정 화면) — accent 카드 패턴과 같은 결 */
 #settings-tier-card .settings-tier-row {
     display: flex;

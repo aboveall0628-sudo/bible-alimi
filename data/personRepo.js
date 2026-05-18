@@ -229,6 +229,10 @@ export async function ensureSelfCard(dek, userId) {
         gaAnonymousId: null,
         // (S-D 후속 2026-05-15) 사용자가 읽는 성경 번역본 id — 디폴트 'krv'(개역개정).
         bibleVersion: 'krv',
+        // (베타 슬림 v1 A 묶음 2026-05-18) 생일 양/음력 + 사는 지역 + 타임존
+        birthdayLunar: false,           // true = 음력 생일
+        city: '',                       // CITY_PRESETS id ('seoul', 'paris', ..., 'other')
+        timezone: 'Asia/Seoul',         // IANA timezone id — 알람·일정 기준점
         // (R10) 간증 — 사용자 명시 글만, 자동 추출 X
         testimony: [],
         // (R15) 관계 추이 timeline — 본인 카드 안에서는 본인 스테이터스 변화 추이 (R12 연결)

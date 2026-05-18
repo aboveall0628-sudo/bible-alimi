@@ -35,6 +35,8 @@ import {
     BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION,
     RECOMMENDED_PRINCIPLE, firstMeditationForLevel,
     RECOMMENDED_TRACKS_BY_LEVEL, ONE_BOOK_QUICK_PICKS, firstMeditationForTrack,
+    // (베타 슬림 v1 A 묶음 2026-05-18) 도시·타임존
+    CITY_PRESETS, TIMEZONE_OPTIONS, detectBrowserTimezone,
 } from '../config/onboardingDefaults.js';
 import {
     setActivePlanId, addUserPlan, getActivePlan,
@@ -50,7 +52,10 @@ import { savePrinciple } from '../data/principlesRepo.js';
 import { saveRecord, getRecord } from '../data/baseRepo.js';
 import { getActiveMissionIds, MISSION_CATALOG } from '../config/missionCatalog.js';
 
-const TOTAL_STEPS = 9;
+// (베타 슬림 v1 A 묶음 2026-05-18) 11 step 재번호:
+//   1=SWAN 인사(신규) · 2=이름 · 3=별명 · 4=생일+양/음력(신규 토글) · 5=도시·타임존(신규)
+//   6=큐티 수준 · 7=성경 번역본 · 8=묵상 트랙 · 9=폰트 · 10=원칙 · 11=첫 묵상
+const TOTAL_STEPS = 11;
 
 const CUTI_LEVELS = [
     {
@@ -109,6 +114,10 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
             name: card.name || '',
             nickname: Array.isArray(card.nicknames) && card.nicknames[0] || '',
             birthday: card.birthday || '',
+            // (베타 슬림 v1 A 묶음 2026-05-18) 양/음력 토글 + 사는 지역 + 타임존
+            birthdayLunar: !!card.birthdayLunar,
+            city: card.city || '',
+            timezone: card.timezone || detectBrowserTimezone(),
             devotionalLevel: card.devotionalLevel || null,
             bibleVersion: card.bibleVersion || DEFAULT_BIBLE_VERSION,
             systemFont: initialSystemFont,
@@ -187,16 +196,48 @@ function renderStep(step) {
     const body = document.getElementById('onboarding-body');
     if (!body) return;
 
-    if (step === 1) renderNameStep(body);
-    else if (step === 2) renderNicknameStep(body);
-    else if (step === 3) renderBirthdayStep(body);
-    else if (step === 4) renderCutiStep(body);
-    else if (step === 5) renderBibleVersionStep(body);
-    else if (step === 6) renderTrackStep(body);       // (S-E7) 신규 — 묵상 트랙
-    else if (step === 7) renderFontStep(body);
-    else if (step === 8) renderPrincipleStep(body);
-    else if (step === 9) renderMeditationStep(body);
+    // (베타 슬림 v1 A 묶음 2026-05-18) 11 step 재번호 dispatch.
+    if (step === 1) renderSwanIntroStep(body);        // 신규 — SWAN 첫 인사
+    else if (step === 2) renderNameStep(body);
+    else if (step === 3) renderNicknameStep(body);
+    else if (step === 4) renderBirthdayStep(body);    // 음력 토글 추가
+    else if (step === 5) renderLocationStep(body);    // 신규 — 사는 지역·타임존
+    else if (step === 6) renderCutiStep(body);
+    else if (step === 7) renderBibleVersionStep(body);
+    else if (step === 8) renderTrackStep(body);       // (S-E7) 신규 — 묵상 트랙
+    else if (step === 9) renderFontStep(body);
+    else if (step === 10) renderPrincipleStep(body);
+    else if (step === 11) renderMeditationStep(body);
     else if (step === 99) renderFinishCard(body);
+}
+
+// ─── Step 1: 🦢 SWAN 첫 인사 (베타 슬림 v1 A 묶음 2026-05-18) ─────────
+// 사용자 명시: "시작하자마자 AI 보조가 들어가는 앱이구나" 첫인상.
+// 챗 *기분* 톤만 — 카드 형식 그대로 + SWAN 말풍선 한 줄.
+function renderSwanIntroStep(body) {
+    body.innerHTML = `
+      <div class="onboarding-card">
+        <div class="onboarding-swan-bubble">
+          <span class="onboarding-swan-icon">🦢</span>
+          <span class="onboarding-swan-text">
+            안녕하세요, SWAN이에요.<br>
+            같이 가는 친구 같은 거예요.
+          </span>
+        </div>
+        <h2 class="onboarding-title" id="onboarding-title">처음 만나서 같이 정리해볼까요?</h2>
+        <p class="onboarding-sub">
+          몇 가지만 알려주시면, 같이 묵상이 삶으로 옮겨가도록 도와드릴게요.<br>
+          10분 정도 걸려요. 중간에 멈춰도 괜찮아요.
+        </p>
+        <div class="onboarding-swan-intro-meta">
+          <span>🕊️ 묵상 → 다짐 → 시간표 → 했/안함 → 주간 거울</span>
+        </div>
+        <div class="onboarding-actions">
+          <button type="button" class="onboarding-btn onboarding-btn-primary onboarding-btn-block" id="onboarding-next">같이 가요</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(2));
 }
 
 // ─── Step 1: 이름 ─────────────────────────────────────────
@@ -225,7 +266,7 @@ function renderNameStep(body) {
     });
     updateBtn();
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !nextBtn.disabled) nextBtn.click(); });
-    nextBtn.addEventListener('click', () => renderStep(2));
+    nextBtn.addEventListener('click', () => renderStep(3));
 }
 
 // ─── Step 2: 별명 ─────────────────────────────────────────
@@ -249,20 +290,32 @@ function renderNicknameStep(body) {
     const input = document.getElementById('onboarding-nickname');
     input.addEventListener('input', () => { _state.draft.nickname = input.value.trim(); });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('onboarding-next').click(); });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(1));
+    // (베타 슬림 v1 A 묶음 2026-05-18) step 재번호 — nickname: back=2(name) · skip/next=4(birthday)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(2));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.nickname = '';
-        renderStep(3);
+        renderStep(4);
     });
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(3));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(4));
 }
 
-// ─── Step 3: 생일 ─────────────────────────────────────────
+// ─── Step 4: 생일 + 양/음력 토글 (베타 슬림 v1 A 묶음 2026-05-18) ────
 function renderBirthdayStep(body) {
+    const isLunar = !!_state.draft.birthdayLunar;
     body.innerHTML = `
       <div class="onboarding-card">
+        <div class="onboarding-swan-bubble">
+          <span class="onboarding-swan-icon">🦢</span>
+          <span class="onboarding-swan-text">생일도 알려주실래요? 나이대에 맞는 말투로 인사하려고요.</span>
+        </div>
         <h2 class="onboarding-title">생일이 언제이신가요?</h2>
-        <p class="onboarding-sub">나이대에 맞는 말투로 안내해드릴게요. 정확한 날짜 모르면 연도만 적어도 돼요.</p>
+        <p class="onboarding-sub">양력·음력 골라서 적으실 수 있어요. 정확한 날짜 모르면 연도만 적어도 돼요.</p>
+        <div class="onboarding-birthday-toggle" role="radiogroup" aria-label="양력 또는 음력">
+          <button type="button" class="onboarding-toggle-chip${!isLunar ? ' selected' : ''}"
+                  role="radio" aria-checked="${!isLunar}" data-lunar="false">양력</button>
+          <button type="button" class="onboarding-toggle-chip${isLunar ? ' selected' : ''}"
+                  role="radio" aria-checked="${isLunar}" data-lunar="true">음력</button>
+        </div>
         <input type="date" class="onboarding-input" id="onboarding-birthday"
                value="${escapeAttr(_state.draft.birthday)}"
                max="${new Date().toISOString().slice(0, 10)}" />
@@ -277,15 +330,113 @@ function renderBirthdayStep(body) {
     `;
     const input = document.getElementById('onboarding-birthday');
     input.addEventListener('input', () => { _state.draft.birthday = input.value; });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(2));
+    // 양/음력 토글
+    document.querySelectorAll('.onboarding-toggle-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _state.draft.birthdayLunar = btn.dataset.lunar === 'true';
+            document.querySelectorAll('.onboarding-toggle-chip').forEach(b => {
+                const checked = b === btn;
+                b.classList.toggle('selected', checked);
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
+            });
+        });
+    });
+    // (베타 슬림 v1 A 묶음) back=3(nickname) · skip/next=5(location 신규)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(3));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.birthday = '';
-        renderStep(4);
+        renderStep(5);
     });
     document.getElementById('onboarding-next').addEventListener('click', () => {
         applyAgeToneClass();
-        renderStep(4);
+        renderStep(5);
     });
+}
+
+// ─── Step 5: 사는 지역 + 타임존 (베타 슬림 v1 A 묶음 2026-05-18) ─────
+// 사용자 명시: "사는 지역에 따라 시간 다르게 하는 기능 온보딩에서 설정"
+// 도시 칩 5개(서울·도쿄·홍콩·파리·LA) + 다른 곳(타임존 드롭다운).
+function renderLocationStep(body) {
+    const draftCity = _state.draft.city || '';
+    const draftTz = _state.draft.timezone || detectBrowserTimezone();
+    const showTzDropdown = draftCity === 'other' || !CITY_PRESETS.find(c => c.id === draftCity);
+
+    body.innerHTML = `
+      <div class="onboarding-card">
+        <div class="onboarding-swan-bubble">
+          <span class="onboarding-swan-icon">🦢</span>
+          <span class="onboarding-swan-text">어디서 같이 가는 중이세요? 알람·일정 시간 맞춰드리려고요.</span>
+        </div>
+        <h2 class="onboarding-title">사는 지역이 어디예요?</h2>
+        <p class="onboarding-sub">시간대 자동으로 맞춰드릴게요. 자주 가는 도시가 없으면 "다른 곳"으로 골라주세요.</p>
+        <div class="onboarding-city-grid" role="radiogroup" aria-label="사는 지역">
+          ${CITY_PRESETS.map(c => `
+            <button type="button"
+                    class="onboarding-city-chip${draftCity === c.id ? ' selected' : ''}"
+                    role="radio" aria-checked="${draftCity === c.id}"
+                    data-city="${escapeAttr(c.id)}">
+              <span class="onboarding-city-flag">${escapeHtml(c.flag)}</span>
+              <span class="onboarding-city-label">${escapeHtml(c.label)}</span>
+              ${c.offset ? `<span class="onboarding-city-offset">UTC${escapeHtml(c.offset)}</span>` : ''}
+            </button>
+          `).join('')}
+        </div>
+        <div id="onboarding-tz-wrap" class="onboarding-tz-wrap${showTzDropdown ? '' : ' hidden'}">
+          <label for="onboarding-tz-select" class="onboarding-tz-label">시간대를 골라주세요</label>
+          <select id="onboarding-tz-select" class="onboarding-input">
+            ${TIMEZONE_OPTIONS.map(opt => `
+              <option value="${escapeAttr(opt.id)}"${opt.id === draftTz ? ' selected' : ''}>${escapeHtml(opt.label)}</option>
+            `).join('')}
+          </select>
+        </div>
+        <div class="onboarding-actions onboarding-actions-split">
+          <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
+          <div class="onboarding-actions-right">
+            <button type="button" class="onboarding-btn onboarding-btn-secondary" id="onboarding-skip">나중에</button>
+            <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-next">다음</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const tzWrap = document.getElementById('onboarding-tz-wrap');
+    const tzSelect = document.getElementById('onboarding-tz-select');
+
+    document.querySelectorAll('.onboarding-city-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const cityId = btn.dataset.city;
+            const preset = CITY_PRESETS.find(c => c.id === cityId);
+            _state.draft.city = cityId;
+            if (preset && preset.timezone) {
+                _state.draft.timezone = preset.timezone;
+                tzWrap.classList.add('hidden');
+            } else {
+                // "다른 곳" — 드롭다운 노출 + 디폴트는 브라우저 감지값
+                tzWrap.classList.remove('hidden');
+                if (!_state.draft.timezone) {
+                    _state.draft.timezone = detectBrowserTimezone();
+                    tzSelect.value = _state.draft.timezone;
+                }
+            }
+            document.querySelectorAll('.onboarding-city-chip').forEach(b => {
+                const checked = b === btn;
+                b.classList.toggle('selected', checked);
+                b.setAttribute('aria-checked', checked ? 'true' : 'false');
+            });
+        });
+    });
+    tzSelect.addEventListener('change', () => {
+        _state.draft.timezone = tzSelect.value;
+    });
+
+    // back=4(birthday) · skip/next=6(cuti)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(4));
+    document.getElementById('onboarding-skip').addEventListener('click', () => {
+        // 도시 비워두되 타임존은 자동 감지값 유지
+        _state.draft.city = '';
+        renderStep(6);
+    });
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(6));
 }
 
 // ─── Step 4: 큐티 수준 ────────────────────────────────────
@@ -326,11 +477,12 @@ function renderCutiStep(body) {
             updateBtn();
         });
     });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(3));
-    nextBtn.addEventListener('click', () => renderStep(5));
+    // (베타 슬림 v1 A 묶음) cuti: back=5(location) · next=7(bible)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(5));
+    nextBtn.addEventListener('click', () => renderStep(7));
 }
 
-// ─── Step 5: 성경 번역본 ──────────────────────────────────
+// ─── Step 7: 성경 번역본 ──────────────────────────────────
 function renderBibleVersionStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
@@ -370,11 +522,12 @@ function renderBibleVersionStep(body) {
             });
         });
     });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(4));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(6));
+    // (베타 슬림 v1 A 묶음) bible: back=6(cuti) · next=8(track)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(6));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(8));
 }
 
-// ─── Step 6: 묵상 트랙 (S-E7 신규) ────────────────────────
+// ─── Step 8: 묵상 트랙 (S-E7 신규) ────────────────────────
 function renderTrackStep(body) {
     const level = _state.draft.devotionalLevel || 'basic';
     const rec = RECOMMENDED_TRACKS_BY_LEVEL[level] || RECOMMENDED_TRACKS_BY_LEVEL.basic;
@@ -470,11 +623,12 @@ function renderTrackStep(body) {
         });
     });
 
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(5));
-    nextBtn.addEventListener('click', () => renderStep(7));
+    // (베타 슬림 v1 A 묶음) track: back=7(bible) · next=9(font)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
+    nextBtn.addEventListener('click', () => renderStep(9));
 }
 
-// ─── Step 7: 폰트 크기 ────────────────────────────────────
+// ─── Step 9: 폰트 크기 ────────────────────────────────────
 function renderFontStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
@@ -537,11 +691,12 @@ function renderFontStep(body) {
             });
         });
     });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(6));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(8));
+    // (베타 슬림 v1 A 묶음) font: back=8(track) · next=10(principle)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(10));
 }
 
-// ─── Step 8: 기본 원칙 ────────────────────────────────────
+// ─── Step 10: 기본 원칙 ────────────────────────────────────
 function renderPrincipleStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
@@ -568,8 +723,9 @@ function renderPrincipleStep(body) {
     const bodyEl = document.getElementById('onboarding-principle-body');
     titleEl.addEventListener('input', () => { _state.draft.principleTitle = titleEl.value; });
     bodyEl.addEventListener('input', () => { _state.draft.principleBody = bodyEl.value; });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(9));
+    // (베타 슬림 v1 A 묶음) principle: back=9(font) · next=11(meditation)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(11));
 }
 
 // ─── Step 9: 첫 묵상 한 절 + 본문 클릭 → 에디터 (S-E7) ────
@@ -646,7 +802,8 @@ function renderMeditationStep(body) {
 
     // 오늘 묵상 이미 있는지 비동기 체크 — 있으면 안내 카드 노출, 합치기 모드로 작동
     checkExistingMeditation().catch(() => {});
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
+    // (베타 슬림 v1 A 묶음 2026-05-18) meditation: back=10(principle)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
     document.getElementById('onboarding-skip').addEventListener('click', async () => {
         _state.draft.meditationNote = '';
         await persistAll();
@@ -705,6 +862,15 @@ function renderFinishCard(body) {
         </div>
 
         <p class="onboarding-finish-cta">미션은 사용하시다 보면 자연스럽게 하나씩 열려요. 부담 없이 둘러보세요.</p>
+
+        <div class="onboarding-finish-freemium">
+          <span class="onboarding-finish-freemium-icon">🌱</span>
+          <div class="onboarding-finish-freemium-body">
+            <p class="onboarding-finish-freemium-title">베타 기간 동안은 모든 기능 무제한 무료예요.</p>
+            <p class="onboarding-finish-freemium-sub">정식 출시 시점에는 슬림(말씀→다짐→실행)은 계속 무료, 더 깊이 도와드리는 기능들(도트 분석·주간 거울 깊이·인물·가계부 같은)은 월 6,900원이 될 거예요.</p>
+          </div>
+        </div>
+
         <div class="onboarding-actions">
           <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-go-today">오늘 화면으로</button>
         </div>
@@ -760,6 +926,10 @@ async function persistAll() {
         name: draft.name,
         nicknames,
         birthday: draft.birthday || cardSnapshot.birthday || '',
+        // (베타 슬림 v1 A 묶음 2026-05-18) 양/음력 + 도시 + 타임존
+        birthdayLunar: !!draft.birthdayLunar,
+        city: draft.city || cardSnapshot.city || '',
+        timezone: draft.timezone || cardSnapshot.timezone || 'Asia/Seoul',
         devotionalLevel: draft.devotionalLevel || cardSnapshot.devotionalLevel || null,
         bibleVersion: draft.bibleVersion || DEFAULT_BIBLE_VERSION,
     };
