@@ -104,12 +104,16 @@ export async function scheduleDailyMeditationNotification(userId) {
  * 인앱·OS 알림 발화. SW 우선(PWA 홈 추가 시 OS 알림 자연), 폴백은 Notification API.
  */
 async function fireDailyMeditationNotification() {
-    const title = '오늘의 묵상';
-    const body  = '잠깐 한 호흡 머무는 자리. 오늘 한 절 같이 만나볼까요?';
+    // (2026-05-18 후속) 사용자 명시 — 토스체. 짧고 친근하게.
+    const title = '묵상할 시간이에요!';
+    const body  = '오늘의 한 절, 잠깐 시간 내볼까요?';
     const options = {
         body,
-        icon:  './assets/favicon-32.png',
-        badge: './assets/favicon-16.png',
+        // (2026-05-18 후속) 알림 아이콘 — 같은 파일명으로 덮어쓰시면 자동 적용.
+        //   icon 권장: 192×192 PNG (큰 알림 아이콘)
+        //   badge 권장: 96×96 단색 PNG (Android 상태바 작은 아이콘)
+        icon:  './assets/notification-icon.png',
+        badge: './assets/notification-badge.png',
         tag:   'daily-meditation',
         renotify: false,
         requireInteraction: false,
