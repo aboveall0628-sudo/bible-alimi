@@ -10119,6 +10119,17 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     flex: 0 0 auto;
     font-size: 20px;
     line-height: 1;
+    color: var(--accent, #7c8b6f);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+.onboarding-swan-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
 }
 .onboarding-swan-text {
     flex: 1 1 auto;
