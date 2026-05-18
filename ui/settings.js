@@ -193,14 +193,14 @@ function appendToGroup(groupBodyId, card, containerFallback) {
 }
 
 /**
- * (2026-05-18 v68) 윈도우 설정 스타일 좌측 nav ↔ 우측 그룹 동기화.
- *   - 데스크탑(≥ 768px)에서만 의미 있음. 모바일은 CSS 에서 nav 숨김 + 모든 그룹 스택.
+ * (2026-05-18 v69) 사이드바 설정 nav ↔ 우측 그룹 동기화.
+ *   - v68 우측 별도 nav 폐기 → 사이드바 자체가 설정 nav 으로 변신 (data-mode="settings").
  *   - 클릭 시 active 토글 + 우측 그룹 active 토글.
- *   - 초기 활성 = 첫 visible nav 항목 (슬림 모드면 보이는 방식부터).
+ *   - 초기 활성 = 첫 visible nav 항목 (슬림이면 안내까지 4 자리 중 첫).
  *   - 이벤트는 nav 자체에 한 번만 매달리도록 dataset.bound 가드.
  */
 function bindSettingsNav() {
-    const nav = document.querySelector('.settings-side-nav');
+    const nav = document.querySelector('.sidebar-settings-nav');
     const pane = document.getElementById('settings-pane');
     if (!nav || !pane) return;
 
@@ -212,7 +212,7 @@ function bindSettingsNav() {
     };
 
     const activate = (targetId) => {
-        nav.querySelectorAll('.settings-nav-item').forEach((btn) => {
+        nav.querySelectorAll('.sidebar-settings-item').forEach((btn) => {
             btn.classList.toggle('active', btn.dataset.target === targetId);
         });
         pane.querySelectorAll('.settings-group').forEach((group) => {
@@ -222,7 +222,7 @@ function bindSettingsNav() {
 
     if (!nav.dataset.bound) {
         nav.addEventListener('click', (e) => {
-            const btn = e.target.closest('.settings-nav-item');
+            const btn = e.target.closest('.sidebar-settings-item');
             if (!btn || !nav.contains(btn)) return;
             if (!isNavItemVisible(btn)) return;
             const targetId = btn.dataset.target;
@@ -233,11 +233,11 @@ function bindSettingsNav() {
     }
 
     // 초기 활성 — 이미 active 가 자리잡혔으면 유지, 없으면 첫 visible 항목
-    const current = nav.querySelector('.settings-nav-item.active');
+    const current = nav.querySelector('.sidebar-settings-item.active');
     if (current && isNavItemVisible(current)) {
         activate(current.dataset.target);
     } else {
-        const firstVisible = Array.from(nav.querySelectorAll('.settings-nav-item'))
+        const firstVisible = Array.from(nav.querySelectorAll('.sidebar-settings-item'))
             .find(isNavItemVisible);
         if (firstVisible) activate(firstVisible.dataset.target);
     }
@@ -619,8 +619,8 @@ function injectExtraSections() {
         appendToGroup('settings-group-body-admin', adminCard, container);
         const adminGroup = document.getElementById('settings-group-admin');
         if (adminGroup) adminGroup.hidden = false;
-        // (v68) 윈도우 설정 nav 운영 항목도 함께 노출
-        const adminNavBtn = document.querySelector('.settings-nav-item[data-target="settings-group-admin"]');
+        // (v69) 사이드바 설정 nav 운영자 항목도 함께 노출
+        const adminNavBtn = document.querySelector('.sidebar-settings-item[data-target="settings-group-admin"]');
         if (adminNavBtn) adminNavBtn.hidden = false;
 
         adminCard.querySelector('#settings-open-feedback-admin')?.addEventListener('click', () => {

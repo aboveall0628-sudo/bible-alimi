@@ -683,6 +683,12 @@ function setupNavigation() {
         }
     });
 
+    // (2026-05-18 v69) 설정 모드 ← 돌아가기 — 사이드바 변신 해제 + 이전 화면 복원.
+    document.getElementById('btn-settings-back')?.addEventListener('click', () => {
+        const target = _previousViewBeforeSettings || 'today';
+        switchView(target);
+    });
+
     // (본인 프로필 재기획 트랙 2026-05-14 S-C) 사이드바 잠금 가드 — capture 단계에서
     //   잠긴 모듈 클릭을 가로채 미션 안내 모달을 띄움. 기존 click 핸들러보다 먼저 동작.
     const missionCtxGetter = () => ({ dek: getDEK(), userId: currentUserId });
@@ -826,7 +832,23 @@ window.__sanctumNavHistory = {
     },
 };
 
+// (2026-05-18 v69) 설정 모드 직전에 보던 화면 기억 — [← 돌아가기] 가 복원.
+let _previousViewBeforeSettings = null;
+
 function switchView(viewId) {
+    // (2026-05-18 v69) 사이드바 변신 분기.
+    //   - settings 진입 시점에 현재 active view 기억 (settings 자체는 제외).
+    //   - settings 외 view 진입 시 data-mode 자연 해제.
+    if (viewId === 'settings') {
+        const currentActive = document.querySelector('.sidebar-item.active')?.id?.replace(/^nav-/, '');
+        if (currentActive && currentActive !== 'settings') {
+            _previousViewBeforeSettings = currentActive;
+        }
+        document.documentElement.dataset.mode = 'settings';
+    } else if (document.documentElement.dataset.mode === 'settings') {
+        delete document.documentElement.dataset.mode;
+    }
+
     _recordNav(viewId);
     // (2026-05-16) 브라우저 뒤로가기 자연 자리잡기 — view 전환 시 history 에 자리.
     //   popstate 리스너(아래)가 e.state.view 를 보고 다시 switchView 호출.

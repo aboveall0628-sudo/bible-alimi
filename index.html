@@ -136,6 +136,29 @@
                 <button class="sidebar-item" id="nav-settings"><i class="icon" data-lucide="settings"></i> 설정</button>
                 <div id="boot-status" class="boot-status">초기화 중...</div>
             </div>
+
+            <!-- ── 설정 모드 nav (2026-05-18 v69) ──
+                 nav-settings 클릭 시 <html data-mode="settings"> 박힘 → 사이드바 자체가 이 nav 으로 변신.
+                 일반 사이드바(프로필·날짜·배지·nav·하단)은 모두 hidden, 이 nav 가 자리 차지.
+                 [← 돌아가기] 누르면 data-mode 해제 + 이전 화면 자연 복원. -->
+            <nav class="sidebar-settings-nav" id="sidebar-settings-nav" aria-label="설정 메뉴">
+                <h2 class="sidebar-settings-title">설정</h2>
+                <div class="sidebar-settings-list">
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-profile" data-slim="hidden">내 프로필</button>
+                    <hr class="sidebar-settings-divider" data-slim="hidden">
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-appearance">화면</button>
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-meditation">묵상</button>
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-security">보안</button>
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-modes">안내</button>
+                    <hr class="sidebar-settings-divider" data-slim="hidden">
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-cleanup" data-slim="hidden">데이터</button>
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-more" data-slim="hidden">고급</button>
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-admin" data-slim="hidden" hidden>운영자</button>
+                </div>
+                <button type="button" class="sidebar-settings-back" id="btn-settings-back">
+                    <span class="back-arrow" aria-hidden="true">←</span> 돌아가기
+                </button>
+            </nav>
         </aside>
 
         <!-- 우측 상단 수동 잠금 버튼 — 잠금 해제 후에만 노출 -->
@@ -507,65 +530,27 @@
                 <header class="page-header">
                     <h1><i class="page-icon" data-lucide="settings"></i> 설정</h1>
                 </header>
-                <div id="settings-container" class="settings-windows-layout">
+                <div id="settings-container">
                     <!--
-                        (2026-05-18 v68) 윈도우 설정 스타일 2단 레이아웃.
-                        - 데스크탑(≥ 768px): 좌측 nav + 우측 한 카테고리만 노출.
-                        - 모바일(< 768px): nav 숨김, 모든 그룹 세로 스택(자연 옵션 A).
-                        - 슬림 모드 분기: nav 항목·그룹 둘 다 [data-slim="hidden"] 자연 적용.
-                        - 내 프로필: nav 첫 항목으로 통합 (selfCard 가 group-body-profile 안으로 append).
-                        - bindSettingsNav 가 nav 클릭 ↔ 우측 그룹 .active 동기화.
+                        (2026-05-18 v69) 사이드바 자체가 설정 nav 으로 변신.
+                        - nav 는 좌측 .sidebar-settings-nav (index.html 상단 사이드바 영역) 에 자리.
+                        - 우측은 한 카테고리만 .active 시 노출 (CSS .settings-pane 분기).
+                        - 슬림 모드 분기: 사이드바 nav 항목 + 그룹 둘 다 [data-slim="hidden"].
+                        - 안내(모드·진입)는 슬림에서도 노출 (베타에서 "처음 안내 다시 보기" 필요).
                     -->
-
-                    <!-- ── 좌측 카테고리 nav ── -->
-                    <nav class="settings-side-nav" aria-label="설정 카테고리">
-                        <button type="button" class="settings-nav-item" data-target="settings-group-profile" data-slim="hidden">
-                            <span class="nav-emoji">👤</span> 내 프로필
-                        </button>
-                        <hr class="settings-nav-divider" data-slim="hidden">
-                        <button type="button" class="settings-nav-item" data-target="settings-group-appearance">
-                            <span class="nav-emoji">🎨</span> 보이는 방식
-                        </button>
-                        <button type="button" class="settings-nav-item" data-target="settings-group-meditation">
-                            <span class="nav-emoji">📖</span> 묵상 자리
-                        </button>
-                        <button type="button" class="settings-nav-item" data-target="settings-group-security">
-                            <span class="nav-emoji">🔐</span> 보안·복구
-                        </button>
-                        <hr class="settings-nav-divider" data-slim="hidden">
-                        <button type="button" class="settings-nav-item" data-target="settings-group-modes" data-slim="hidden">
-                            <span class="nav-emoji">🌱</span> 모드·진입
-                        </button>
-                        <button type="button" class="settings-nav-item" data-target="settings-group-cleanup" data-slim="hidden">
-                            <span class="nav-emoji">🧹</span> 정리
-                        </button>
-                        <button type="button" class="settings-nav-item" data-target="settings-group-more" data-slim="hidden">
-                            <span class="nav-emoji">🛠</span> 더보기
-                        </button>
-                        <button type="button" class="settings-nav-item" data-target="settings-group-admin" data-slim="hidden" hidden>
-                            <span class="nav-emoji">🦢</span> 운영
-                        </button>
-                    </nav>
-
-                    <!-- ── 우측 콘텐츠 영역 ── -->
                     <div class="settings-pane" id="settings-pane">
 
                         <!-- ── 👤 내 프로필 ── (슬림 숨김 · selfCard 가 settings.js 에서 group-body-profile 로 append) -->
                         <section class="settings-group" id="settings-group-profile" data-slim="hidden">
-                            <h2 class="settings-group-title">
-                                <span class="group-emoji">👤</span> 내 프로필
-                            </h2>
+                            <h2 class="settings-group-title">내 프로필</h2>
                             <div class="settings-group-body" id="settings-group-body-profile">
                                 <!-- (settings.js append) selfCard -->
                             </div>
                         </section>
 
-                    <!-- ── 🎨 보이는 방식 ── (슬림 노출) -->
+                    <!-- ── 화면 ── (슬림 노출) -->
                     <section class="settings-group" id="settings-group-appearance">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🎨</span> 보이는 방식
-                            <span class="group-hint">글자·색·테마</span>
-                        </h2>
+                        <h2 class="settings-group-title">화면</h2>
                         <div class="settings-group-body" id="settings-group-body-appearance">
                             <!-- (settings.js append) 베타 슬림 모드 / 시스템 글자 크기 / 강조 색 -->
 
@@ -600,23 +585,17 @@
                         </div>
                     </section>
 
-                    <!-- ── 📖 묵상 자리 ── (슬림 노출) -->
+                    <!-- ── 묵상 ── (슬림 노출) -->
                     <section class="settings-group" id="settings-group-meditation">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">📖</span> 묵상 자리
-                            <span class="group-hint">말씀·템플릿·알람</span>
-                        </h2>
+                        <h2 class="settings-group-title">묵상</h2>
                         <div class="settings-group-body" id="settings-group-body-meditation">
                             <!-- (settings.js append) 성경 번역본 / 말씀 본문 / 묵상 템플릿 / 매일 묵상 알람 / 생일 알람 -->
                         </div>
                     </section>
 
-                    <!-- ── 🔐 보안·복구 ── (슬림 노출) -->
+                    <!-- ── 보안 ── (슬림 노출) -->
                     <section class="settings-group" id="settings-group-security">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🔐</span> 보안·복구
-                            <span class="group-hint">비밀번호·잠금·백업</span>
-                        </h2>
+                        <h2 class="settings-group-title">보안</h2>
                         <div class="settings-group-body" id="settings-group-body-security">
                             <!-- (settings.js append) 비밀번호 바꾸기 / 이메일 복구 -->
 
@@ -641,23 +620,17 @@
                         </div>
                     </section>
 
-                    <!-- ── 🌱 모드·진입 ── (슬림 숨김) -->
-                    <section class="settings-group" id="settings-group-modes" data-slim="hidden">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🌱</span> 모드·진입
-                            <span class="group-hint">온보딩·히든 미션</span>
-                        </h2>
+                    <!-- ── 안내 ── (슬림 노출 — 베타에서도 "처음 안내 다시 보기" 필요. 2026-05-18 v69) -->
+                    <section class="settings-group" id="settings-group-modes">
+                        <h2 class="settings-group-title">안내</h2>
                         <div class="settings-group-body" id="settings-group-body-modes">
                             <!-- (settings.js append) 처음 안내 다시 보기 / 히든 미션 ✨ -->
                         </div>
                     </section>
 
-                    <!-- ── 🧹 정리 ── (슬림 숨김) -->
+                    <!-- ── 데이터 ── (슬림 숨김) -->
                     <section class="settings-group" id="settings-group-cleanup" data-slim="hidden">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🧹</span> 정리
-                            <span class="group-hint">옛 데이터 정돈</span>
-                        </h2>
+                        <h2 class="settings-group-title">데이터</h2>
                         <div class="settings-group-body" id="settings-group-body-cleanup">
                             <!-- 데이터 복구 (v1 마이그레이션) -->
                             <div class="card-section" style="border-left: 3px solid var(--brand-primary)">
@@ -682,23 +655,17 @@
                         </div>
                     </section>
 
-                    <!-- ── 🛠 더보기 ── (슬림 숨김) -->
+                    <!-- ── 고급 ── (슬림 숨김) -->
                     <section class="settings-group" id="settings-group-more" data-slim="hidden">
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🛠</span> 더보기
-                            <span class="group-hint">단축키·임계값</span>
-                        </h2>
+                        <h2 class="settings-group-title">고급</h2>
                         <div class="settings-group-body" id="settings-group-body-more">
                             <!-- (settings.js append) 키보드 단축키 / 경제 임계값 -->
                         </div>
                     </section>
 
-                    <!-- ── 🦢 운영 ── (슬림 숨김 · 관리자만, settings.js 에서 isSwanAdmin 일 때만 [hidden] 제거) -->
+                    <!-- ── 운영자 ── (슬림 숨김 · 관리자만, settings.js 에서 isSwanAdmin 일 때만 [hidden] 제거) -->
                     <section class="settings-group" id="settings-group-admin" data-slim="hidden" hidden>
-                        <h2 class="settings-group-title">
-                            <span class="group-emoji">🦢</span> 운영
-                            <span class="group-hint">관리자만</span>
-                        </h2>
+                        <h2 class="settings-group-title">운영자</h2>
                         <div class="settings-group-body" id="settings-group-body-admin">
                             <!-- (settings.js append) 피드백 관리 -->
                         </div>

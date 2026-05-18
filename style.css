@@ -651,83 +651,112 @@ button .btn-icon { vertical-align: text-bottom; }
 .settings-group .card-section { margin-bottom: var(--sp-3); }
 .settings-group .card-section:last-child { margin-bottom: 0; }
 
-/* ── Windows 설정 스타일 2단 레이아웃 (2026-05-18 v68) ──
- * 데스크탑(≥ 768px): 좌측 카테고리 nav 220px + 우측 한 카테고리만 노출.
- * 모바일(< 768px): nav 숨김, 모든 그룹 세로 스택(기존 옵션 A 그대로). */
-.settings-windows-layout {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    gap: var(--sp-5);
-    align-items: start;
+/* ── 설정 모드 = 사이드바 변신 (2026-05-18 v69) ──
+ * 사용자 명시: 우측 별도 nav 폐기. [설정] 진입 시 사이드바 자체가 설정 nav 으로 변신.
+ * 사이드바 맨 위 "설정" 제목 + 카테고리 8개 (아이콘 X, 텍스트만, 윈도우 톤 단순 라벨)
+ *   + 맨 아래 [← 돌아가기] (눌리면 이전 화면 자연 복원).
+ * 우측은 선택된 카테고리만 노출. data-mode="settings" attribute 로 분기. */
+.sidebar-settings-nav {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
-.settings-side-nav {
-    position: sticky;
-    top: var(--sp-3);
+.sidebar-settings-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+.sidebar-settings-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    background: var(--surface-card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    padding: var(--sp-2);
-    box-shadow: var(--shadow-sm);
+    gap: 1px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 0 var(--sp-2) var(--sp-3);
 }
-.settings-nav-item {
+.sidebar-settings-item {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius);
+    text-align: left;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--ease), color var(--ease);
+}
+.sidebar-settings-item:hover {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+}
+.sidebar-settings-item.active {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.sidebar-settings-divider {
+    height: 1px;
+    background: var(--line);
+    margin: 6px var(--sp-3);
+    border: 0;
+}
+.sidebar-settings-back {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
     width: 100%;
-    padding: 10px var(--sp-3);
+    padding: 14px var(--sp-4);
+    margin: 0;
     background: transparent;
     border: none;
-    border-left: 3px solid transparent;
-    border-radius: var(--radius);
-    text-align: left;
-    font-family: var(--font-sans);
-    font-size: var(--fs-base);
+    border-top: 1px solid var(--line);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background var(--ease), color var(--ease), border-color var(--ease);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    text-align: left;
+    transition: background var(--ease), color var(--ease);
 }
-.settings-nav-item:hover {
+.sidebar-settings-back:hover {
     background: var(--accent-soft);
     color: var(--text-primary);
 }
-.settings-nav-item.active {
-    background: var(--accent-soft);
-    color: var(--text-primary);
-    border-left-color: var(--accent);
-    font-weight: 600;
-}
-.settings-nav-item .nav-emoji {
-    font-size: 1.05em;
+.sidebar-settings-back .back-arrow {
+    font-size: 16px;
     line-height: 1;
-    width: 18px;
-    text-align: center;
 }
-.settings-nav-divider {
-    height: 1px;
-    background: var(--line);
-    margin: 4px 6px;
-    border: 0;
+
+/* data-mode="settings" 분기 — 사이드바 자연 변신 */
+html[data-mode="settings"] .sidebar-profile,
+html[data-mode="settings"] .sidebar-current-date,
+html[data-mode="settings"] .slim-mode-badge,
+html[data-mode="settings"] .sidebar-nav,
+html[data-mode="settings"] .sidebar-bottom {
+    display: none;
 }
-.settings-pane {
-    min-width: 0;
+html[data-mode="settings"] .sidebar-settings-nav {
+    display: flex;
 }
-/* 데스크탑에서는 한 그룹만 보이고 나머지는 숨김. .active 만 노출. */
-@media (min-width: 768px) {
-    .settings-pane > .settings-group { display: none; margin-top: 0; }
-    .settings-pane > .settings-group.active { display: block; }
-    /* 우측에 단독으로 보이는 그룹의 첫 카드는 상단 여백 없이 자연 자리 */
-    .settings-pane > .settings-group.active > .settings-group-body > :first-child { margin-top: 0; }
-    /* 데스크탑에서는 카테고리 제목 자체는 nav 가 대신함 — 우측에는 본문만. */
-    .settings-pane > .settings-group > .settings-group-title { display: none; }
-}
-/* 모바일 — nav 숨김, 옵션 A 자연 작동 (모든 그룹 세로 스택) */
-@media (max-width: 767px) {
-    .settings-windows-layout { display: block; }
-    .settings-side-nav { display: none; }
-}
+/* 설정 모드에서는 우측 페이지 헤더(⚙️ 설정)도 잉여 — 사이드바 가 이미 자리 */
+html[data-mode="settings"] #view-settings > .page-header { display: none; }
+
+/* ── 설정 우측 콘텐츠 (v69) ──
+ * 한 카테고리만 .active 시 보임. 사이드바 nav 가 active 토글. */
+.settings-pane { min-width: 0; }
+.settings-pane > .settings-group { display: none; margin-top: 0; }
+.settings-pane > .settings-group.active { display: block; }
+.settings-pane > .settings-group.active > .settings-group-body > :first-child { margin-top: 0; }
+/* 그룹 제목은 우측에서도 살림 — 사이드바 라벨이 단순(윈도우 톤)이라 본문 헤더에서 자연 강조 */
+.settings-pane > .settings-group > .settings-group-title { display: flex; }
 
 /* ── Card section ── */
 .card-section {
