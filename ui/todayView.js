@@ -163,14 +163,18 @@ async function loadTodayReport(dek) {
         loadTodayEconomyBlock();
 
         // 재작성 버튼 — 기존 리포트 + 캐시 모두 무시하고 Gemini 새로 호출
+        //   (Phase C 2026-05-16) inlineThinkingForButton 으로 라벨 회전 + 가짜 progress bar.
         document.getElementById('today-regenerate-report-btn')?.addEventListener('click', async () => {
             const btn = document.getElementById('today-regenerate-report-btn');
-            if (btn) { btn.disabled = true; btn.textContent = '다시 만드는 중이에요...'; }
+            if (!btn) return;
+            btn.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(btn, { labels: THINKING_COPY.reportGenerate });
             try {
                 const result = await generateDailyReport(dek, _userId, _date, { force: true });
+                thinkingHandle.finish();
                 if (result.status === 'no-dots') {
                     showToast('오늘 기록된 도트가 없어요');
-                    if (btn) { btn.disabled = false; btn.textContent = '↻ 리포트 재작성하기'; }
+                    btn.disabled = false;
                     return;
                 }
                 // 성공 → 새 카드로 다시 그림
@@ -178,8 +182,9 @@ async function loadTodayReport(dek) {
                 showToast('리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('today report regenerate failed:', e);
+                thinkingHandle.dispose();
                 showToast('재작성이 잠깐 막혔어요. 잠시 후 다시 시도해 주세요');
-                if (btn) { btn.disabled = false; btn.textContent = '↻ 리포트 재작성하기'; }
+                btn.disabled = false;
             }
         });
     } catch (e) {
@@ -382,20 +387,24 @@ async function handleWeekReportClick(btn) {
         if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
         bindInlineDrill(inline, dek);
 
-        // 인라인 카드의 재작성 버튼
+        // 인라인 카드의 재작성 버튼 (Phase C 라벨 회전 + progress bar)
         document.getElementById('week-report-regenerate-btn')?.addEventListener('click', async () => {
             const rb = document.getElementById('week-report-regenerate-btn');
-            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            if (!rb) return;
+            rb.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(rb, { labels: THINKING_COPY.reportGenerate });
             try {
                 const r2 = await generateWeeklyReport(dek, _userId, weekStart, weekEnd, { force: true });
+                thinkingHandle.finish();
                 if (inline) inline.innerHTML = renderWeekReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
                 bindInlineDrill(inline, dek);
                 showToast('주간 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('weekly regenerate failed:', e);
+                thinkingHandle.dispose();
                 showToast('재작성이 잠깐 막혔어요');
-                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+                rb.disabled = false;
             }
         });
     } catch (e) {
@@ -524,17 +533,21 @@ async function handleMonthReportClick(btn) {
 
         document.getElementById('month-report-regenerate-btn')?.addEventListener('click', async () => {
             const rb = document.getElementById('month-report-regenerate-btn');
-            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            if (!rb) return;
+            rb.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(rb, { labels: THINKING_COPY.reportGenerate });
             try {
                 const r2 = await generateMonthlyReport(dek, _userId, start, end, { force: true });
+                thinkingHandle.finish();
                 if (inline) inline.innerHTML = renderMonthReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
                 bindInlineDrill(inline, dek);
                 showToast('월간 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('monthly regenerate failed:', e);
+                thinkingHandle.dispose();
                 showToast('재작성이 잠깐 막혔어요');
-                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+                rb.disabled = false;
             }
         });
     } catch (e) {
@@ -679,17 +692,21 @@ async function handleQuarterReportClick(btn) {
 
         document.getElementById('quarter-report-regenerate-btn')?.addEventListener('click', async () => {
             const rb = document.getElementById('quarter-report-regenerate-btn');
-            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            if (!rb) return;
+            rb.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(rb, { labels: THINKING_COPY.reportGenerate });
             try {
                 const r2 = await generateQuarterlyReport(dek, _userId, range.start, range.end, { force: true });
+                thinkingHandle.finish();
                 if (inline) inline.innerHTML = renderQuarterReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
                 bindInlineDrill(inline, dek);
                 showToast('분기 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('quarterly regenerate failed:', e);
+                thinkingHandle.dispose();
                 showToast('재작성이 잠깐 막혔어요');
-                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+                rb.disabled = false;
             }
         });
     } catch (e) {
@@ -811,17 +828,21 @@ async function handleYearReportClick(btn) {
 
         document.getElementById('year-report-regenerate-btn')?.addEventListener('click', async () => {
             const rb = document.getElementById('year-report-regenerate-btn');
-            if (rb) { rb.disabled = true; rb.textContent = '다시 만드는 중이에요...'; }
+            if (!rb) return;
+            rb.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(rb, { labels: THINKING_COPY.reportGenerate });
             try {
                 const r2 = await generateYearlyReport(dek, _userId, range.start, range.end, { force: true });
+                thinkingHandle.finish();
                 if (inline) inline.innerHTML = renderYearReportInline(r2.report);
                 if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
                 bindInlineDrill(inline, dek);
                 showToast('연간 리포트가 새로 만들어졌어요');
             } catch (e) {
                 console.error('yearly regenerate failed:', e);
+                thinkingHandle.dispose();
                 showToast('재작성이 잠깐 막혔어요');
-                if (rb) { rb.disabled = false; rb.textContent = '↻ 리포트 재작성하기'; }
+                rb.disabled = false;
             }
         });
     } catch (e) {
