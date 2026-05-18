@@ -9741,10 +9741,67 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     margin: 0 0 14px;
     color: var(--ink, #2a2a2a);
     letter-spacing: -0.01em;
+    /* (타이핑) 줄바꿈 \n 자연 반영 + 빈 상태 높이 보존 */
+    white-space: pre-line;
+    min-height: 2.8em;
 }
 @media (max-width: 480px) {
     .onboarding-swan-hero-icon { font-size: 72px; margin-bottom: 14px; }
     .onboarding-swan-hero-greeting { font-size: 22px; }
+}
+
+/* SWAN 말풍선 본문 — 타이핑 자리 */
+.onboarding-swan-text { white-space: pre-line; }
+.onboarding-swan-text.ai-typing::after,
+.onboarding-swan-hero-greeting.ai-typing::after {
+    content: '▍';
+    margin-left: 2px;
+    color: var(--accent, #7c8b6f);
+    animation: swan-typing-cursor 0.9s steps(2) infinite;
+}
+@keyframes swan-typing-cursor {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+}
+
+/* 카드 enter — step 전환 시 부드럽게 등장 */
+.onboarding-card-enter {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 280ms ease-out, transform 280ms ease-out;
+}
+.onboarding-card-enter.onboarding-card-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 진행 dot — active 시 미세 grow + 발광 */
+.onboarding-stepper .onboarding-step-dot {
+    transition: transform 240ms ease-out, background 240ms ease-out, box-shadow 240ms ease-out;
+}
+.onboarding-stepper .onboarding-step-dot.active {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 3px rgba(124, 139, 111, 0.15);
+}
+
+/* 옵션 칩 클릭 시 미세 펄스 */
+.onboarding-cuti-card:active,
+.onboarding-city-chip:active,
+.onboarding-bible-card:active,
+.onboarding-track-card:active,
+.onboarding-book-card:active,
+.onboarding-toggle-chip:active,
+.onboarding-font-chip:active {
+    transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .onboarding-card-enter,
+    .onboarding-card-enter.onboarding-card-enter-active { opacity: 1; transform: none; transition: none; }
+    .onboarding-stepper .onboarding-step-dot,
+    .onboarding-stepper .onboarding-step-dot.active { transition: none; transform: none; box-shadow: none; }
+    .onboarding-swan-text.ai-typing::after,
+    .onboarding-swan-hero-greeting.ai-typing::after { animation: none; }
 }
 .onboarding-swan-hero-sub {
     font-size: 14px;

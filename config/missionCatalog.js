@@ -115,6 +115,41 @@ export const MISSION_CATALOG = {
         slim: true,
         difficulty: 2,
     },
+    // (2026-05-18 후속) 묵상 streak 3 단계 — 사용자 명시 "연속 미션 추가"
+    //   trigger 계산 자리는 data/reminderGenerator.js 또는 todayView.js 의 streak 함수 결과 활용 예정 (별도 트랙)
+    meditation_streak_3: {
+        moduleId: 'meditation',
+        icon: '🌱',
+        title: '3일 연속 묵상하기',
+        hint: '연속 3일 묵상 노트 1줄 이상',
+        unlockCopy: '3일 연속 묵상이 자리잡았어요',
+        trigger: 'meditationStreak >= 3',
+        deferred: false,
+        slim: true,
+        difficulty: 2,
+    },
+    meditation_streak_7: {
+        moduleId: 'meditation',
+        icon: '🌿',
+        title: '7일 연속 묵상하기',
+        hint: '한 주 동안 매일 묵상',
+        unlockCopy: '한 주 연속 묵상이 자리잡았어요',
+        trigger: 'meditationStreak >= 7',
+        deferred: false,
+        slim: true,
+        difficulty: 3,
+    },
+    meditation_streak_14: {
+        moduleId: 'meditation',
+        icon: '🌳',
+        title: '14일 연속 묵상하기',
+        hint: '베타 기간 내내 매일 묵상 — 최상위 streak',
+        unlockCopy: '14일 연속 묵상 — 깊이 자리잡았어요',
+        trigger: 'meditationStreak >= 14',
+        deferred: false,
+        slim: true,
+        difficulty: 4,
+    },
     // (S-D 후속 2026-05-15) 풀사이클 한 바퀴를 자연 발화로 풀기 위한 3 미션 추가
     past_meditation_revisit: {
         moduleId: 'meditation',

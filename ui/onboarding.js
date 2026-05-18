@@ -51,6 +51,8 @@ import {
 import { savePrinciple } from '../data/principlesRepo.js';
 import { saveRecord, getRecord } from '../data/baseRepo.js';
 import { getActiveMissionIds, MISSION_CATALOG } from '../config/missionCatalog.js';
+// (2026-05-18 후속) 온보딩 SWAN 말풍선 타이핑 — "AI가 실제로 물어보는 것처럼"
+import { typeText, shouldReduceMotion, setTextInstant } from './aiThinking.js';
 
 // (베타 슬림 v1 A 묶음 2026-05-18 / 후속 의사결정 카드 제거) 10 step 재번호:
 //   1=SWAN 인사 · 2=이름 · 3=별명 · 4=생일+양/음력 · 5=도시·타임존
@@ -83,6 +85,38 @@ const CUTI_LEVELS = [
 ];
 
 let _state = null;  // { userId, dek, draft, onComplete, snapshots }
+
+// (2026-05-18 후속) SWAN 말풍선 헬퍼 — "실제로 AI가 물어보는 것처럼" 톤.
+//   각 step body.innerHTML 첫 줄에 자연 자리잡힘. render 후 activateSwanTyping() 자동 호출.
+function swanBubbleHTML(message) {
+    return `
+      <div class="onboarding-swan-bubble onboarding-swan-bubble-typing" data-swan-typing>
+        <span class="onboarding-swan-icon" aria-hidden="true">🦢</span>
+        <span class="onboarding-swan-text" data-swan-message="${escapeAttr(message || '')}"></span>
+      </div>
+    `;
+}
+
+function activateSwanTyping() {
+    const reduce = shouldReduceMotion();
+    document.querySelectorAll('.onboarding-swan-bubble-typing').forEach(bubble => {
+        const textEl = bubble.querySelector('.onboarding-swan-text');
+        if (!textEl) return;
+        const msg = textEl.dataset.swanMessage || '';
+        if (reduce) {
+            setTextInstant(textEl, msg);
+        } else {
+            typeText(textEl, msg, { delay: 28 });
+        }
+    });
+    // hero greeting (step 1) — 별도 자리, 줄바꿈 포함
+    const hero = document.querySelector('[data-swan-hero]');
+    if (hero) {
+        const msg = hero.dataset.swanMessage || '';
+        if (reduce) setTextInstant(hero, msg);
+        else typeText(hero, msg, { delay: 45 });
+    }
+}
 
 /**
  * 사용자 첫 진입 모달 표시.
@@ -228,6 +262,17 @@ function renderStep(step) {
     else if (step === 9) renderFontStep(body);
     else if (step === 10) renderMeditationStep(body); // 첫 묵상 한 절
     else if (step === 99) renderFinishCard(body);
+
+    // (2026-05-18 후속) 모든 step 공통: 카드 enter 애니메이션 + SWAN 말풍선 타이핑.
+    const card = body.querySelector('.onboarding-card');
+    if (card) {
+        card.classList.add('onboarding-card-enter');
+        // 다음 프레임에 enter 트랜지션 트리거 — 자연 fade-in + slide-up
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => card.classList.add('onboarding-card-enter-active'));
+        });
+    }
+    activateSwanTyping();
 }
 
 // ─── Step 1: 🦢 SWAN 첫 인사 (베타 슬림 v1 A 묶음 2026-05-18) ─────────
@@ -237,10 +282,9 @@ function renderSwanIntroStep(body) {
     body.innerHTML = `
       <div class="onboarding-card onboarding-card-swan-hero">
         <div class="onboarding-swan-hero-icon" aria-hidden="true">🦢</div>
-        <h2 class="onboarding-swan-hero-greeting" id="onboarding-title">
-          안녕하세요,<br>
-          묵상 보조 AI SWAN이에요.
-        </h2>
+        <h2 class="onboarding-swan-hero-greeting" id="onboarding-title"
+            data-swan-hero
+            data-swan-message="안녕하세요,&#10;묵상 보조 AI SWAN이에요."></h2>
         <p class="onboarding-swan-hero-sub">
           몇 가지만 알려주시면, 묵상이 삶으로 옮겨가도록 도와드릴게요.<br>
           10분 정도 걸려요. 중간에 멈춰도 괜찮아요.
@@ -256,11 +300,12 @@ function renderSwanIntroStep(body) {
     document.getElementById('onboarding-next').addEventListener('click', () => renderStep(2));
 }
 
-// ─── Step 1: 이름 ─────────────────────────────────────────
+// ─── Step 2: 이름 ─────────────────────────────────────────
 function renderNameStep(body) {
     const tone = getTone();
     body.innerHTML = `
       <div class="onboarding-card">
+        ${swanBubbleHTML('어떻게 불러드릴까요? 이름이나 자주 쓰시는 이름이면 돼요.')}
         <p class="onboarding-greeting">${escapeHtml(tone.welcomeGreeting)}</p>
         <p class="onboarding-sub">${escapeHtml(tone.welcomeSub)}</p>
         <h2 class="onboarding-title" id="onboarding-title">어떻게 불러드릴까요?</h2>
@@ -285,10 +330,11 @@ function renderNameStep(body) {
     nextBtn.addEventListener('click', () => renderStep(3));
 }
 
-// ─── Step 2: 별명 ─────────────────────────────────────────
+// ─── Step 3: 별명 ─────────────────────────────────────────
 function renderNicknameStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
+        ${swanBubbleHTML(`${_state.draft.name || '친구'}님, 더 친근하게 부를 별명도 있으세요?`)}
         <h2 class="onboarding-title">${escapeHtml(_state.draft.name)}님, 별명도 있으세요?</h2>
         <p class="onboarding-sub">아침에 가장 듣고 싶은 호칭이 있다면 적어보세요. (선택)</p>
         <input type="text" class="onboarding-input" id="onboarding-nickname"
@@ -320,10 +366,7 @@ function renderBirthdayStep(body) {
     const isLunar = !!_state.draft.birthdayLunar;
     body.innerHTML = `
       <div class="onboarding-card">
-        <div class="onboarding-swan-bubble">
-          <span class="onboarding-swan-icon">🦢</span>
-          <span class="onboarding-swan-text">생일도 알려주실래요? 나이대에 맞는 말투로 인사하려고요.</span>
-        </div>
+        ${swanBubbleHTML('생일도 알려주실래요? 나이대에 맞는 말투로 인사하려고요.')}
         <h2 class="onboarding-title">생일이 언제이신가요?</h2>
         <p class="onboarding-sub">양력·음력 골라서 적으실 수 있어요. 정확한 날짜 모르면 연도만 적어도 돼요.</p>
         <div class="onboarding-birthday-toggle" role="radiogroup" aria-label="양력 또는 음력">
@@ -379,10 +422,7 @@ function renderLocationStep(body) {
 
     body.innerHTML = `
       <div class="onboarding-card">
-        <div class="onboarding-swan-bubble">
-          <span class="onboarding-swan-icon">🦢</span>
-          <span class="onboarding-swan-text">어디서 같이 가는 중이세요? 알람·일정 시간 맞춰드리려고요.</span>
-        </div>
+        ${swanBubbleHTML('어디서 같이 가는 중이세요? 알람·일정 시간 맞춰드리려고요.')}
         <h2 class="onboarding-title">사는 지역이 어디예요?</h2>
         <p class="onboarding-sub">시간대 자동으로 맞춰드릴게요. 자주 가는 도시가 없으면 "다른 곳"으로 골라주세요.</p>
         <div class="onboarding-city-grid" role="radiogroup" aria-label="사는 지역">
@@ -455,11 +495,12 @@ function renderLocationStep(body) {
     document.getElementById('onboarding-next').addEventListener('click', () => renderStep(6));
 }
 
-// ─── Step 4: 큐티 수준 ────────────────────────────────────
+// ─── Step 6: 큐티 수준 ────────────────────────────────────
 function renderCutiStep(body) {
     const tone = getTone();
     body.innerHTML = `
       <div class="onboarding-card">
+        ${swanBubbleHTML('평소 묵상은 어느 정도 하세요? 마음에 닿는 깊이로 시작 자리를 골라드릴게요.')}
         <h2 class="onboarding-title">${escapeHtml(tone.cutiPrompt)}</h2>
         <p class="onboarding-sub">평소 묵상 깊이에 맞춰 시작 자리를 정해드려요. 나중에 언제든 바꿀 수 있어요.</p>
         <div class="onboarding-cuti-cards" role="radiogroup" aria-label="큐티 수준">
@@ -502,6 +543,7 @@ function renderCutiStep(body) {
 function renderBibleVersionStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
+        ${swanBubbleHTML('어떤 성경으로 읽으시나요? 지금은 개역개정으로 만나실 수 있어요.')}
         <h2 class="onboarding-title">어떤 성경으로 묵상하시나요?</h2>
         <p class="onboarding-sub">지금은 개역개정으로 만나실 수 있어요. 다른 번역본도 곧 준비 중이에요.</p>
         <div class="onboarding-bible-list" role="radiogroup" aria-label="성경 번역본">
@@ -553,6 +595,7 @@ function renderTrackStep(body) {
 
     body.innerHTML = `
       <div class="onboarding-card onboarding-card-track">
+        ${swanBubbleHTML('어디서부터 묵상하실래요? 선택하신 수준에 맞춰 추천해드릴게요.')}
         <h2 class="onboarding-title">어디서부터 묵상하실래요?</h2>
         <p class="onboarding-sub">선택하신 수준에 맞춘 추천이에요. 마음에 닿는 자리로 골라 보세요. 나중에 언제든 바꿀 수 있어요.</p>
 
@@ -648,6 +691,7 @@ function renderTrackStep(body) {
 function renderFontStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
+        ${swanBubbleHTML('글씨 크기는 어떻게 보이세요? 고르시면 바로 화면이 바뀌어요.')}
         <h2 class="onboarding-title">글자 크기를 정해볼까요?</h2>
         <p class="onboarding-sub">고르는 즉시 화면에 미리 보여요. 마음 편한 크기로 정하세요.</p>
 
@@ -757,6 +801,7 @@ function renderMeditationStep(body) {
 
     body.innerHTML = `
       <div class="onboarding-card onboarding-card-meditation">
+        ${swanBubbleHTML('마지막이에요. 오늘 한 절 같이 만나볼까요?')}
         <h2 class="onboarding-title">${escapeHtml(tone.firstDotInvite || '오늘 한 절 만나볼까요?')}</h2>
         <p class="onboarding-sub">실제 묵상하는 것처럼 한 번 해볼까요. 본문을 노트로 옮기고, 떠오른 한 줄을 적어 보세요.</p>
 
@@ -883,7 +928,11 @@ function renderFinishCard(body) {
           <span class="onboarding-finish-freemium-icon">🌱</span>
           <div class="onboarding-finish-freemium-body">
             <p class="onboarding-finish-freemium-title">베타 버전이에요.</p>
-            <p class="onboarding-finish-freemium-sub">14일 동안 모든 기능을 자유롭게 둘러보실 수 있어요. 불편한 자리는 우하단 풍선으로 알려주세요.</p>
+            <p class="onboarding-finish-freemium-sub">
+              14일 동안 자유롭게 둘러보실 수 있어요.<br>
+              불편한 부분이나 개선되어야 할 부분이 있다면<br>
+              우하단의 버튼을 통해 SWAN에게 알려주세요.
+            </p>
           </div>
         </div>
 
