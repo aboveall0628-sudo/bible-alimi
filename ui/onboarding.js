@@ -86,6 +86,7 @@ const CUTI_LEVELS = [
 ];
 
 let _state = null;  // { userId, dek, draft, onComplete, snapshots }
+let _previousSystemFont = null;  // (2026-05-18) onboarding 진입 시 옛 systemFont 저장 → step 9·종료 시 자연 복원
 
 // (2026-05-18 후속) SWAN 말풍선 헬퍼 — "실제로 AI가 물어보는 것처럼" 톤.
 //   각 step body.innerHTML 첫 줄에 자연 자리잡힘. render 후 activateSwanTyping() 자동 호출.
@@ -263,6 +264,12 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
     //   step 9 (폰트 설정) 진입 시 해제 → 사용자가 고른 폰트로 미리보기 자연 작동.
     //   closeOnboardingModal 에서도 자연 해제.
     document.documentElement.setAttribute('data-onboarding-large-font', 'true');
+    // (2026-05-18 사용자 명시 "폰트 설정 이전 온보딩까지는 폰트를 크게 — 아주크게 X 그냥 크게")
+    //   systemFont 'lg' 강제 적용 + 옛 결 저장 → step 9 진입·closeOnboardingModal 시 자연 복원
+    try {
+        _previousSystemFont = getSystemFontScale();
+        applySystemFontScale('lg');
+    } catch (_) {}
 
     // 닫기 버튼 — 저장 없이 모달만 닫고 원래 화면 그대로 보여줌.
     if (isReplay) {
@@ -280,6 +287,11 @@ export function closeOnboardingModal() {
     if (existing) existing.remove();
     // (2026-05-18 후속) 큰 폰트 모드 해제
     document.documentElement.removeAttribute('data-onboarding-large-font');
+    // (2026-05-18) 온보딩 진입 시 'lg' 강제했던 systemFont 자연 복원 — step 9 안 거치고 닫혀도 안전
+    if (_previousSystemFont !== null) {
+        try { applySystemFontScale(_previousSystemFont); } catch (_) {}
+        _previousSystemFont = null;
+    }
     _state = null;
 }
 
@@ -330,6 +342,11 @@ function renderStep(step) {
     //   사용자가 칩 클릭하면 그 즉시 미리보기 자연 작동.
     if (step >= 9) {
         document.documentElement.removeAttribute('data-onboarding-large-font');
+        // (2026-05-18) 진입 시 강제했던 'lg' systemFont 자연 복원 — 사용자가 그 자리에서 다시 골라요
+        if (_previousSystemFont !== null) {
+            try { applySystemFontScale(_previousSystemFont); } catch (_) {}
+            _previousSystemFont = null;
+        }
     }
 
     // (2026-05-18 후속) 모든 step 공통: 카드 enter 애니메이션 + SWAN 말풍선 타이핑.
