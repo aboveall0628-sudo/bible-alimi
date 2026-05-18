@@ -626,7 +626,8 @@ function injectExtraSections() {
             <p class="section-desc">베타 사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
                 <button type="button" id="settings-open-feedback-admin" class="primary-btn">피드백 관리 열기</button>
-                <button type="button" id="settings-start-pre-survey" class="secondary-btn">사전 설문 미리 해보기</button>
+                <button type="button" id="settings-start-pre-survey" class="secondary-btn">사전 설문 미리 해보기 (채팅 v1)</button>
+                <button type="button" id="settings-start-pre-survey-form" class="secondary-btn">사전 설문 폼 v2 시안 (Q1)</button>
             </div>
         `;
         appendToGroup('settings-group-body-admin', adminCard, container);
@@ -644,6 +645,11 @@ function injectExtraSections() {
         adminCard.querySelector('#settings-start-pre-survey')?.addEventListener('click', () => {
             if (typeof window.__sanctumOpenPreSurvey === 'function') {
                 window.__sanctumOpenPreSurvey();
+            }
+        });
+        adminCard.querySelector('#settings-start-pre-survey-form')?.addEventListener('click', () => {
+            if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
+                window.__sanctumOpenPreSurveyForm();
             }
         });
     }

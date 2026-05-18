@@ -10526,3 +10526,246 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     display: none;
 }
 
+/* ──────────────────────────────────────────────────────
+ * 사전 설문 풀스크린 카드 폼 (Q1 시안, 2026-05-18)
+ *   1차 베타 검증 시나리오 §1. 합의 결: 풀스크린·진행 바·자유 텍스트 위·칩 아래
+ * ────────────────────────────────────────────────────── */
+.presurvey-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--surface-base, var(--surface, #fbfaf6));
+    z-index: 9000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+    animation: presurveyFadeIn 240ms ease-out;
+}
+@keyframes presurveyFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.presurvey-card {
+    width: 100%;
+    max-width: 540px;
+    background: var(--surface, #fbfaf6);
+    border-radius: 1rem;
+    border: 1px solid var(--border-soft, #e3e1d8);
+    padding: 2rem 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    margin: auto 0;
+}
+.presurvey-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+.presurvey-step-label {
+    font-size: 0.85em;
+    color: var(--ink-tertiary, #a8a8a3);
+    letter-spacing: 0.02em;
+}
+.presurvey-progress {
+    height: 4px;
+    background: var(--border-soft, #e3e1d8);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.presurvey-progress-bar {
+    height: 100%;
+    background: var(--accent, #6d7666);
+    transition: width 300ms ease;
+}
+.presurvey-step-count {
+    font-size: 0.85em;
+    color: var(--ink-secondary, #6f7068);
+    font-variant-numeric: tabular-nums;
+}
+.presurvey-close-temp {
+    background: none;
+    border: none;
+    color: var(--ink-tertiary, #a8a8a3);
+    font-size: 1.4em;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.25rem;
+}
+.presurvey-close-temp:hover {
+    color: var(--ink-secondary, #6f7068);
+}
+.presurvey-rapport {
+    font-size: 0.9em;
+    color: var(--ink-secondary, #6f7068);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0.75rem 0.875rem;
+    background: var(--surface-elev, #f4f1ea);
+    border-radius: 0.5rem;
+    border-left: 3px solid var(--accent-soft, #b5bcae);
+}
+.presurvey-question {
+    font-size: 1.35em;
+    font-weight: 600;
+    color: var(--ink-primary, var(--ink, #2a2a26));
+    line-height: 1.45;
+    word-break: keep-all;
+    margin: 0.5rem 0 0.25rem;
+    font-family: var(--font-serif, 'Noto Serif KR', serif);
+}
+.presurvey-free-label {
+    font-size: 0.85em;
+    color: var(--ink-tertiary, #a8a8a3);
+    margin: 0;
+}
+.presurvey-free-input {
+    width: 100%;
+    padding: 0.75rem 0.875rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-soft, #e3e1d8);
+    background: var(--surface, #fbfaf6);
+    color: var(--ink-primary, var(--ink, #2a2a26));
+    font-size: 1em;
+    line-height: 1.55;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 3rem;
+    transition: border-color 120ms, background 120ms;
+    box-sizing: border-box;
+}
+.presurvey-free-input:focus {
+    outline: none;
+    border-color: var(--accent, #6d7666);
+    background: var(--surface-elev, #f4f1ea);
+}
+.presurvey-chip-hint {
+    font-size: 0.85em;
+    color: var(--ink-tertiary, #a8a8a3);
+    margin: 0.5rem 0 0;
+}
+.presurvey-chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.presurvey-chip {
+    padding: 0.5rem 0.875rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft, #e3e1d8);
+    background: var(--surface, #fbfaf6);
+    color: var(--ink-primary, var(--ink, #2a2a26));
+    font-size: 0.9em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 140ms ease;
+}
+.presurvey-chip:hover {
+    border-color: var(--accent-soft, #b5bcae);
+    background: var(--surface-elev, #f4f1ea);
+}
+.presurvey-chip-active {
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+    border-color: var(--accent, #6d7666);
+}
+.presurvey-chip-other {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-top: 0.25rem;
+}
+.presurvey-chip-other-input {
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-soft, #e3e1d8);
+    background: var(--surface, #fbfaf6);
+    color: var(--ink-primary, var(--ink, #2a2a26));
+    font-size: 0.9em;
+    font-family: inherit;
+    min-width: 8rem;
+    flex: 1 1 auto;
+    box-sizing: border-box;
+}
+.presurvey-chip-other-input:focus {
+    outline: none;
+    border-color: var(--accent, #6d7666);
+}
+.presurvey-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-soft, #e3e1d8);
+}
+.presurvey-btn-prev,
+.presurvey-btn-next {
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-soft, #e3e1d8);
+    background: var(--surface, #fbfaf6);
+    color: var(--ink-primary, var(--ink, #2a2a26));
+    font-size: 0.95em;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 140ms;
+}
+.presurvey-btn-prev:hover:not(:disabled),
+.presurvey-btn-next:hover:not(:disabled) {
+    background: var(--surface-elev, #f4f1ea);
+}
+.presurvey-btn-prev:disabled,
+.presurvey-btn-next:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.presurvey-btn-next:not(:disabled) {
+    background: var(--accent, #6d7666);
+    color: var(--surface, #fbfaf6);
+    border-color: var(--accent, #6d7666);
+}
+.presurvey-temp-note {
+    font-size: 0.8em;
+    color: var(--ink-tertiary, #a8a8a3);
+    text-align: center;
+    margin: 0.5rem 0 0;
+    font-style: italic;
+}
+@media (max-width: 480px) {
+    .presurvey-overlay {
+        padding: 1rem 0.75rem;
+    }
+    .presurvey-card {
+        padding: 1.5rem 1.25rem 1.25rem;
+    }
+    .presurvey-question {
+        font-size: 1.2em;
+    }
+    .presurvey-header {
+        grid-template-columns: auto 1fr auto;
+    }
+    .presurvey-close-temp {
+        grid-column: 1 / -1;
+        justify-self: end;
+        margin-top: -0.25rem;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .presurvey-overlay {
+        animation: none;
+    }
+    .presurvey-chip,
+    .presurvey-btn-prev,
+    .presurvey-btn-next,
+    .presurvey-progress-bar {
+        transition: none;
+    }
+}
+
