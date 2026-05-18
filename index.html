@@ -154,7 +154,8 @@
                     <hr class="sidebar-settings-divider" data-slim="hidden">
                     <button type="button" class="sidebar-settings-item" data-target="settings-group-cleanup" data-slim="hidden"><i class="icon" data-lucide="archive"></i> 데이터</button>
                     <button type="button" class="sidebar-settings-item" data-target="settings-group-more" data-slim="hidden"><i class="icon" data-lucide="sliders-horizontal"></i> 고급</button>
-                    <button type="button" class="sidebar-settings-item" data-target="settings-group-admin" data-slim="hidden" hidden><i class="icon" data-lucide="shield-check"></i> 운영자</button>
+                    <!-- (2026-05-18 v74) data-slim="hidden" 제거 — 운영자(isSwanAdmin) 가 슬림에서도 자기 도구 진입 가능해야 슬림→풀 토글 자연. 일반 사용자에겐 hidden 속성으로 자연 안 보임. -->
+                    <button type="button" class="sidebar-settings-item" data-target="settings-group-admin" hidden><i class="icon" data-lucide="shield-check"></i> 운영자</button>
                 </div>
                 <button type="button" class="sidebar-settings-back" id="btn-settings-back">
                     <i class="icon" data-lucide="arrow-left"></i> 돌아가기
@@ -666,8 +667,9 @@
                         </div>
                     </section>
 
-                    <!-- ── 운영자 ── (슬림 숨김 · 관리자만, settings.js 에서 isSwanAdmin 일 때만 [hidden] 제거) -->
-                    <section class="settings-group" id="settings-group-admin" data-slim="hidden" hidden>
+                    <!-- ── 운영자 ── (관리자만, settings.js 에서 isSwanAdmin 일 때만 [hidden] 제거)
+                         (2026-05-18 v74) data-slim 제거 — 슬림 모드에서도 운영자는 자기 도구 진입 자연. -->
+                    <section class="settings-group" id="settings-group-admin" hidden>
                         <h2 class="settings-group-title">운영자</h2>
                         <div class="settings-group-body" id="settings-group-body-admin">
                             <!-- (settings.js append) 피드백 관리 -->
