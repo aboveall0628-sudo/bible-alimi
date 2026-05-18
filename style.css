@@ -1671,6 +1671,21 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 /* Phase E-5-A: 리포트 카드 새 spec (사실/관찰/묵상 질문) */
 .reports-list { display: flex; flex-direction: column; gap: var(--sp-4); }
 .report-card { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* (2026-05-18 v73) 주간 탭 가장 위 [이번 주 리포트 만들기] — 토요일 자리와 같은 회로 진입 자리 */
+.reports-week-generate-row {
+    padding: var(--sp-4);
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+}
+.reports-week-generate-hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
 .report-card-header {
     display: flex; align-items: baseline; justify-content: space-between;
     gap: var(--sp-3);

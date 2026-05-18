@@ -79,6 +79,7 @@ async function loadReports() {
         } else if (_currentTab === 'week') {
             const reports = await safeList(() => listWeekReports(dek, _userId, 52), 'week');
             container.innerHTML = renderWeekList(reports);
+            bindWeekGenerateButton(dek);
             bindWeekRegenerateButtons(dek);
             bindWeekDrillDown(container, dek, reports || []);
             bindWeekQna(container, dek, reports || []);
@@ -290,14 +291,25 @@ function renderWeekList(reports) {
     if (reports === null) {
         return `<div class="no-data">일부 또는 전체 주간 리포트를 불러오지 못했어요.</div>`;
     }
+    // (2026-05-18 v73) 빈 상태에서도 [이번 주 리포트 만들기] 버튼 — 토요일 자리와 같은 회로.
+    //   토요일에 회고하면서 만든 결과 = 평일에 사이드바에서 만든 결과 = 완전히 같음 (generateWeeklyReport 단일 함수).
+    const generateBtnHtml = `
+        <div class="reports-week-generate-row">
+            <button type="button" class="primary-btn reports-week-generate-btn">
+                <i data-lucide="sparkles" class="btn-icon"></i> 이번 주 리포트 만들기
+            </button>
+            <p class="reports-week-generate-hint">지난 7일 동안의 도트를 모아 한 자리에 정리해요. 토요일 회고에서 만든 결과와 같아요.</p>
+        </div>
+    `;
     if (!reports || reports.length === 0) {
         return `
-            <div class="no-data">
-                아직 만든 주간 리포트가 없어요. 토요일 저녁 회고에서 [이번 주 리포트 만들기]를 눌러 보세요.
+            ${generateBtnHtml}
+            <div class="no-data" style="margin-top:12px">
+                아직 만든 주간 리포트가 없어요. 위 버튼을 누르거나 토요일 저녁 회고에서 만드실 수 있어요.
             </div>
         `;
     }
-    return reports.map(renderWeekCard).join('');
+    return generateBtnHtml + reports.map(renderWeekCard).join('');
 }
 
 function renderWeekCard(r) {
@@ -563,6 +575,43 @@ async function enrichPersonChips(card, dek) {
     } catch (e) {
         console.warn('enrich person chips failed:', e);
     }
+}
+
+/**
+ * (2026-05-18 v73) 주간 탭 가장 위 [이번 주 리포트 만들기] 버튼 — 빈 상태에서도 사용자가 직접 트리거.
+ *   토요일 자리(todayView.handleWeekReportClick) 와 동일한 generateWeeklyReport 호출 →
+ *   같은 주에 대해 만든 결과는 두 자리 모두 동일.
+ *   weekStart = 오늘 - 6, weekEnd = 오늘 (todayView 의 computeWeekWindow 와 같은 회로).
+ */
+function bindWeekGenerateButton(dek) {
+    document.querySelectorAll('.reports-week-generate-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            const thinkingHandle = inlineThinkingForButton(btn, { labels: THINKING_COPY.reportGenerate });
+            try {
+                const today = new Date();
+                const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                const past = new Date(today);
+                past.setDate(today.getDate() - 6);
+                const weekStart = fmt(past);
+                const weekEnd   = fmt(today);
+                const result = await generateWeeklyReport(dek, _userId, weekStart, weekEnd);
+                thinkingHandle.finish();
+                if (result?.status === 'no-dots') {
+                    showToast('지난 7일은 아직 기록된 도트가 없어요');
+                    btn.disabled = false;
+                    return;
+                }
+                await loadReports();   // 새 목록 그리기 — 카드 자연 노출
+                showToast('이번 주 리포트가 만들어졌어요');
+            } catch (e) {
+                console.error('week generate (sidebar) failed:', e);
+                thinkingHandle.dispose();
+                showToast('리포트 만들기가 잠깐 막혔어요. 잠시 후 다시 시도해 주세요');
+                btn.disabled = false;
+            }
+        });
+    });
 }
 
 function bindWeekRegenerateButtons(dek) {
