@@ -10091,7 +10091,7 @@ html[data-accent="beige"] .onboarding-swan-bubble {
 }
 
 /* 묵상 전 감사·회개 기도시간 체크박스 */
-.yesterday-prayer-check {
+.prayer-check-row {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -10105,17 +10105,17 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     font-size: 14px;
     color: var(--color-ink-primary, var(--ink-primary));
 }
-.yesterday-prayer-check:hover {
+.prayer-check-row:hover {
     background: var(--accent-soft, var(--brand-soft));
 }
-.yesterday-prayer-check input[type="checkbox"] {
+.prayer-check-row input[type="checkbox"] {
     width: 17px;
     height: 17px;
     accent-color: var(--accent, var(--brand-primary));
     cursor: pointer;
     flex-shrink: 0;
 }
-.yesterday-prayer-check span {
+.prayer-check-row span {
     flex: 1;
 }
 

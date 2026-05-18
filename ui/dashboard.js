@@ -153,6 +153,9 @@ export async function renderTodayStartIntoView(userId, currentDate) {
     renderTodayStart(pinned, yesterdayReport);
     // (2026-05-16) 어제 묵상이 남긴 질문 — 말씀 자리 직전 큰 카드. 사용자가 자연 흐름으로 회개·감사 기도 → 본문 이어가도록.
     renderYesterdayQuestionsCard(questionsSource, sourceDate, baseDate);
+    // (2026-05-16) 기도 체크인 2자리 — 묵상 전 감사·회개 + 묵상 후 기도. 둘 다 baseDate 기준 자연.
+    bindPrayerCheck('yesterday-prayer-checkbox', 'prayedBefore', baseDate);
+    bindPrayerCheck('prayer-after-checkbox', 'prayedAfter', baseDate);
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
@@ -211,47 +214,57 @@ function renderYesterdayQuestionsCard(report, sourceDate, baseDate) {
         `<li class="yesterday-question-item">${escapeHtml(q)}</li>`
     ).join('');
 
-    // (2026-05-16) 묵상 전 감사·회개 기도시간 체크박스 — 날짜별 자연 저장/복원.
-    bindPrayerCheckbox(base);
 }
 
-// ─── (2026-05-16) 묵상 전 기도시간 체크인 — 날짜별 plain Firestore 자리 ───
+// ─── (2026-05-16) 기도 체크인 — 날짜별 plain Firestore 자리. 자리별 fieldName 분리 ───
+//   필드 카탈로그:
+//     prayedBefore — 묵상 전 감사·회개 기도시간 (어제 묵상 질문 카드 안)
+//     prayedAfter  — 묵상 후 기도 노트 카드 안 토글
+//   같은 doc(pc_{userId}_{date})에 두 필드 분리 저장 — 날짜별 묶음.
+//   옛 데이터('checked') 는 prayedBefore 로 자연 폴백.
 function _fmtDate(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function bindPrayerCheckbox(baseDate) {
-    const checkbox = document.getElementById('yesterday-prayer-checkbox');
+async function bindPrayerCheck(checkboxId, fieldName, baseDate) {
+    const checkbox = document.getElementById(checkboxId);
     if (!checkbox) return;
     const userId = window.__sanctumUserId;
     if (!userId) return;
     const dateStr = _fmtDate(baseDate instanceof Date ? baseDate : new Date());
+    const docId = `pc_${userId}_${dateStr}`;
 
-    // 복원 — 기존 doc 있으면 체크 상태 복원
+    // 복원
+    let initial = false;
     try {
-        const snap = await getDoc(doc(db, 'prayerCheckIns', `pc_${userId}_${dateStr}`));
-        checkbox.checked = snap.exists() ? !!snap.data().checked : false;
+        const snap = await getDoc(doc(db, 'prayerCheckIns', docId));
+        if (snap.exists()) {
+            const d = snap.data() || {};
+            initial = !!d[fieldName];
+            // 호환 — 옛 'checked' 필드는 prayedBefore 의 이전 이름
+            if (!initial && fieldName === 'prayedBefore' && d.checked !== undefined) {
+                initial = !!d.checked;
+            }
+        }
     } catch (e) {
-        console.warn('[prayerCheck] load failed:', e?.message || e);
-        checkbox.checked = false;
+        console.warn(`[prayerCheck:${fieldName}] load failed:`, e?.message || e);
     }
 
-    // 변경 핸들러 — 매번 다시 자리잡힘 안전하게 cloneNode 후 새 listener
+    // cloneNode 패턴 — renderTodayStartIntoView 재진입 안전, listener 중복 방지
     const fresh = checkbox.cloneNode(true);
-    fresh.checked = checkbox.checked;
+    fresh.checked = initial;
     checkbox.parentNode.replaceChild(fresh, checkbox);
     fresh.addEventListener('change', async () => {
         try {
-            await setDoc(doc(db, 'prayerCheckIns', `pc_${userId}_${dateStr}`), {
-                id:        `pc_${userId}_${dateStr}`,
+            await setDoc(doc(db, 'prayerCheckIns', docId), {
+                id:           docId,
                 userId,
-                date:      dateStr,
-                checked:   fresh.checked,
-                updatedAt: serverTimestamp(),
+                date:         dateStr,
+                [fieldName]:  fresh.checked,
+                updatedAt:    serverTimestamp(),
             }, { merge: true });
         } catch (e) {
-            console.error('[prayerCheck] save failed:', e?.message || e);
-            // 실패 시 토글 복원
+            console.error(`[prayerCheck:${fieldName}] save failed:`, e?.message || e);
             fresh.checked = !fresh.checked;
         }
     });
