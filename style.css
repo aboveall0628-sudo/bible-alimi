@@ -10869,6 +10869,39 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     padding-top: 1rem;
     border-top: 1px solid var(--border-soft, #e3e1d8);
 }
+.presurvey-question-pre {
+    white-space: pre-line;
+    min-height: 1.45em;
+}
+.presurvey-after-typing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: opacity 360ms ease-out, transform 360ms ease-out;
+}
+.presurvey-card-typing-locked .presurvey-after-typing {
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+}
+.presurvey-question.ai-typing::after {
+    content: '|';
+    margin-left: 2px;
+    animation: presurveyCursorBlink 0.9s ease-in-out infinite;
+    color: var(--accent, #7c8b6f);
+    font-weight: 400;
+}
+@keyframes presurveyCursorBlink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75%      { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .presurvey-after-typing { transition: none; }
+    .presurvey-card-typing-locked .presurvey-after-typing {
+        opacity: 1; transform: none; pointer-events: auto;
+    }
+    .presurvey-question.ai-typing::after { animation: none; }
+}
 .presurvey-loading-card {
     text-align: center;
     gap: 1.5rem;

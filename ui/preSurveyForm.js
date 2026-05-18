@@ -17,6 +17,10 @@
 
 import { showToast } from './quickReview.js';
 import { callSwanPreSurveyQuestions } from './aiClient.js';
+import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
+
+const MIN_LOADING_MS = 1500;
+const TYPING_DELAY_MS = 22;
 
 // ─── 카탈로그 (v2 합의 12 질문) ─────────────────────────────────
 const RAPPORT_COPY = '잠깐, 5~9분 정도 평소 묵상·신앙 흐름 들려주세요.<br>정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';
@@ -253,6 +257,7 @@ export async function openPreSurveyForm({ userContext = {} } = {}) {
     // Phase 2-1: 시작 시 일괄 호출로 12 질문 SWAN 톤 발화 캐싱.
     // 호출 진행 중엔 로딩 카드 노출. 끝나면 첫 카드 자연 전환.
     renderLoadingCard();
+    const loadStart = Date.now();
     try {
         const payload = {
             userContext: { devotionalLevel: userContext.devotionalLevel || null },
@@ -270,6 +275,12 @@ export async function openPreSurveyForm({ userContext = {} } = {}) {
         console.warn('[preSurveyForm] AI 호출 예외:', e?.message || e);
         if (_state?.aborted) return;
         _state.aiQuestions = null;
+    }
+
+    // 로딩 카드 최소 노출 시간 보장 — 너무 빨라서 깜빡이는 결 방지
+    const elapsed = Date.now() - loadStart;
+    if (elapsed < MIN_LOADING_MS) {
+        await new Promise(r => setTimeout(r, MIN_LOADING_MS - elapsed));
     }
 
     if (!_state || _state.aborted) return;
@@ -314,28 +325,46 @@ function renderQuestionCard(body, idx) {
     // Phase 2-1: AI 가공 질문 캐시 우선, 없으면 정적 카피 fallback
     const aiTitle = _state.aiQuestions?.[q.id];
     const titleHtml = aiTitle || q.title;
+    // 타이핑용 plain text — <br> → 줄바꿈
+    const titleForTyping = titleHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
 
     // AI 가공 질문이 라포 흡수 한 결이면 별도 라포 카드 카피 X
     const showStaticRapport = isFirst && !aiTitle;
 
     body.innerHTML = `
-        <div class="onboarding-card presurvey-card-wrap">
+        <div class="onboarding-card presurvey-card-wrap presurvey-card-typing-locked">
             <p class="presurvey-step-count">${stepLabel}</p>
             ${showStaticRapport ? `<p class="presurvey-rapport">${RAPPORT_COPY}</p>` : ''}
-            <h2 class="onboarding-title presurvey-question">${titleHtml}</h2>
+            <h2 class="onboarding-title presurvey-question presurvey-question-pre" data-typing-target></h2>
 
-            ${renderChipBlocks(q, stored)}
-            ${renderFreeTextBlocks(q, stored)}
+            <div class="presurvey-after-typing">
+                ${renderChipBlocks(q, stored)}
+                ${renderFreeTextBlocks(q, stored)}
 
-            <div class="onboarding-actions presurvey-footer">
-                <button type="button" class="onboarding-btn presurvey-btn-prev" ${idx === 0 ? 'disabled' : ''}>← 이전</button>
-                <button type="button" class="onboarding-btn onboarding-btn-primary presurvey-btn-next">${isLast ? '다 들려줬어요 →' : '다음 →'}</button>
+                <div class="onboarding-actions presurvey-footer">
+                    <button type="button" class="onboarding-btn presurvey-btn-prev" ${idx === 0 ? 'disabled' : ''}>← 이전</button>
+                    <button type="button" class="onboarding-btn onboarding-btn-primary presurvey-btn-next">${isLast ? '다 들려줬어요 →' : '다음 →'}</button>
+                </div>
             </div>
         </div>
     `;
 
     bindCardEvents(body, q);
     updateNextButton(q);
+
+    // 타이핑 결: 질문 카피 한 글자씩 노출 → 끝나면 칩·footer 자연 fade-in
+    const titleEl = body.querySelector('[data-typing-target]');
+    const cardEl = body.querySelector('.presurvey-card-typing-locked');
+    if (!titleEl) return;
+
+    const unlock = () => cardEl?.classList.remove('presurvey-card-typing-locked');
+
+    if (shouldReduceMotion()) {
+        setTextInstant(titleEl, titleForTyping);
+        unlock();
+    } else {
+        typeText(titleEl, titleForTyping, { delay: TYPING_DELAY_MS }).then(unlock);
+    }
 }
 
 function renderLoadingCard() {
