@@ -63,6 +63,21 @@ export async function renderFeedbackAdminView(userId) {
         return;
     }
 
+    // (2026-05-18 fix) 뒤로가기 자연 자리잡기 — history.state 의 detailId 보고 mode 결정.
+    //   사용자가 detail 진입 후 브라우저 뒤로가기 → popstate → switchView('feedback-admin')
+    //   → 이 함수 재호출 → 이 자리에서 detail/list 자연 분기.
+    try {
+        const histState = (typeof history !== 'undefined' && history.state) || {};
+        if (histState.view === 'feedback-admin' && histState.detailId) {
+            _state.mode = 'detail';
+            _state.detailId = histState.detailId;
+            _state.detailOwnerUserId = histState.ownerUserId || null;
+        } else {
+            _state.mode = 'list';
+            _state.detailId = null;
+        }
+    } catch (_) { /* incognito 환경 안전 */ }
+
     await refreshAndRender();
 }
 
@@ -273,6 +288,20 @@ async function openDetail(feedbackId, ownerUserId) {
     _state.detailId = feedbackId;
     _state.detailOwnerUserId = ownerUserId;
 
+    // (2026-05-18 fix) 뒤로가기 자연 — history 에 detail 자리 추가.
+    //   browser back → popstate → setupBrowserNav → switchView('feedback-admin')
+    //   → renderFeedbackAdminView 가 history.state 보고 list 모드로 자연 복원.
+    try {
+        if (typeof history !== 'undefined' && history.state?.detailId !== feedbackId) {
+            history.pushState({
+                sanctum: true,
+                view: 'feedback-admin',
+                detailId: feedbackId,
+                ownerUserId,
+            }, '', location.pathname + location.search);
+        }
+    } catch (_) {}
+
     // 자동 read 토글 (사용자 합의 §10 — 권장)
     const row = _state.rows.find(r => r.id === feedbackId);
     if (row && row.status !== 'read') {
@@ -378,9 +407,16 @@ function renderDetail(container) {
 
     // 이벤트 바인딩
     container.querySelector('#fbadmin-back')?.addEventListener('click', () => {
-        _state.mode = 'list';
-        _state.detailId = null;
-        renderList(container);
+        // (2026-05-18 fix) 브라우저 뒤로가기 자리와 동일 흐름 — history.back() 호출.
+        //   popstate listener 가 receiveda state 보고 자연 list 모드 복원.
+        //   history 에 detail entry 없으면 (예: 직접 detail URL 진입) 폴백으로 직접 list 갱신.
+        if (typeof history !== 'undefined' && history.state?.detailId) {
+            history.back();
+        } else {
+            _state.mode = 'list';
+            _state.detailId = null;
+            renderList(container);
+        }
     });
     container.querySelector('#fbadmin-toggle-read')?.addEventListener('click', () => toggleRead(row));
     container.querySelector('#fbadmin-category-edit')?.addEventListener('change', (e) => editCategory(row, e.target.value));
