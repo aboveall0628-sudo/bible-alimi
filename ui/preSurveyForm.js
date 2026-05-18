@@ -19,7 +19,7 @@ import { showToast } from './quickReview.js';
 import { callSwanPreSurveyQuestions } from './aiClient.js';
 import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
 
-const MIN_LOADING_MS = 1200;
+const MIN_LOADING_MS = 0;
 const TYPING_DELAY_MS = 38;
 const PRE_TYPING_DELAY_MS = 600;
 
@@ -379,10 +379,9 @@ function renderLoadingCard() {
     if (!body) return;
     body.innerHTML = `
         <div class="onboarding-card presurvey-card-wrap presurvey-loading-card">
-            <p class="presurvey-rapport">${RAPPORT_COPY}</p>
             <div class="presurvey-loading-body">
                 <span class="swan-thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-                <p class="presurvey-loading-text">SWAN이 잠깐 질문 결 다듬는 중이에요…</p>
+                <p class="presurvey-loading-text">잠깐 자리 다듬는 중이에요…</p>
             </div>
         </div>
     `;
@@ -458,11 +457,10 @@ function renderFreeTextBlocks(q, stored) {
 function renderFinishCard(body) {
     body.innerHTML = `
         <div class="onboarding-card presurvey-card-wrap presurvey-finish-card">
-            <h2 class="onboarding-title presurvey-question">사전 설문 잘 받았어요.<br>12 자리 들려주셔서 고마워요.</h2>
-            <p class="presurvey-rapport">시안 단계라 답변은 아직 저장 안 돼요. Phase 2~4 진입하면 AI 가공·자동 저장·관리자 페이지 결과 보기 모두 자리잡혀요.</p>
+            <h2 class="onboarding-title presurvey-question">잘 들려주셔서 고마워요.<br>이제 Sanctum OS를 통한<br>묵상을 시작해 볼까요?</h2>
             <div class="onboarding-actions presurvey-footer presurvey-finish-footer">
                 <button type="button" class="onboarding-btn presurvey-btn-prev" id="presurvey-finish-prev">← 이전</button>
-                <button type="button" class="onboarding-btn onboarding-btn-primary presurvey-btn-finish">마치기</button>
+                <button type="button" class="onboarding-btn onboarding-btn-primary presurvey-btn-finish">말씀 묵상하기</button>
             </div>
         </div>
     `;
@@ -471,9 +469,8 @@ function renderFinishCard(body) {
         renderCurrentCard();
     });
     body.querySelector('.presurvey-btn-finish').addEventListener('click', () => {
-        console.log('[preSurveyForm] 시안 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
-        showToast('사전 설문 시안 잘 받았어요. (콘솔에 전체 답변 출력)');
-        closeForm();
+        if (_state) console.log('[preSurveyForm] 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
+        closeForm();  // onComplete 자연 호출 → onboarding step 10 자연 이어
     });
 }
 

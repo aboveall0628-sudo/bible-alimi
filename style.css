@@ -10727,6 +10727,8 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     border: 1px solid var(--border-soft, #e3e1d8);
     padding: 2rem 1.75rem 1.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    /* 온보딩에서 고른 systemFont scale 자연 반영 — .onboarding-modal 결과 일관 */
+    font-size: calc(1rem * var(--system-font-scale, 1));
 }
 .presurvey-close-temp {
     position: absolute;
