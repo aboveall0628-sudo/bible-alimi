@@ -715,10 +715,16 @@ function renderBody() {
         const numLabel = _bootstrapState.currentQuestion
             ? ` · ${_bootstrapState.groupQuestionNumber}/${_bootstrapState.currentGroup.maxQuestions}`
             : '';
+        // (2026-05-18 후속) 맨 처음 질문 = 답변 없음 → "데려오는 중" 풀 (랜덤). 그 외 = 살피기.
+        const isFirstEver = _bootstrapState.groupIndex === 0 && _bootstrapState.groupQuestionNumber <= 1;
+        const initialLabelPool = isFirstEver
+            ? THINKING_COPY.profileBootstrapFirst
+            : THINKING_COPY.profileBootstrap;
+        const initialLabel = initialLabelPool[Math.floor(Math.random() * initialLabelPool.length)];
         const swanTurnContent = showThinking
-            ? `<div class="ai-thinking ai-thinking-sm">
+            ? `<div class="ai-thinking ai-thinking-sm" data-bs-first="${isFirstEver ? '1' : '0'}">
                    <div class="ai-thinking-bar"></div>
-                   <span class="ai-thinking-label">${escapeHtml(THINKING_COPY.profileBootstrap[0])}</span>
+                   <span class="ai-thinking-label">${escapeHtml(initialLabel)}</span>
                </div>`
             : `${escapeHtml(_bootstrapState.currentQuestion)}`;
         const swanTurnHtml = `
@@ -847,17 +853,26 @@ async function _typeBootstrapQuestion(fullText) {
     el.classList.remove('ai-typing');
 }
 
-// (Phase C 2026-05-16) profileBootstrap 단계 라벨 회전 — DOM 안 ai-thinking-label 만 자연 자리.
+// (Phase C 2026-05-16 / 2026-05-18 후속) profileBootstrap 단계 라벨 회전.
+//   DOM 안 ai-thinking-label[data-bs-first="1"] 면 SWAN 데려오는 풀 (랜덤 회전).
+//   그 외엔 답변 살피기·정리·다음 질문 다듬기 (자연 순서).
 function _activateProfileBootstrapRotation() {
     const root = document.getElementById('sf-bs-body');
     if (!root) return;
+    const thinkingEl = root.querySelector('.ai-thinking');
     const labelEl = root.querySelector('.ai-thinking-label');
     if (!labelEl) return;
-    const labels = THINKING_COPY.profileBootstrap;
+    const isFirstEver = thinkingEl && thinkingEl.dataset.bsFirst === '1';
+    const labels = isFirstEver
+        ? THINKING_COPY.profileBootstrapFirst
+        : THINKING_COPY.profileBootstrap;
     let stage = 0;
     const timer = setInterval(() => {
         if (!labelEl.isConnected) { clearInterval(timer); return; }
-        stage = (stage + 1) % labels.length;
+        // 데려오는 풀(맨 처음) = 랜덤 / 살피기 풀(그 외) = 순차
+        stage = isFirstEver
+            ? Math.floor(Math.random() * labels.length)
+            : (stage + 1) % labels.length;
         labelEl.style.opacity = '0';
         setTimeout(() => {
             labelEl.textContent = labels[stage];
