@@ -10240,11 +10240,13 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
 html[data-tier="slim"] #qr-detail-toggle,
 html[data-tier="slim"] #qr-detail-section,
 html[data-tier="slim"] .qr-label-chips,
+html[data-tier="slim"] .qr-labels-row,
+html[data-tier="slim"] .qr-category-row,
+html[data-tier="slim"] .qr-category-chips,
 html[data-tier="slim"] .qr-person-section,
 html[data-tier="slim"] .qr-org-section,
 html[data-tier="slim"] #qr-ai-briefing-panel,
 html[data-tier="slim"] .qr-rating-axes,
-html[data-tier="slim"] .qr-category-chips,
 html[data-tier="slim"] .qr-tx-section {
     display: none !important;
 }
