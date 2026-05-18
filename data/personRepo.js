@@ -233,6 +233,11 @@ export async function ensureSelfCard(dek, userId) {
         birthdayLunar: false,           // true = 음력 생일
         city: '',                       // CITY_PRESETS id ('seoul', 'paris', ..., 'other')
         timezone: 'Asia/Seoul',         // IANA timezone id — 알람·일정 기준점
+        // (2단계 2026-05-18) 묵상 결단·실천 시간 — 3단계에 goals 컬렉션 마이그레이션 예정
+        firstCommitment: '',            // step 11 자유 텍스트
+        firstCommitmentTime: '',        // step 12 HH:MM
+        dailyAlarmTime: '08:00',        // step 13 매일 묵상 알람 시간 (spiritualLock 미러)
+        dailyAlarmEnabled: true,        // step 13 토글
         // (R10) 간증 — 사용자 명시 글만, 자동 추출 X
         testimony: [],
         // (R15) 관계 추이 timeline — 본인 카드 안에서는 본인 스테이터스 변화 추이 (R12 연결)

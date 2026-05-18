@@ -54,11 +54,12 @@ import { getActiveMissionIds, MISSION_CATALOG } from '../config/missionCatalog.j
 // (2026-05-18 후속) 온보딩 SWAN 말풍선 타이핑 — "AI가 실제로 물어보는 것처럼"
 import { typeText, shouldReduceMotion, setTextInstant } from './aiThinking.js';
 
-// (베타 슬림 v1 A 묶음 2026-05-18 / 후속 의사결정 카드 제거) 10 step 재번호:
+// (베타 슬림 v1 / 2단계 진입 2026-05-18) 13 step:
 //   1=SWAN 인사 · 2=이름 · 3=별명 · 4=생일+양/음력 · 5=도시·타임존
 //   6=큐티 수준 · 7=성경 번역본 · 8=묵상 트랙 · 9=폰트 · 10=첫 묵상
-//   원칙 step 은 사용자 명시 "미션으로 해도 될 것 같음" — 카탈로그·미션으로 이동.
-const TOTAL_STEPS = 10;
+//   11=묵상 결단(목표) · 12=어느 시간(타임박싱) · 13=매일 묵상 알람 시간
+//   후속(3단계): 14=평가 안내 · 15=평가+SWAN 리포트 · 16=비번+24단어 · 17=약관 동의
+const TOTAL_STEPS = 13;
 
 const CUTI_LEVELS = [
     {
@@ -215,6 +216,11 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
             meditationScripture: null,
             // 본문 카드 [옮기기] 눌렀는지 — 에디터에 마크다운 박혔는지
             verseInsertedIntoNote: false,
+            // (2단계 2026-05-18) 묵상 결단·실천 시간·매일 묵상 알람 시간
+            firstCommitment: card.firstCommitment || '',
+            firstCommitmentTime: card.firstCommitmentTime || '',
+            dailyAlarmTime: card.dailyAlarmTime || '08:00',
+            dailyAlarmEnabled: card.dailyAlarmEnabled !== false,
         },
         snapshots: {
             initialSystemFont,
@@ -313,6 +319,9 @@ function renderStep(step) {
     else if (step === 8) renderTrackStep(body);       // 묵상 트랙
     else if (step === 9) renderFontStep(body);
     else if (step === 10) renderMeditationStep(body); // 첫 묵상 한 절
+    else if (step === 11) renderCommitmentStep(body); // 묵상의 결단 (목표) — 2단계 신규
+    else if (step === 12) renderTimeboxStep(body);    // 어느 시간에 실천 — 2단계 신규
+    else if (step === 13) renderDailyAlarmStep(body); // 매일 묵상 알람 시간 — 2단계 신규
     else if (step === 99) renderFinishCard(body);
 
     // (2026-05-18 후속) step 9 (폰트 설정) 진입 시 큰 폰트 모드 해제 →
@@ -909,7 +918,7 @@ function renderMeditationStep(body) {
           <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
           <div class="onboarding-actions-right">
             <button type="button" class="onboarding-btn onboarding-btn-secondary" id="onboarding-skip">나중에 적을게요</button>
-            <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-finish">저장하고 마무리</button>
+            <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-next-meditation">다음</button>
           </div>
         </div>
       </div>
@@ -948,11 +957,107 @@ function renderMeditationStep(body) {
     checkExistingMeditation().catch(() => {});
     // (의사결정 제거 후속 2026-05-18) meditation: back=9(font로 직접 — principle 빈 자리)
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
-    document.getElementById('onboarding-skip').addEventListener('click', async () => {
+    // (2단계 진입 2026-05-18) meditation 의 [나중에]·[다음] = step 11(결단)로 이동.
+    //   persistAll 은 마지막 step (현재 13) 끝나는 시점에만 호출.
+    document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.meditationNote = '';
-        await persistAll();
-        renderStep(99);
+        renderStep(11);
     });
+    document.getElementById('onboarding-next-meditation').addEventListener('click', () => {
+        renderStep(11);
+    });
+}
+
+// ─── Step 11: 묵상의 결단 (목표) — 2단계 2026-05-18 ───────
+function renderCommitmentStep(body) {
+    body.innerHTML = `
+      <div class="onboarding-card">
+        ${swanBubbleHTML('묵상의 결단이 있으실까요?')}
+        <label class="onboarding-label" for="onboarding-commitment">오늘 실천해보고 싶은 한 가지를 적어주세요. (선택)</label>
+        <textarea class="onboarding-textarea" id="onboarding-commitment"
+                  rows="3" maxlength="200"
+                  placeholder="예: 퇴근 후 부모님께 전화해서 10분 이상 대화하기">${escapeHtml(_state.draft.firstCommitment || '')}</textarea>
+        <div class="onboarding-actions onboarding-actions-split">
+          <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
+          <div class="onboarding-actions-right">
+            <button type="button" class="onboarding-btn onboarding-btn-secondary" id="onboarding-skip">나중에</button>
+            <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-next">다음</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const textarea = document.getElementById('onboarding-commitment');
+    textarea.addEventListener('input', () => { _state.draft.firstCommitment = textarea.value.trim(); });
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
+    document.getElementById('onboarding-skip').addEventListener('click', () => {
+        _state.draft.firstCommitment = '';
+        renderStep(12);
+    });
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(12));
+}
+
+// ─── Step 12: 어느 시간에 실천 (타임박싱) — 2단계 2026-05-18 ───
+function renderTimeboxStep(body) {
+    body.innerHTML = `
+      <div class="onboarding-card">
+        ${swanBubbleHTML('어느 시간에 실천하고 싶으신가요?')}
+        <label class="onboarding-label" for="onboarding-commitment-time">결단을 실천할 시간을 정해주세요. 캘린더에 들어가요.</label>
+        <input type="time" class="onboarding-input" id="onboarding-commitment-time"
+               value="${escapeAttr(_state.draft.firstCommitmentTime || '19:00')}" />
+        <p class="onboarding-sub onboarding-sub-mini">10분 전에 한 번 알림으로 알려드릴게요.</p>
+        <div class="onboarding-actions onboarding-actions-split">
+          <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
+          <div class="onboarding-actions-right">
+            <button type="button" class="onboarding-btn onboarding-btn-secondary" id="onboarding-skip">나중에</button>
+            <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-next">다음</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const timeInput = document.getElementById('onboarding-commitment-time');
+    timeInput.addEventListener('input', () => { _state.draft.firstCommitmentTime = timeInput.value; });
+    // 초기 디폴트 자리잡기
+    if (!_state.draft.firstCommitmentTime) _state.draft.firstCommitmentTime = '19:00';
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(11));
+    document.getElementById('onboarding-skip').addEventListener('click', () => {
+        _state.draft.firstCommitmentTime = '';
+        renderStep(13);
+    });
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(13));
+}
+
+// ─── Step 13: 매일 묵상 알람 시간 — 2단계 2026-05-18 ────────
+function renderDailyAlarmStep(body) {
+    const enabled = _state.draft.dailyAlarmEnabled !== false;
+    body.innerHTML = `
+      <div class="onboarding-card">
+        ${swanBubbleHTML('매일 묵상 알람 시간을 정해주세요.')}
+        <label class="onboarding-toggle-row" for="onboarding-alarm-enabled">
+          <input type="checkbox" id="onboarding-alarm-enabled" ${enabled ? 'checked' : ''} />
+          <span>매일 묵상 알람 받기</span>
+        </label>
+        <div id="onboarding-alarm-time-wrap" class="onboarding-alarm-time-wrap${enabled ? '' : ' hidden'}">
+          <label class="onboarding-label" for="onboarding-daily-alarm-time">알람 시간</label>
+          <input type="time" class="onboarding-input" id="onboarding-daily-alarm-time"
+                 value="${escapeAttr(_state.draft.dailyAlarmTime || '08:00')}" />
+          <p class="onboarding-sub onboarding-sub-mini">정한 시간에 "오늘 묵상" 알림이 한 번 와요. 설정에서 언제든 바꿀 수 있어요.</p>
+        </div>
+        <div class="onboarding-actions onboarding-actions-split">
+          <button type="button" class="onboarding-btn onboarding-btn-text" id="onboarding-back">이전</button>
+          <button type="button" class="onboarding-btn onboarding-btn-primary" id="onboarding-finish">저장하고 마무리</button>
+        </div>
+      </div>
+    `;
+    const checkbox = document.getElementById('onboarding-alarm-enabled');
+    const timeWrap = document.getElementById('onboarding-alarm-time-wrap');
+    const timeInput = document.getElementById('onboarding-daily-alarm-time');
+    checkbox.addEventListener('change', () => {
+        _state.draft.dailyAlarmEnabled = checkbox.checked;
+        if (checkbox.checked) timeWrap.classList.remove('hidden');
+        else timeWrap.classList.add('hidden');
+    });
+    timeInput.addEventListener('input', () => { _state.draft.dailyAlarmTime = timeInput.value; });
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(12));
     document.getElementById('onboarding-finish').addEventListener('click', async () => {
         const finishBtn = document.getElementById('onboarding-finish');
         finishBtn.disabled = true;
@@ -1080,8 +1185,26 @@ async function persistAll() {
         timezone: draft.timezone || cardSnapshot.timezone || 'Asia/Seoul',
         devotionalLevel: draft.devotionalLevel || cardSnapshot.devotionalLevel || null,
         bibleVersion: draft.bibleVersion || DEFAULT_BIBLE_VERSION,
+        // (2단계 2026-05-18) 묵상 결단·실천 시간 — selfCard 에 자리잡기. goals 실제 저장은 3단계.
+        firstCommitment: draft.firstCommitment || '',
+        firstCommitmentTime: draft.firstCommitmentTime || '',
     };
     await saveSelfCard(dek, userId, cardPayload);
+
+    // 1.5) (2단계 2026-05-18) 매일 묵상 알람 — spiritualLock 도큐먼트에 자리잡기.
+    //   기존 settings 화면 알람 카드와 같은 자리: dailyAlarmEnabled + dailyAlarmTime.
+    try {
+        const lockId = `spiritualLock_${userId}`;
+        const existing = (await getRecord(dek, 'settings', lockId)) || {};
+        await saveRecord(dek, 'settings', {
+            ...existing,
+            id: lockId,
+            userId,
+            dailyAlarmEnabled: draft.dailyAlarmEnabled !== false,
+            dailyAlarmTime: draft.dailyAlarmTime || '08:00',
+            updatedAt: new Date().toISOString(),
+        });
+    } catch (e) { console.warn('[onboarding] daily alarm persist failed:', e?.message || e); }
 
     // 2) 폰트 — localStorage 영속화 (이미 미리보기로 적용된 값 박기)
     try {

@@ -9361,6 +9361,32 @@ button.mission-progress-block:hover {
     background: var(--surface-quiet, rgba(0,0,0,0.04));
 }
 
+/* (2026-05-18) 삭제·복구 버튼 톤 + 분류 readonly */
+.fbadmin-btn-danger {
+    color: #B5523F;
+    border-color: rgba(181, 82, 63, 0.3);
+}
+.fbadmin-btn-danger:hover {
+    background: rgba(181, 82, 63, 0.06);
+}
+.fbadmin-btn-soft {
+    color: var(--accent, var(--brand-primary));
+    border-color: var(--accent-border, var(--brand-border));
+}
+.fbadmin-btn-soft:hover {
+    background: var(--accent-soft, var(--brand-soft));
+}
+.fbadmin-category-readonly {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--surface-quiet, rgba(0,0,0,0.04));
+    font-size: 13px;
+    color: var(--ink-primary, #1a1814);
+}
+
 /* (2026-05-18) 전체 선택 체크박스 + 페이지 메타 */
 .fbadmin-select-all-row {
     display: inline-flex;
@@ -9978,6 +10004,32 @@ html[data-onboarding-large-font="true"] .onboarding-modal .onboarding-label { fo
     background: rgba(124, 139, 111, 0.10);
     font-weight: 600;
 }
+
+/* (2단계 2026-05-18) step 11~13 — 결단·시간·알람 톤 */
+.onboarding-sub-mini {
+    font-size: 12px;
+    color: var(--ink-secondary, #6a6a6a);
+    margin: 6px 0 0;
+}
+.onboarding-toggle-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 14px 16px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 10px;
+    margin: 14px 0 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink, #2a2a2a);
+}
+.onboarding-toggle-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent, #7c8b6f);
+    cursor: pointer;
+}
+.onboarding-alarm-time-wrap.hidden { display: none; }
 
 /* (2026-05-18 후속) 인트로 단순화 — 백조·서브·메타 제거, 인사 + [다음]만 */
 .onboarding-card-swan-hero-simple {
