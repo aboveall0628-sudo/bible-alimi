@@ -9705,8 +9705,16 @@ button.mission-progress-block:hover {
 .fbadmin-row:hover {
     background: var(--surface-quiet, rgba(0,0,0,0.03));
 }
+.fbadmin-row.is-unread .fbadmin-row-summary {
+    color: var(--ink-primary, #1a1814);
+    font-weight: 600;
+}
 .fbadmin-row.is-read .fbadmin-row-summary {
-    color: var(--ink-secondary, #6b6863);
+    color: var(--ink-tertiary, #9c9893);
+    font-weight: 400;
+}
+.fbadmin-row.is-read .fbadmin-row-meta {
+    opacity: 0.7;
 }
 .fbadmin-row-checkbox {
     flex: 0 0 auto;
