@@ -48,6 +48,29 @@ export async function requestNotificationPermission() {
 }
 
 /**
+ * 오늘 발화 기록 초기화 — 시각 변경했을 때 즉시 재테스트 가능하게.
+ */
+export function clearLastFiredToday() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+}
+
+/**
+ * 즉시 한 번 발화 — 사용자가 [지금 테스트] 버튼 눌렀을 때.
+ *   권한 'granted' 필수. 같은 날 중복 차단 자리는 우회.
+ */
+export async function triggerNow() {
+    if (getNotificationPermission() !== 'granted') {
+        return { ok: false, reason: 'permission_not_granted' };
+    }
+    try {
+        await fireDailyMeditationNotification();
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, reason: e?.message || String(e) };
+    }
+}
+
+/**
  * 매일 묵상 알람 시각 도래 시 자동 발화 스케줄링.
  *   - 부팅 시 1회 호출
  *   - 사용자가 시각 변경 시 재호출 (자동으로 옛 타이머 취소)
