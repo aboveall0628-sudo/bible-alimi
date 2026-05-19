@@ -133,7 +133,12 @@ let gapiInited = false;
 let gisInited = false;
 // 비로그인 첫 진입 → landing.html 거쳐 ?login=true 로 돌아오면 GIS 준비 직후 자동 로그인 트리거
 let _isLoginFlow = false;
-const GOOGLE_CLIENT_ID = '760231593146-7gkia8st114oiojjgjljjk0rdduhgafl.apps.googleusercontent.com';
+// (2026-05-19) OAuth 클라이언트 ID = biblealimi 프로젝트 자리로 통합.
+//   이전: '760231593146-...' (Default Gemini Project — AI Studio 자동 생성된 자리)
+//   현재: biblealimi 프로젝트의 Web client (Google Service 자동 생성)
+//   이유: privacy/terms·도메인 소유 증명·테스트 사용자 명단·검증 신청이 모두 biblealimi 자리.
+//   이전 자리 OAuth 클라이언트엔 sanctumswan 명단이 없어 신규 테스터 가입 403 거부됨.
+const GOOGLE_CLIENT_ID = '407329001149-iu5otvtcq9actgloveehvhus09sq04pf.apps.googleusercontent.com';
 const GOOGLE_API_KEY = 'AIzaSyDdQAmIWoKy5z1I6w4BWE3xK9a1ryBZXHQ';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
