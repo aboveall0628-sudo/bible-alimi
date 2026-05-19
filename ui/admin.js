@@ -28,10 +28,13 @@ export function renderAdminView(container) {
 
         <section class="card-section admin-card">
             <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리</h3>
-            <p class="section-desc">사용자가 우하단 풍선으로 보내준 피드백·사전 설문·사후 설문을 한 자리에서 관리해요.</p>
-            <button type="button" id="admin-open-feedback-btn" class="primary-btn">
-                <i data-lucide="arrow-right" class="btn-icon"></i> 피드백 관리 열기
-            </button>
+            <p class="section-desc">사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
+            <div class="admin-feedback-btn-row">
+                <button type="button" id="admin-open-feedback-btn" class="primary-btn">📥 피드백 관리 열기</button>
+                <button type="button" id="admin-start-presurvey-btn" class="secondary-btn">📋 사전 설문 단독 테스트</button>
+                <button type="button" id="admin-start-postsurvey-btn" class="secondary-btn">📝 사후 설문 단독 테스트</button>
+                <button type="button" id="admin-start-fullsignup-btn" class="secondary-btn">🚀 전체 가입 흐름 (동의·온보딩·설문)</button>
+            </div>
         </section>
 
         <section class="card-section admin-card">
@@ -100,6 +103,54 @@ export function renderAdminView(container) {
             } catch (e) { console.warn('[admin] open feedback-admin failed:', e); }
         });
     }
+
+    // (2026-05-19 후속) 사전·사후 설문 단독 테스트 + 전체 가입 흐름 — settings 자리에서 통합
+    container.querySelector('#admin-start-presurvey-btn')?.addEventListener('click', () => {
+        if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
+            window.__sanctumOpenPreSurveyForm();
+        }
+    });
+    container.querySelector('#admin-start-postsurvey-btn')?.addEventListener('click', () => {
+        if (typeof window.__sanctumOpenPostSurveyForm === 'function') {
+            window.__sanctumOpenPostSurveyForm();
+        }
+    });
+    container.querySelector('#admin-start-fullsignup-btn')?.addEventListener('click', async () => {
+        const { showToast } = await import('./quickReview.js');
+        const userId = window.currentUserId;
+        if (!userId || userId === 'anonymous') {
+            showToast('로그인 자리 확인이 안 돼요');
+            return;
+        }
+        const { getDEK } = await import('./lockScreen.js');
+        const dek = getDEK();
+        if (!dek) {
+            showToast('잠금 해제 후 다시 시도해 주세요');
+            return;
+        }
+        try {
+            const { showConsentModal } = await import('./consentModal.js');
+            const result = await showConsentModal({ userId });
+            if (!result.agreed) {
+                showToast('동의 안 함 결로 흐름 마침');
+                return;
+            }
+            const { showOnboardingModal } = await import('./onboarding.js');
+            await showOnboardingModal({
+                userId, dek,
+                onComplete: () => {
+                    setTimeout(() => {
+                        if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
+                            window.__sanctumOpenPreSurveyForm();
+                        }
+                    }, 600);
+                },
+            });
+        } catch (e) {
+            console.error('[admin] full signup flow failed:', e);
+            showToast('전체 가입 흐름 시연 자리에서 막혔어요');
+        }
+    });
 
     // (2026-05-19 후속) 신규 사용자 흐름 시연 6 버튼
     bindFlowDemo(container);

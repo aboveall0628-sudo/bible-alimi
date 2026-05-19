@@ -738,87 +738,10 @@ function injectExtraSections() {
 
     // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 전용 진입 카드 — 피드백 관리 + 사전 설문 시작.
     //   isSwanAdmin 아닐 때는 카드 자체 안 그림. 사이드바 메뉴와 같은 게이트.
-    if (isSwanAdmin(_userId)) {
-        const adminCard = document.createElement('div');
-        adminCard.className = 'card-section';
-        adminCard.innerHTML = `
-            <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리 (운영자 전용)</h3>
-            <p class="section-desc">베타 사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-                <button type="button" id="settings-open-feedback-admin" class="primary-btn">피드백 관리 열기</button>
-                <button type="button" id="settings-start-pre-survey-form" class="secondary-btn">사전 설문 폼 단독 테스트</button>
-                <button type="button" id="settings-start-post-survey-form" class="secondary-btn">사후 설문 폼 단독 테스트</button>
-                <button type="button" id="settings-test-full-signup-flow" class="secondary-btn">전체 가입 흐름 테스트 (동의·온보딩·설문)</button>
-            </div>
-        `;
-        appendToGroup('settings-group-body-admin', adminCard, container);
-        const adminGroup = document.getElementById('settings-group-admin');
-        if (adminGroup) adminGroup.hidden = false;
-        // (v69) 사이드바 설정 nav 운영자 항목도 함께 노출
-        const adminNavBtn = document.querySelector('.sidebar-settings-item[data-target="settings-group-admin"]');
-        if (adminNavBtn) adminNavBtn.hidden = false;
-
-        adminCard.querySelector('#settings-open-feedback-admin')?.addEventListener('click', () => {
-            if (typeof window.__sanctumSwitchView === 'function') {
-                window.__sanctumSwitchView('feedback-admin');
-            }
-        });
-        adminCard.querySelector('#settings-start-pre-survey-form')?.addEventListener('click', () => {
-            if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
-                window.__sanctumOpenPreSurveyForm();
-            }
-        });
-        // (2026-05-19) 사후 설문 단독 테스트
-        adminCard.querySelector('#settings-start-post-survey-form')?.addEventListener('click', () => {
-            if (typeof window.__sanctumOpenPostSurveyForm === 'function') {
-                window.__sanctumOpenPostSurveyForm();
-            }
-        });
-
-        // (2026-05-18 v81) 전체 회원가입 루트 테스트 — 동의 모달 → 온보딩 → 사전 설문 풀 흐름.
-        //   운영자가 진짜 신규 가입자처럼 처음부터 끝까지 자연 체험.
-        //   ⚠️ consents 컬렉션에 실제 기록이 누적되니, 운영자 본인 자리 정리는 별도.
-        adminCard.querySelector('#settings-test-full-signup-flow')?.addEventListener('click', async () => {
-            console.log('[settings] 전체 가입 흐름 테스트 클릭 — _userId:', _userId);
-            const { showToast } = await import('./quickReview.js');
-            if (!_userId || _userId === 'anonymous') {
-                showToast('로그인 자리 확인이 안 돼요');
-                return;
-            }
-            const dek = getDEK();
-            if (!dek) {
-                showToast('잠금 해제 후 다시 시도해 주세요');
-                return;
-            }
-            try {
-                // 1단계 — 동의 모달
-                const { showConsentModal } = await import('./consentModal.js');
-                const result = await showConsentModal({ userId: _userId });
-                if (!result.agreed) {
-                    showToast('동의 안 함 결로 흐름 마침');
-                    return;
-                }
-                // 2단계 — 온보딩 (마침 시 사전 설문 자연 진입)
-                const { showOnboardingModal } = await import('./onboarding.js');
-                await showOnboardingModal({
-                    userId: _userId,
-                    dek,
-                    onComplete: () => {
-                        // 사전 설문 자연 진입은 onboarding 안에서 자리잡혀 있어요 (v79 결).
-                        // 혹시 자연 흐름 안 잡힐 자리 대비해서 600ms 후 명시 호출.
-                        setTimeout(() => {
-                            if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
-                                window.__sanctumOpenPreSurveyForm();
-                            }
-                        }, 600);
-                    },
-                });
-            } catch (e) {
-                console.warn('[settings] 전체 회원가입 루트 테스트 흐름 실패:', e);
-                showToast('흐름 진입 실패 — 콘솔 확인');
-            }
-        });
-    }
+    // (2026-05-19 후속) 사용자 명시 "운영자 nav 안으로 통합" — 설정 안 피드백 관리 카드 자리 제거.
+    //   사전·사후 설문 단독 테스트 + 전체 가입 흐름 자리 = view-admin (운영자 nav) 안으로 이동.
+    //   isSwanAdmin 분기 자리는 *그대로 두되* 내부 카드 자리 없음.
+    // (2026-05-19 후속) 운영자 시연 자리 = view-admin (운영자 nav). 설정 자리 빈 분기로 유지.
 
     // (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 진입 자리.
     //   사용자 명시 "설정 많이 안볼테니까 거기에 작은 카드 하나 넣고, 만렙 이후 콘텐츠 하나".

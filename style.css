@@ -10267,6 +10267,28 @@ html[data-tier="slim"] .qr-tx-section {
     margin-top: 4px;
 }
 
+/* (2026-05-19 후속) 운영자 피드백 카드 안 4 버튼 자리 */
+#view-admin .admin-feedback-btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+#view-admin .admin-feedback-btn-row .secondary-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 8px;
+    background: var(--surface, #fff);
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--ink, #2a2a2a);
+    transition: border-color 0.15s, background 0.15s;
+}
+#view-admin .admin-feedback-btn-row .secondary-btn:hover {
+    border-color: var(--accent, #7c8b6f);
+    background: rgba(124, 139, 111, 0.06);
+}
+
 /* (2026-05-19 후속) 신규 사용자 흐름 시연 6 버튼 — 운영자 페이지 안 */
 .admin-flow-grid {
     display: grid;
