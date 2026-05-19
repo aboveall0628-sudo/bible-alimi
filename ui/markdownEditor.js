@@ -97,6 +97,12 @@ function handleKeydown(e, editor, onChange) {
             e.preventDefault();
             return;
         }
+        // (2026-05-18 후속 v2) 내용 있는 H1/H2/H3 끝에서 Enter → 다음 줄 일반 div 자연 자리.
+        //   노션·타이포라 표준 — heading 다음 줄은 자연 본문.
+        if (handleHeadingTailEnter(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
     }
 
     // (2026-05-14 #23 2차) Tab / Shift+Tab — 리스트 들여쓰기 / 내어쓰기 (노션식)
@@ -173,6 +179,45 @@ function handleEmptyHeadingEnter(editor, onChange) {
     const div = document.createElement('div');
     div.innerHTML = '<br>';
     heading.parentNode.replaceChild(div, heading);
+    const r = document.createRange();
+    r.selectNodeContents(div);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    onChange(getMarkdown(editor));
+    return true;
+}
+
+// (2026-05-18 후속 v2) 내용 있는 H1/H2/H3 *끝*에서 Enter → 다음 줄 일반 div.
+//   사용자 명시 "H3로만 작성하게 되고 다르게는 수정이 안됨" — 노션 표준 자리잡기.
+//   caret 이 heading 텍스트 끝일 때만 작동. 중간이면 기본 동작 (자리 분리).
+function handleHeadingTailEnter(editor, onChange) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return false;
+    let node = range.startContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    let heading = node;
+    while (heading && heading !== editor && !/^H[1-3]$/.test(heading.tagName || '')) {
+        heading = heading.parentElement;
+    }
+    if (!heading || heading === editor) return false;
+    const text = heading.textContent || '';
+    if (text.trim() === '') return false; // 빈 자리는 handleEmptyHeadingEnter 자리
+
+    // caret 이 텍스트 끝인지 확인
+    const endRange = document.createRange();
+    endRange.selectNodeContents(heading);
+    endRange.collapse(false);
+    const caretRange = range.cloneRange();
+    // caret 이 끝과 다르면 (중간이면) 기본 동작 — 자리 분리 자연 발생
+    if (caretRange.compareBoundaryPoints(Range.END_TO_END, endRange) !== 0) return false;
+
+    // heading 다음 자리에 새 div 자리잡기
+    const div = document.createElement('div');
+    div.innerHTML = '<br>';
+    heading.parentNode.insertBefore(div, heading.nextSibling);
     const r = document.createRange();
     r.selectNodeContents(div);
     r.collapse(true);
