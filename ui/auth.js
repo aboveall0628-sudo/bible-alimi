@@ -26,6 +26,9 @@ export function showSetupScreen(userId) {
     if (overlay) {
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
+        // (2026-05-19 후속) .is-visible 자리잡기 — CSS 의 opacity 0 디폴트 자리 풀기.
+        //   사용자 보고 "흰 화면" — overlay 자리잡혀 있는데 *투명*해서 안 보임. 자리 자연 자리.
+        requestAnimationFrame(() => overlay.classList.add('is-visible'));
         // 1단계 화면으로 리셋
         document.getElementById('setup-step-1').classList.remove('hidden');
         document.getElementById('setup-step-2').classList.add('hidden');
@@ -40,6 +43,7 @@ export function showSetupScreen(userId) {
 export function hideSetupScreen() {
     const overlay = document.getElementById('setup-screen-overlay');
     if (overlay) {
+        overlay.classList.remove('is-visible');
         overlay.classList.add('hidden');
         overlay.style.display = 'none';
     }
@@ -50,12 +54,15 @@ export function showGoogleLoginScreen() {
     if (overlay) {
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
+        // (2026-05-19 후속) .is-visible 자리잡기 — 동일 정합
+        requestAnimationFrame(() => overlay.classList.add('is-visible'));
     }
 }
 
 export function hideGoogleLoginScreen() {
     const overlay = document.getElementById('google-login-overlay');
     if (overlay) {
+        overlay.classList.remove('is-visible');
         overlay.classList.add('hidden');
         overlay.style.display = 'none';
     }
