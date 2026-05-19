@@ -1084,6 +1084,16 @@ function setupGoogleAuth() {
         else showToast('Google 연결을 준비하는 중이에요. 잠시 후에 다시 눌러 주실래요?');
     });
 
+    // (S-F2 2026-05-19) DEV 환경에선 Calendar 연동 자체 비활성화 — 본인 캘린더 오염 방지.
+    //   gapi/gis 로드 안 하고 관련 버튼도 숨김. 검증 시엔 메인에서.
+    if (IS_DEV_ENV) {
+        ['user-profile-btn', 'auth-btn', 'sync-btn', 'gcal-push-btn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+        return;
+    }
+
     gapiLoaded();
     gisLoaded();
 }

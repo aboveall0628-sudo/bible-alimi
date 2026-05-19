@@ -67,15 +67,20 @@ const auth = getAuth(app);
 //   measurementId 기준 자동 활성화. PROD = G-BG79MS3FZP / DEV = G-VJKVM8V9TR.
 //   isSupported() — 일부 브라우저(ITP·Privacy Browser)에서 작동 안 함 → 안전 가드.
 //   ui/analytics.js 헬퍼에서 분기 결로 사용.
+//   (S-F2 2026-05-19) DEV 환경에선 GA4 호출 자체 차단 — 메인 분석 데이터 오염 방지.
 let _analytics = null;
-isSupported().then(supported => {
-    if (supported) {
-        _analytics = getAnalytics(app);
-        if (typeof console !== 'undefined') {
-            console.log(`[analytics] env=${ENV_LABEL} measurementId=${firebaseConfig.measurementId}`);
+if (!IS_DEV_ENV) {
+    isSupported().then(supported => {
+        if (supported) {
+            _analytics = getAnalytics(app);
+            if (typeof console !== 'undefined') {
+                console.log(`[analytics] env=${ENV_LABEL} measurementId=${firebaseConfig.measurementId}`);
+            }
         }
-    }
-}).catch(() => { /* 일부 환경에서 isSupported 자체 실패 — 조용히 통과 */ });
+    }).catch(() => { /* 일부 환경에서 isSupported 자체 실패 — 조용히 통과 */ });
+} else if (typeof console !== 'undefined') {
+    console.log('[analytics] DEV 환경 — GA4 호출 비활성화');
+}
 
 export function getAnalyticsInstance() {
     return _analytics;

@@ -21,6 +21,12 @@ async function loadFunctions() {
 }
 
 async function callFn(name, payload) {
+    // (S-F2 2026-05-19) DEV 환경에선 이메일 복구 호출 차단 — 본인 메일함 오염 방지.
+    //   해당 흐름 검증은 메인에서. dev 사용자가 UI로 진입했을 때 에러 메시지로 알림.
+    const { IS_DEV_ENV } = await import('../data/firebase.js');
+    if (IS_DEV_ENV) {
+        throw new Error('이메일 복구는 dev 환경에서 비활성화돼 있어요. 메인에서 검증해주세요.');
+    }
     const { fn, functions } = await loadFunctions();
     const callable = fn.httpsCallable(functions, name);
     const result = await callable(payload || {});

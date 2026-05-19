@@ -22,7 +22,21 @@
  *   - 한 호출 = 한 사용자 행동
  */
 
-import { getAnalyticsInstance, logEvent, setUserProperties, setUserId } from '../data/firebase.js';
+import { getAnalyticsInstance, logEvent, setUserProperties, setUserId, auth } from '../data/firebase.js';
+import { isSwanAdmin } from '../config/adminConfig.js';
+
+// ─── 운영자 가드 (2026-05-19 v83) ───────────────────────────
+//   Swan 본인이 직접 앱 사용·테스트하는 자리는 GA4에 안 보냄.
+//   사용자 행동 데이터와 운영자 행동 분리. IP·기기·환경 무관 — UID 결로 식별.
+function isAdminUser() {
+    try {
+        const currentUser = auth?.currentUser;
+        if (!currentUser) return false;
+        return isSwanAdmin(currentUser.uid);
+    } catch (_) {
+        return false;
+    }
+}
 
 // ─── 영적 안전장치 — PII·민감정보 거부 키 카탈로그 ───────────────────
 const FORBIDDEN_PARAM_KEYS = new Set([
@@ -79,6 +93,7 @@ function sanitizeParams(params) {
  *   trackEvent('mission_clear', { mission_id: 'first_meditation' });
  */
 export function trackEvent(eventName, params = {}) {
+    if (isAdminUser()) return;  // 운영자 가드 — Swan 본인 행동은 GA4 안 보냄
     const analytics = getAnalyticsInstance();
     if (!analytics) return;  // 일부 환경 미지원 — 조용히 통과
     try {
@@ -105,6 +120,7 @@ export function trackEvent(eventName, params = {}) {
  *   });
  */
 export function setUserProps(properties) {
+    if (isAdminUser()) return;  // 운영자 가드
     const analytics = getAnalyticsInstance();
     if (!analytics) return;
     try {
@@ -122,6 +138,7 @@ export function setUserProps(properties) {
  * @param {string} anonymousId  - 가명 토큰 (예: 'anon_xy7k...')
  */
 export function setAnonymousUserId(anonymousId) {
+    if (isAdminUser()) return;  // 운영자 가드
     const analytics = getAnalyticsInstance();
     if (!analytics || !anonymousId) return;
     try {
