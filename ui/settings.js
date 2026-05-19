@@ -738,10 +738,25 @@ function injectExtraSections() {
 
     // (CS AI 트랙 §9-6, 2026-05-15) Swan 관리자 전용 진입 카드 — 피드백 관리 + 사전 설문 시작.
     //   isSwanAdmin 아닐 때는 카드 자체 안 그림. 사이드바 메뉴와 같은 게이트.
-    // (2026-05-19 후속) 사용자 명시 "운영자 nav 안으로 통합" — 설정 안 피드백 관리 카드 자리 제거.
-    //   사전·사후 설문 단독 테스트 + 전체 가입 흐름 자리 = view-admin (운영자 nav) 안으로 이동.
-    //   isSwanAdmin 분기 자리는 *그대로 두되* 내부 카드 자리 없음.
-    // (2026-05-19 후속) 운영자 시연 자리 = view-admin (운영자 nav). 설정 자리 빈 분기로 유지.
+    // (2026-05-19 후속 fix) admin.js renderAdminView 결로 운영자 카테고리 채움.
+    //   사이드바 [운영자] nav 클릭 → settings-group-admin 노출 → 이 자리 결로 자연 채움.
+    if (isSwanAdmin(_userId)) {
+        const adminGroup = document.getElementById('settings-group-admin');
+        if (adminGroup) adminGroup.hidden = false;
+        const adminNavBtn = document.querySelector('.sidebar-settings-item[data-target="settings-group-admin"]');
+        if (adminNavBtn) adminNavBtn.hidden = false;
+        const adminBody = document.getElementById('settings-group-body-admin');
+        if (adminBody && !adminBody.dataset.adminRendered) {
+            import('./admin.js').then(({ renderAdminView }) => {
+                renderAdminView(adminBody);
+                adminBody.dataset.adminRendered = 'true';
+                // lucide 아이콘 자연 갈아끼움
+                if (typeof window.__sanctumRenderLucide === 'function') {
+                    window.__sanctumRenderLucide();
+                }
+            }).catch(e => console.warn('[settings] admin.js 자리 진입 실패:', e?.message || e));
+        }
+    }
 
     // (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 진입 자리.
     //   사용자 명시 "설정 많이 안볼테니까 거기에 작은 카드 하나 넣고, 만렙 이후 콘텐츠 하나".
