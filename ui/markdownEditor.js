@@ -78,14 +78,8 @@ export function setMarkdown(editor, md) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function handleKeydown(e, editor, onChange) {
-    // (2026-05-18 후속) Backspace — 빈 H1/H2/H3 또는 빈 LI 자리에서 일반 div로 자연 해제.
-    //   사용자 명시 "H3 자리 안 풀림 / 번호 안 사라짐" 정합.
-    if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (handleEmptyBlockBackspace(editor, onChange)) {
-            e.preventDefault();
-            return;
-        }
-    }
+    // (2026-05-19 후속 롤백) 내가 자리잡은 Backspace·Heading Enter 자리 모두 *기본 동작 차단* 의심.
+    //   "본문으로 안 내려와 / 폰트 안 바뀜" 보고 — 자리 원복하고 다음 라운드에 더 신중 진단.
 
     // (2026-05-14 #23 2차) Enter 자동 이어쓰기 — 리스트·토글 안에서 Enter
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -94,17 +88,6 @@ function handleKeydown(e, editor, onChange) {
             return;
         }
         if (handleListEnter(editor, onChange)) {
-            e.preventDefault();
-            return;
-        }
-        // (2026-05-18 후속) 빈 H1/H2/H3 자리에서 Enter → 일반 div 자연 해제.
-        if (handleEmptyHeadingEnter(editor, onChange)) {
-            e.preventDefault();
-            return;
-        }
-        // (2026-05-18 후속 v2) 내용 있는 H1/H2/H3 끝에서 Enter → 다음 줄 일반 div 자연 자리.
-        //   노션·타이포라 표준 — heading 다음 줄은 자연 본문.
-        if (handleHeadingTailEnter(editor, onChange)) {
             e.preventDefault();
             return;
         }
