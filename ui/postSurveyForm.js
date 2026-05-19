@@ -26,8 +26,10 @@ const PRE_TYPING_DELAY_MS = 600;
 // ─── 카탈로그 (v2 합의 12 질문) ─────────────────────────────────
 const RAPPORT_COPY = '잠깐, 2주 동안 어땠는지 들려주세요. 정답은 없어요. 솔직한 한 줄이 가장 큰 선물이에요.';
 
-// 사후 설문 17 카드 — 검증 시나리오 v1 §4 + Q11.5 회복의 자리 + Q17 확장 방향
-const QUESTIONS = [
+// 사후 설문 v2 — 오픈 결말 13 문항 (2026-05-19)
+//   사용자 결정: 페르소나 chip 폐기 → 자유 답변 결로 사후 카테고라이징
+//   5 검증(Sean Ellis·NPS·사용 강도·통증·페르소나) + 리포트 결·보완 자료·니즈·시스템 일관·가격·확장
+const QUESTIONS_OLD_v1 = [
     // ─── A. 전반적 체험 (증거 3 — 핵심 가치 식별) ────────────
     {
         id: 'Q1',
@@ -253,6 +255,201 @@ const QUESTIONS = [
         }],
         freeTextBlocks: [
             { label: '(선택) 어떤 자리에 자원 가장 두면 좋을지 한 줄', required: false, rows: 2 },
+        ],
+    },
+];
+
+// 사후 설문 v2 — 오픈 결말 13 문항 (사용자 결로 2026-05-19 갈아끼움)
+const QUESTIONS = [
+    // ─── 정량 4 자리 (Sean Ellis·NPS·사용 강도·통증) ────────────
+    {
+        id: 'Q1',
+        title: '이 앱이 내일 사라진다면 어떨까요?',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '솔직한 결로 골라요',
+            allowOther: false,
+            chips: ['매우 실망스러울 거예요', '조금 실망', '별로 상관없어요', '잘 모르겠어요'],
+        }],
+        freeTextBlocks: [],
+    },
+    {
+        id: 'Q2',
+        title: '가까운 친구한테 이 앱을 추천한다면 몇 점 줄 거예요?',
+        chipBlocks: [{
+            mode: 'single',
+            type: 'scale',
+            hint: '0~10점 중 하나',
+            scaleMinLabel: '전혀 추천 X',
+            scaleMaxLabel: '꼭 추천',
+            allowOther: false,
+            chips: ['0','1','2','3','4','5','6','7','8','9','10'],
+        }],
+        freeTextBlocks: [],
+    },
+    {
+        id: 'Q3',
+        title: '14일 동안 이 앱을 얼마나 자주 쓰셨어요?',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '하나만 골라요',
+            allowOther: false,
+            chips: ['거의 매일', '가끔', '거의 안 썼어요'],
+        }],
+        freeTextBlocks: [
+            { label: '(선택) 그 강도가 된 이유 한 줄', required: false, rows: 2 },
+        ],
+    },
+    {
+        id: 'Q4',
+        title: '베타 시작 전에 어떤 통증이 가장 컸어요?',
+        chipBlocks: [{
+            mode: 'multi',
+            hint: '여러 개 골라도 좋아요',
+            allowOther: true,
+            chips: [
+                '묵상은 했는데 삶으로 이어지지 않았어요',
+                '묵상이 자주 끊겼어요',
+                '말씀이 깊이 와닿지 않았어요',
+                '신앙 정체기·메마름',
+                '기도·묵상 자리가 따로따로',
+                '공동체 안 신앙 깊이 부족',
+                '특별한 통증 없었어요',
+            ],
+        }],
+        freeTextBlocks: [
+            { label: '(선택) 본인의 진짜 통증 한 줄', required: false, rows: 2 },
+        ],
+    },
+
+    // ─── 정성 자유 (페르소나·체험·니즈) ──────────────────────
+    {
+        id: 'Q5',
+        title: '본인 신앙 결을 한 문장으로 표현해 주신다면?',
+        chipBlocks: [],
+        freeTextBlocks: [
+            { label: '본인 결 자유롭게 한 줄 (필수) — 사후 분석으로 자연 카테고라이징해요', required: true, rows: 3 },
+        ],
+    },
+    {
+        id: 'Q6',
+        title: '14일 다 돌아봤을 때 가장 기억에 남는 순간이나 자리가 뭐예요?',
+        chipBlocks: [],
+        freeTextBlocks: [
+            { label: '한 자리를 떠올려 적어주세요 (필수)', required: true, rows: 3 },
+        ],
+    },
+    {
+        id: 'Q7',
+        title: '묵상 → 결단 → 시간표 흐름은 어땠어요?',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '하나만 골라요',
+            allowOther: false,
+            chips: ['자연스러웠어요', '어색했어요', '잘 모르겠어요', '안 해봤어요'],
+        }],
+        freeTextBlocks: [
+            { label: '구체적 결로 한 줄 들려주세요 (필수)', required: true, rows: 3 },
+        ],
+    },
+
+    // ─── 분별·회복 니즈 검증 (2차 결 자료) ─────────────────
+    {
+        id: 'Q8',
+        title: '이런 자리 있다면 어떨까요? — 결단 못 지킨 자리 부드럽게 돌이키는 화면, 의사결정 도와주는 화면',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '솔직한 결로 골라요',
+            allowOther: false,
+            chips: ['꼭 가지고 싶어요', '있으면 좋겠어요', '잘 모르겠어요', '없어도 돼요'],
+        }],
+        freeTextBlocks: [
+            { label: '(선택) 어떤 결로 도와줬으면 좋을지 한 줄', required: false, rows: 2 },
+        ],
+    },
+
+    // ─── 리포트 결 + 보완 자료 ──────────────────────────────
+    {
+        id: 'Q9',
+        title: 'AI 리포트 받아본 적 있어요? 어떤 결이었어요?',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '하나만 골라요',
+            allowOther: false,
+            chips: ['새로운 발견 있었어요', '이미 알던 것이었어요', '안 봤어요', '봤지만 기억 안 나요'],
+        }],
+        freeTextBlocks: [
+            { label: '(선택) 리포트가 어떻게 됐으면 좋을지 한 줄', required: false, rows: 2 },
+        ],
+    },
+    {
+        id: 'Q10',
+        title: '리포트를 더 풍부하게 하려면 어떤 자료가 도움 될 거 같아요?',
+        chipBlocks: [{
+            mode: 'multi',
+            hint: '여러 개 골라도 좋아요',
+            allowOther: true,
+            chips: [
+                '인물 카드 (관계·자리 결)',
+                '조직·공동체 자리',
+                '거래·재정 결',
+                '도트 (감정·사건·결정)',
+                '시간 사용 자리',
+                '대화·간증 자리',
+            ],
+        }],
+        freeTextBlocks: [
+            { label: '(선택) 어떤 결로 자료 더 모으고 싶은지 한 줄', required: false, rows: 2 },
+        ],
+    },
+
+    // ─── 시스템 일관 자리 (증거 7-5) ─────────────────────────
+    {
+        id: 'Q11',
+        title: '묵상 → 결단 → 시간표 → 도트 → 리포트 흐름이 하나의 시스템처럼 느껴졌어요? 어디서 끊긴 자리는요?',
+        chipBlocks: [],
+        freeTextBlocks: [
+            { label: '자연스러웠던 자리 (필수)', required: true, rows: 3 },
+            { label: '끊긴 자리·아쉬움 (필수)', required: true, rows: 3 },
+        ],
+    },
+
+    // ─── 가격 의향 (옵션 B) ──────────────────────────────────
+    {
+        id: 'Q12',
+        title: '한 달에 얼마까지 쓰실 의향 있어요?',
+        chipBlocks: [{
+            mode: 'single',
+            hint: '6,900원이면 어떻게 느껴지세요? (참고 결)',
+            allowOther: false,
+            chips: ['낼 거예요', '안 낼 거예요', '잘 모르겠어요'],
+        }],
+        freeTextBlocks: [
+            { label: '본인이 자연스럽게 낼 수 있을 결 한 줄 (필수)', required: true, rows: 2 },
+        ],
+    },
+
+    // ─── 마무리 (개발자 메시지 + 확장 방향) ─────────────────
+    {
+        id: 'Q13',
+        title: '개발자한테 한 마디 + 이 앱이 더 자라난다면 어떤 방향이 끌리세요?',
+        chipBlocks: [{
+            mode: 'multi',
+            optional: true,
+            hint: '(선택) 끌리는 확장 방향',
+            allowOther: true,
+            chips: [
+                '공동체 안 묵상 나눔',
+                '가족·부부 동반',
+                '말씀 학습 깊이',
+                '기도 회복·습관',
+                '자녀 신앙 교육',
+                '분별·회복 자리 확장',
+                '다른 묵상 도구 통합',
+            ],
+        }],
+        freeTextBlocks: [
+            { label: '개발자한테 한 마디 (필수)', required: true, rows: 3 },
         ],
     },
 ];
