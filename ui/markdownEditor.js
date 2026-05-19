@@ -73,6 +73,15 @@ export function setMarkdown(editor, md) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function handleKeydown(e, editor, onChange) {
+    // (2026-05-18 후속) Backspace — 빈 H1/H2/H3 또는 빈 LI 자리에서 일반 div로 자연 해제.
+    //   사용자 명시 "H3 자리 안 풀림 / 번호 안 사라짐" 정합.
+    if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (handleEmptyBlockBackspace(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
+    }
+
     // (2026-05-14 #23 2차) Enter 자동 이어쓰기 — 리스트·토글 안에서 Enter
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (handleToggleEnter(editor, onChange)) {
@@ -80,6 +89,11 @@ function handleKeydown(e, editor, onChange) {
             return;
         }
         if (handleListEnter(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
+        // (2026-05-18 후속) 빈 H1/H2/H3 자리에서 Enter → 일반 div 자연 해제.
+        if (handleEmptyHeadingEnter(editor, onChange)) {
             e.preventDefault();
             return;
         }
@@ -139,6 +153,91 @@ function handleKeydown(e, editor, onChange) {
         onChange(getMarkdown(editor));
         return;
     }
+}
+
+// (2026-05-18 후속) 빈 H1/H2/H3 자리에서 Enter → 일반 div 자연 해제.
+//   사용자 명시 "H3 자리에서 다른 단축키·마커·우클릭 다 안 풀림".
+function handleEmptyHeadingEnter(editor, onChange) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    let node = sel.getRangeAt(0).startContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    let heading = node;
+    while (heading && heading !== editor && !/^H[1-3]$/.test(heading.tagName || '')) {
+        heading = heading.parentElement;
+    }
+    if (!heading || heading === editor) return false;
+    const text = (heading.textContent || '').trim();
+    if (text !== '') return false; // 내용 있으면 기본 동작 (다음 줄 자연 자리)
+    // 빈 heading → 일반 div 로 자리 전환
+    const div = document.createElement('div');
+    div.innerHTML = '<br>';
+    heading.parentNode.replaceChild(div, heading);
+    const r = document.createRange();
+    r.selectNodeContents(div);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    onChange(getMarkdown(editor));
+    return true;
+}
+
+// (2026-05-18 후속) Backspace — 빈 H1/H2/H3 또는 빈 LI 시작 자리에서 일반 div 자연 해제.
+//   사용자 명시 "백스페이스 누르면 번호 안 없어져".
+function handleEmptyBlockBackspace(editor, onChange) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return false; // 선택 자리 있으면 기본 동작
+    let node = range.startContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    let block = node;
+    while (block && block !== editor && !/^(H[1-3]|LI)$/.test(block.tagName || '')) {
+        block = block.parentElement;
+    }
+    if (!block || block === editor) return false;
+    const text = (block.textContent || '').trim();
+
+    // (a) 빈 H1/H2/H3 → div 자리 전환
+    if (/^H[1-3]$/.test(block.tagName)) {
+        if (text !== '') {
+            // 내용 있어도 caret 이 시작 자리면 자리 풀기
+            if (range.startOffset !== 0) return false;
+        }
+        const div = document.createElement('div');
+        if (text === '') div.innerHTML = '<br>';
+        else {
+            while (block.firstChild) div.appendChild(block.firstChild);
+        }
+        block.parentNode.replaceChild(div, block);
+        const r = document.createRange();
+        r.selectNodeContents(div);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        onChange(getMarkdown(editor));
+        return true;
+    }
+
+    // (b) 빈 LI → 리스트 종료 (handleListEnter 와 동일 패턴)
+    if (block.tagName === 'LI' && text === '') {
+        const parentList = block.parentElement;
+        if (!parentList || !/^(UL|OL)$/.test(parentList.tagName)) return false;
+        const div = document.createElement('div');
+        div.innerHTML = '<br>';
+        parentList.parentNode.insertBefore(div, parentList.nextSibling);
+        block.remove();
+        if (parentList.querySelectorAll(':scope > li').length === 0) parentList.remove();
+        const r = document.createRange();
+        r.selectNodeContents(div);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        onChange(getMarkdown(editor));
+        return true;
+    }
+
+    return false;
 }
 
 // (2026-05-14 #23 2차) summary 안 또는 details body 안에서 Enter 처리

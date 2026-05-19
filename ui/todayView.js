@@ -1066,8 +1066,8 @@ let _meditationCache = { content: '', prayer: '', commitment: '' };
 function bindMeditationAutosave() {
     bindNoteEditor('meditation-note', 'content');
     bindNoteEditor('prayer-note', 'prayer');
-    // (2026-05-18 후속) 적용 다짐 자동 저장 — meditation 도큐먼트의 commitment 필드
-    bindNoteEditor('commitment-note', 'commitment');
+    // (2026-05-18 후속 v2) 적용 다짐 자리 제거 — 목표 모듈로 통합 (사용자 명시).
+    //   commitment-note element 자체 사라져서 bindNoteEditor 호출해도 자연 no-op.
 }
 
 function bindNoteEditor(editorId, field) {
@@ -1205,21 +1205,8 @@ async function saveMeditationDoc() {
                         reason: (sensitive.content || '').slice(0, 80),
                     });
                 }
-                // (b) 다짐 도트 — commitment 한 줄 있을 때
-                if (sensitive.commitment && sensitive.commitment.trim()) {
-                    await saveDot(dek, {
-                        id: `dot_commitment_${_userId}_${_date}`,
-                        userId: _userId,
-                        date: _date,
-                        kind: 'commitment',
-                        plannedTask: '오늘의 적용 다짐',
-                        actualTask: sensitive.commitment.slice(0, 80),
-                        executed: 'done',
-                        executionSatisfaction: 4,
-                        outcomeSatisfaction: 4,
-                        reason: sensitive.commitment.slice(0, 200),
-                    });
-                }
+                // (2026-05-18 후속 v2) 다짐 자동 도트화 자리 제거 — 사용자 명시 "필요 없을 것 같은데 빼".
+                //   "묵상→기도 다음 자연스럽게 오늘의 목표"로 통합. goals 모듈에서 도트 자리잡힘.
             } catch (e) {
                 console.warn('[saveMeditationDoc] auto-dot failed:', e?.message || e);
             }
