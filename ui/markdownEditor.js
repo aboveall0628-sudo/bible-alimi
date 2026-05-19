@@ -41,9 +41,14 @@ export function bindMarkdownEditor(editor, opts = {}) {
     // 단축키
     editor.addEventListener('keydown', (e) => handleKeydown(e, editor, onChange));
     // 마크다운 자동 변환 (입력 후)
+    //   (2026-05-19 후속) paste 직후엔 자동 변환 자리 X — editor.dataset.skipAutoConvert='1' 가드
+    //   사용자 보고: "성경 사이트 paste 했더니 1. 하나님 자동 OL 변환·창세기 44 굵음 자리잡힘"
     editor.addEventListener('input', () => {
-        runInlineMarkdownTransforms(editor);
-        runBlockMarkdownTransforms(editor);
+        const skip = editor.dataset.skipAutoConvert === '1';
+        if (!skip) {
+            runInlineMarkdownTransforms(editor);
+            runBlockMarkdownTransforms(editor);
+        }
         onChange(getMarkdown(editor));
     });
     // 우클릭 메뉴

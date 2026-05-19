@@ -1162,8 +1162,12 @@ function bindNoteEditor(editorId, field) {
         }
         editor.focus();
 
-        // 수동 input 이벤트 dispatch — autosave 트리거 (execCommand 없이도 저장 흐름 보장)
+        // (2026-05-19 후속) 수동 input dispatch — 자동 변환 자리는 *skip* 자리잡기.
+        //   paste 한 본문에 "1. 하나님" 같은 패턴이 있어도 자동 OL·H 변환 X.
+        //   사용자가 *수동 입력*할 때만 자동 변환 자연 자리.
+        editor.dataset.skipAutoConvert = '1';
         editor.dispatchEvent(new Event('input', { bubbles: true }));
+        setTimeout(() => { delete editor.dataset.skipAutoConvert; }, 50);
     });
 }
 
