@@ -29,11 +29,23 @@ export function renderAdminView(container) {
         <section class="card-section admin-card">
             <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리</h3>
             <p class="section-desc">사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
-            <div class="admin-feedback-btn-row">
-                <button type="button" id="admin-open-feedback-btn" class="primary-btn">📥 피드백 관리 열기</button>
-                <button type="button" id="admin-start-presurvey-btn" class="secondary-btn">📋 사전 설문 단독 테스트</button>
-                <button type="button" id="admin-start-postsurvey-btn" class="secondary-btn">📝 사후 설문 단독 테스트</button>
-                <button type="button" id="admin-start-fullsignup-btn" class="secondary-btn">🚀 전체 가입 흐름 (동의·온보딩·설문)</button>
+            <div class="admin-flow-grid">
+                <button type="button" id="admin-open-feedback-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">📥</span>
+                    <span class="admin-flow-label">피드백 관리 열기</span>
+                </button>
+                <button type="button" id="admin-start-presurvey-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">📋</span>
+                    <span class="admin-flow-label">사전 설문 단독 테스트</span>
+                </button>
+                <button type="button" id="admin-start-postsurvey-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">📝</span>
+                    <span class="admin-flow-label">사후 설문 단독 테스트</span>
+                </button>
+                <button type="button" id="admin-start-fullsignup-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">🚀</span>
+                    <span class="admin-flow-label">전체 가입 흐름 (동의·온보딩·설문)</span>
+                </button>
             </div>
         </section>
 
