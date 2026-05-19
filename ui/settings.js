@@ -747,6 +747,7 @@ function injectExtraSections() {
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
                 <button type="button" id="settings-open-feedback-admin" class="primary-btn">피드백 관리 열기</button>
                 <button type="button" id="settings-start-pre-survey-form" class="secondary-btn">사전 설문 폼 단독 테스트</button>
+                <button type="button" id="settings-start-post-survey-form" class="secondary-btn">사후 설문 폼 단독 테스트</button>
                 <button type="button" id="settings-test-full-signup-flow" class="secondary-btn">전체 가입 흐름 테스트 (동의·온보딩·설문)</button>
             </div>
         `;
@@ -765,6 +766,12 @@ function injectExtraSections() {
         adminCard.querySelector('#settings-start-pre-survey-form')?.addEventListener('click', () => {
             if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
                 window.__sanctumOpenPreSurveyForm();
+            }
+        });
+        // (2026-05-19) 사후 설문 단독 테스트
+        adminCard.querySelector('#settings-start-post-survey-form')?.addEventListener('click', () => {
+            if (typeof window.__sanctumOpenPostSurveyForm === 'function') {
+                window.__sanctumOpenPostSurveyForm();
             }
         });
 

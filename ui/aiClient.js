@@ -1656,6 +1656,30 @@ export async function callSwanPreSurveyQuestions({ userContext = {}, questions =
     return { questions: parsed, fallback: false };
 }
 
+/**
+ * 사후 설문 폼 v1 — 17 질문 일괄 SWAN 톤 가공 호출 (2026-05-19).
+ *   사전 결과 동일 결 — userContext + questions 입력 → raw JSON 출력.
+ *
+ * @returns {Promise<{ questions: Object|null, fallback: boolean }>}
+ *   questions = { Q1: '...', ..., Q17: '...' } 또는 null
+ */
+export async function callSwanPostSurveyQuestions({ userContext = {}, questions = [] }) {
+    const plain = {
+        userContext,
+        questions,
+        context: { persons: [], orgs: [], places: [], amounts: [] },
+    };
+    const result = await callLLM('swanPostSurveyQuestions', plain, {
+        deep:        false,
+        bypassCache: true,
+    });
+    if (result.fallback) {
+        return { questions: null, fallback: true };
+    }
+    const parsed = _parseExtractJson(result.text);
+    return { questions: parsed, fallback: false };
+}
+
 function buildSwanSummaryFallback(turns) {
     const userTexts = (turns || []).filter(t => t.role === 'user').map(t => t.text);
     const joined = userTexts.join(' ').slice(0, 120);

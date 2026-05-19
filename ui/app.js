@@ -60,6 +60,7 @@ import { initShortcuts } from '../shortcuts/router.js';
 // CS AI 트랙 §9 (2026-05-15): SWAN 풍선 피드백 + 관리자 페이지
 import { mountSwanFeedback, openSwanPreSurvey } from './swanFeedback.js';
 import { openPreSurveyForm } from './preSurveyForm.js';
+import { openPostSurveyForm } from './postSurveyForm.js';
 import { installConsoleErrorCapture } from '../infra/feedbackContext.js';
 import { getSelfCard } from '../data/personRepo.js';
 import { renderFeedbackAdminView } from './feedbackAdmin.js';
@@ -569,6 +570,8 @@ async function onVaultUnlocked(dek) {
     window.__sanctumOpenPreSurvey = openSwanPreSurvey;
     // (2026-05-18) 사전 설문 폼 v2 시안 (Q1 1장) — 운영자 카드에서 진입.
     window.__sanctumOpenPreSurveyForm = openPreSurveyForm;
+    // (2026-05-19) 사후 설문 폼 v1 — 17 카드 (검증 시나리오 §4 + 회복·확장 자리).
+    window.__sanctumOpenPostSurveyForm = openPostSurveyForm;
 
     // (본인 프로필 재기획 트랙 2026-05-14 S-D) 신규 사용자 첫 진입 자동 라우팅.
     //   selfCard.name 빈 값이면 onboarding 모달 강제. 완료 후 view-today 진입 + 미션 진행도 갱신.
