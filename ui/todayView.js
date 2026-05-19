@@ -1101,18 +1101,37 @@ function bindNoteEditor(editorId, field) {
         const text = cd ? cd.getData('text/plain') : '';
         if (!text) return;
 
-        // 줄 단위 fragment 만들기 — 첫 줄은 caret 위치에 textNode, 나머지 줄은 새 div
+        // (2026-05-19 후속) 사용자 보고: "성경 사이트에서 paste 했더니 다 H3로 자리잡힘".
+        //   원인: caret 이 H1/H2/H3 안이면 paste 한 모든 줄이 그 자리 자식 자리 → 통째 H3 상속.
+        //   fix: caret 이 heading 안이면 그 다음 자리에 새 div 자리잡고 caret 옮김 → 자연 자리.
+        const sel0 = window.getSelection();
+        if (sel0 && sel0.rangeCount) {
+            let n = sel0.getRangeAt(0).startContainer;
+            if (n.nodeType === 3) n = n.parentElement;
+            let h = n;
+            while (h && h !== editor && !/^H[1-3]$/.test(h.tagName || '')) h = h.parentElement;
+            if (h && h !== editor) {
+                const fresh = document.createElement('div');
+                fresh.innerHTML = '<br>';
+                h.parentNode.insertBefore(fresh, h.nextSibling);
+                const r0 = document.createRange();
+                r0.selectNodeContents(fresh);
+                r0.collapse(true);
+                sel0.removeAllRanges();
+                sel0.addRange(r0);
+            }
+        }
+
+        // (2026-05-19 후속) 모든 줄을 *div*로 자리잡기 — 첫 줄도 textNode 아닌 div.
+        //   기존: 첫 줄은 caret 위치에 textNode → 현재 부모(H3) 안 자연 자리 → H3 상속.
+        //   새 자리: 첫 줄도 div → 줄 단위 자연 분리.
         const lines = text.split(/\r\n|\r|\n/);
         const frag = document.createDocumentFragment();
-        lines.forEach((line, i) => {
-            if (i === 0) {
-                frag.appendChild(document.createTextNode(line));
-            } else {
-                const div = document.createElement('div');
-                div.textContent = line || ''; // 빈 줄도 빈 div 로
-                if (!line) div.appendChild(document.createElement('br'));
-                frag.appendChild(div);
-            }
+        lines.forEach((line) => {
+            const div = document.createElement('div');
+            div.textContent = line || '';
+            if (!line) div.appendChild(document.createElement('br'));
+            frag.appendChild(div);
         });
         // fragment 의 마지막 노드 기록 (caret 이동용)
         const lastNode = frag.lastChild;
