@@ -50,10 +50,7 @@ export function renderAdminView(container) {
                     <span class="admin-flow-emoji">📄</span>
                     <span class="admin-flow-label">24단어 복구 코드</span>
                 </button>
-                <button type="button" id="admin-flow-setup-samples" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">🎯</span>
-                    <span class="admin-flow-label">샘플 목표 선택</span>
-                </button>
+                <!-- (2026-05-19 후속) 사용자 명시 "샘플 목표 자리 제거" — 시연 버튼도 같이 자리 빠짐 -->
                 <button type="button" id="admin-flow-onboarding" class="admin-flow-btn">
                     <span class="admin-flow-emoji">🦢</span>
                     <span class="admin-flow-label">온보딩 11 step</span>
@@ -151,17 +148,7 @@ function bindFlowDemo(container) {
         bindEscClose('setup-screen-overlay');
     });
 
-    onClick('admin-flow-setup-samples', async () => {
-        showDemoToast('🎯 샘플 목표 선택 화면 시연');
-        const { showSetupScreen } = await import('./auth.js');
-        showSetupScreen('demo-user-id');
-        setTimeout(() => {
-            document.getElementById('setup-step-1')?.classList.add('hidden');
-            document.getElementById('setup-step-2')?.classList.add('hidden');
-            document.getElementById('setup-step-3')?.classList.remove('hidden');
-        }, 100);
-        bindEscClose('setup-screen-overlay');
-    });
+    // (2026-05-19 후속) admin-flow-setup-samples 자리 제거 — 샘플 목표 흐름 자체 자리잡힘 X
 
     onClick('admin-flow-onboarding', async () => {
         showDemoToast('🦢 온보딩 11 step 시연 — 실제 selfCard 자리잡히지 않게 [건너뛰기]·X 로 자연 닫기');

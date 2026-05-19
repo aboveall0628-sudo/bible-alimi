@@ -124,41 +124,9 @@ function renderSetupScreen() {
                 <button id="setup-skip-recovery-btn" class="text-btn" style="width:100%; margin-top:8px; font-size:13px;">지금은 건너뛸게요 (나중에 설정에서 다시 볼 수 있어요)</button>
             </div>
 
-            <!-- 단계 3: 샘플 목표 선택 -->
-            <div id="setup-step-3" class="hidden">
-                <div class="lock-icon">🎯</div>
-                <h2>샘플 목표를 깔아둘까요?</h2>
-                <p class="lock-subtitle" style="text-align:left; font-size:13px;">
-                    10년 후 모습부터 이번 주 한 걸음까지, 영적 성장을 위한 <strong>예시 목표 4개</strong>를 미리 깔아둘 수 있어요.<br>
-                    언제든 [나의 목표]에서 직접 수정하거나 지울 수 있어요.
-                </p>
-                <div class="setup-sample-preview">
-                    <div class="setup-sample-item">🌌 <strong>10년 후</strong> — 하나님과 동행하는 삶의 기반 세우기</div>
-                    <div class="setup-sample-item">🎯 <strong>올해</strong> — 매일 한 줄 묵상 이어가기</div>
-                    <div class="setup-sample-item">📊 <strong>이번 분기</strong> — 통독 파트1 완독</div>
-                    <div class="setup-sample-item">📅 <strong>이번 주</strong> — 묵상 5일 이상</div>
-                </div>
-                <div style="display:flex; gap:8px; margin-top: var(--sp-4)">
-                    <button id="setup-skip-samples-btn" class="text-btn" style="flex:1">빈 상태로 시작</button>
-                    <button id="setup-with-samples-btn" class="primary-btn" style="flex:2">샘플과 함께 시작</button>
-                </div>
-            </div>
+            <!-- (2026-05-19 후속) 사용자 명시 "샘플 목표 필요 없어 / 온보딩에서 다 함" — step-3·4 자리 제거. -->
+            <!-- step-2 [다음으로] / [건너뛰기] 클릭 = 바로 hideSetupScreen → 온보딩 자연 진입 -->
 
-            <!-- 단계 4: 환영 -->
-            <div id="setup-step-4" class="hidden">
-                <div class="lock-icon">🕊️</div>
-                <h2>준비됐어요</h2>
-                <p class="lock-subtitle" style="text-align:left; font-size:13px;">
-                    Sanctum OS는 매일의 일상을 매일의 성소로 잇는 <strong>하나의 시스템</strong>이에요.<br>
-                    오늘 하루를 정직하게 마주하고, 한 걸음씩 자라나는 곳이에요.
-                </p>
-                <ul style="text-align:left; font-size:13px; color:var(--text-secondary); margin: var(--sp-4) 0; line-height: 1.9; padding-left: var(--sp-5)">
-                    <li>아침 — 말씀과 함께 한 줄 묵상</li>
-                    <li>낮 — 시간표에 결단을 박고 살아내기</li>
-                    <li>저녁 — 통합 루프로 오늘 정리하기</li>
-                </ul>
-                <button id="setup-go-btn" class="primary-btn" style="width:100%">첫 묵상으로 가기</button>
-            </div>
         </div>
     `;
     document.body.appendChild(setupOverlay);
@@ -505,38 +473,16 @@ function bindEvents() {
                     `<div class="word-chip"><span class="w-num">${i+1}.</span> ${w}</div>`
                 ).join('');
 
-                // 단계 2 → 3 (샘플 목표 선택)
-                document.getElementById('setup-finish-btn').onclick = () => {
-                    document.getElementById('setup-step-2').classList.add('hidden');
-                    document.getElementById('setup-step-3').classList.remove('hidden');
-                };
-                // (2026-05-19 후속) 사용자 명시 "베타 온보딩 바로" — 24단어 건너뛰기 자리
-                const skipBtn = document.getElementById('setup-skip-recovery-btn');
-                if (skipBtn) {
-                    skipBtn.onclick = () => {
-                        document.getElementById('setup-step-2').classList.add('hidden');
-                        document.getElementById('setup-step-3').classList.remove('hidden');
-                    };
-                }
-
-                // 단계 3 → 4 (샘플 포함 / 빈 상태)
-                const goWithSamples = () => {
-                    document.getElementById('setup-step-3').classList.add('hidden');
-                    document.getElementById('setup-step-4').classList.remove('hidden');
-                    if (_onSetupComplete) _onSetupComplete(vaultData.dek, { includeSampleGoals: true });
-                };
-                const goWithoutSamples = () => {
-                    document.getElementById('setup-step-3').classList.add('hidden');
-                    document.getElementById('setup-step-4').classList.remove('hidden');
+                // (2026-05-19 후속) 사용자 명시 "샘플 목표 자리 제거 / 온보딩 바로" —
+                //   step-3·4 자리 제거 후 step-2 [다음으로] / [건너뛰기] 클릭 = 바로 main 진입.
+                //   includeSampleGoals: false 고정 — 온보딩 step 10 첫 묵상에서 사용자가 자연 자리.
+                const goToMain = () => {
+                    hideSetupScreen();
                     if (_onSetupComplete) _onSetupComplete(vaultData.dek, { includeSampleGoals: false });
                 };
-                document.getElementById('setup-with-samples-btn').onclick = goWithSamples;
-                document.getElementById('setup-skip-samples-btn').onclick = goWithoutSamples;
-
-                // 단계 4 → 메인 화면
-                document.getElementById('setup-go-btn').onclick = () => {
-                    hideSetupScreen();
-                };
+                document.getElementById('setup-finish-btn').onclick = goToMain;
+                const skipBtn = document.getElementById('setup-skip-recovery-btn');
+                if (skipBtn) skipBtn.onclick = goToMain;
 
             } catch (error) {
                 console.error(error);
