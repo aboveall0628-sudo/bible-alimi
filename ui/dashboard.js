@@ -22,7 +22,7 @@
 
 import { db, collection, query, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from '../data/firebase.js';
 import { getDotsByDateRange, computeDotStats } from '../data/dotsRepo.js';
-import { getAllPersons } from '../data/personRepo.js';
+import { getAllPersons, getSelfCard } from '../data/personRepo.js';
 import { getAllOrganizations } from '../data/orgRepo.js';
 import { computeAllPersonStats, computeAllOrgStats, formatMinutes, ratingDotsHtml } from '../data/cardStats.js';
 import { readDocument } from '../crypto/cryptoService.js';
@@ -124,9 +124,11 @@ export async function renderTodayStartIntoView(userId, currentDate) {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = fmt(yesterday);
 
-    const [pinned, yesterdayReport] = await Promise.all([
+    const [pinned, yesterdayReport, selfCard] = await Promise.all([
         getPinnedPrinciple(dek, userId).catch(() => null),
         getDayReport(dek, userId, yesterdayStr).catch(() => null),
+        // (2026-05-19) 인사말 호명용 — 별명 있으면 별명, 없으면 이름. 구글 OAuth 영문 이름 대체.
+        getSelfCard(dek, userId).catch(() => null),
     ]);
 
     // (2026-05-16 fix) 전날 리포트 없으면 — 그 이전 가장 최근 리포트로 fallback.
@@ -150,7 +152,7 @@ export async function renderTodayStartIntoView(userId, currentDate) {
         }
     }
 
-    renderTodayStart(pinned, yesterdayReport);
+    renderTodayStart(pinned, yesterdayReport, selfCard);
     // (2026-05-16) 어제 묵상이 남긴 질문 — 말씀 자리 직전 큰 카드. 사용자가 자연 흐름으로 회개·감사 기도 → 본문 이어가도록.
     renderYesterdayQuestionsCard(questionsSource, sourceDate, baseDate);
     // (2026-05-16) 기도 체크인 2자리 — 묵상 전 감사·회개 + 묵상 후 기도. 둘 다 baseDate 기준 자연.
@@ -284,13 +286,17 @@ function renderLocked() {
 }
 
 // ─── 1) 오늘의 시작 ───────────────────────────────────────
-function renderTodayStart(pinned, yesterdayReport) {
+function renderTodayStart(pinned, yesterdayReport, selfCard) {
     const root = document.getElementById('today-start-content');
     if (!root) return;
 
     const greeting = greetingByHour();
-    const userName = (document.getElementById('user-name')?.textContent || '').trim();
-    const namePart = userName && userName !== '로그인' ? `, ${userName}` : '';
+    // (2026-05-19) 호명 우선순위 — selfCard.nicknames[0] (별명) → selfCard.name (이름) → 호명 생략.
+    //   구글 OAuth 영문 이름은 사용 안 함. 사용자가 프로필에 설정한 값만.
+    const nickname = (Array.isArray(selfCard?.nicknames) && selfCard.nicknames[0] || '').trim();
+    const realName = (selfCard?.name || '').trim();
+    const displayName = nickname || realName;
+    const namePart = displayName ? `, ${displayName}님` : '';
 
     const pinnedBlock = pinned
         ? `

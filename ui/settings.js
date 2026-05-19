@@ -740,10 +740,12 @@ function injectExtraSections() {
     //   isSwanAdmin 아닐 때는 카드 자체 안 그림. 사이드바 메뉴와 같은 게이트.
     // (2026-05-19 후속 fix) admin.js renderAdminView 결로 운영자 카테고리 채움.
     //   사이드바 [운영자] nav 클릭 → settings-group-admin 노출 → 이 자리 결로 자연 채움.
+    // (2026-05-19 fix) 양방향 명시 게이트 — 비관리자에서는 명시 hidden=true.
+    //   이전 버그: 사용자 전환(Swan → 테스트 유저) 후 DOM 잔류 상태로 운영자 메뉴가 계속 노출.
+    const adminGroup = document.getElementById('settings-group-admin');
+    const adminNavBtn = document.querySelector('.sidebar-settings-item[data-target="settings-group-admin"]');
     if (isSwanAdmin(_userId)) {
-        const adminGroup = document.getElementById('settings-group-admin');
         if (adminGroup) adminGroup.hidden = false;
-        const adminNavBtn = document.querySelector('.sidebar-settings-item[data-target="settings-group-admin"]');
         if (adminNavBtn) adminNavBtn.hidden = false;
         const adminBody = document.getElementById('settings-group-body-admin');
         if (adminBody && !adminBody.dataset.adminRendered) {
@@ -754,7 +756,16 @@ function injectExtraSections() {
                 if (typeof window.__sanctumRenderLucide === 'function') {
                     window.__sanctumRenderLucide();
                 }
-            }).catch(e => console.warn('[settings] admin.js 자리 진입 실패:', e?.message || e));
+            }).catch(e => console.warn('[settings] admin.js 진입 실패:', e?.message || e));
+        }
+    } else {
+        // 비관리자 — 메뉴·카테고리·렌더 표식 모두 명시 정리
+        if (adminGroup) adminGroup.hidden = true;
+        if (adminNavBtn) adminNavBtn.hidden = true;
+        const adminBody = document.getElementById('settings-group-body-admin');
+        if (adminBody) {
+            adminBody.innerHTML = '';
+            delete adminBody.dataset.adminRendered;
         }
     }
 
