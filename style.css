@@ -10267,6 +10267,43 @@ html[data-tier="slim"] .qr-tx-section {
     margin-top: 4px;
 }
 
+/* (2026-05-19 후속) 신규 사용자 흐름 시연 6 버튼 — 운영자 페이지 안 */
+.admin-flow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 4px;
+}
+@media (max-width: 600px) {
+    .admin-flow-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.admin-flow-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    padding: 18px 10px;
+    border: 1px solid var(--line, #e4e0d8);
+    border-radius: 12px;
+    background: var(--surface, #fff);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.admin-flow-btn:hover {
+    border-color: var(--accent, #7c8b6f);
+    background: rgba(124, 139, 111, 0.06);
+    transform: translateY(-1px);
+}
+.admin-flow-emoji {
+    font-size: 26px;
+    line-height: 1;
+}
+.admin-flow-label {
+    font-size: 13px;
+    color: var(--ink, #2a2a2a);
+    text-align: center;
+}
+
 /* (2026-05-18 후속) step 8 책 picker — 추천 5권 ↔ 66권 전체 토글 */
 .onboarding-book-picker-head-row {
     display: flex;

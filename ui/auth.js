@@ -120,6 +120,8 @@ function renderSetupScreen() {
                     <strong>두 번째 안전망</strong>을 등록해 둘 수 있어요. (서버측 인증 시스템 도입 후 활성화)
                 </p>
                 <button id="setup-finish-btn" class="primary-btn" style="width:100%" disabled>다음으로</button>
+                <!-- (2026-05-19 후속) 사용자 명시 "베타 온보딩 바로 시작" — 건너뛰기 자리 -->
+                <button id="setup-skip-recovery-btn" class="text-btn" style="width:100%; margin-top:8px; font-size:13px;">지금은 건너뛸게요 (나중에 설정에서 다시 볼 수 있어요)</button>
             </div>
 
             <!-- 단계 3: 샘플 목표 선택 -->
@@ -508,6 +510,14 @@ function bindEvents() {
                     document.getElementById('setup-step-2').classList.add('hidden');
                     document.getElementById('setup-step-3').classList.remove('hidden');
                 };
+                // (2026-05-19 후속) 사용자 명시 "베타 온보딩 바로" — 24단어 건너뛰기 자리
+                const skipBtn = document.getElementById('setup-skip-recovery-btn');
+                if (skipBtn) {
+                    skipBtn.onclick = () => {
+                        document.getElementById('setup-step-2').classList.add('hidden');
+                        document.getElementById('setup-step-3').classList.remove('hidden');
+                    };
+                }
 
                 // 단계 3 → 4 (샘플 포함 / 빈 상태)
                 const goWithSamples = () => {
