@@ -16,6 +16,9 @@ import {
     getAuth, GoogleAuthProvider, signInWithCredential, signOut,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js";
+import {
+    getAnalytics, logEvent, setUserProperties, setUserId, isSupported
+} from "https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js";
 
 // ─── 환경 판단 ───────────────────────────────────────────────
 const _hostname = (typeof window !== 'undefined' && window.location) ? window.location.hostname : '';
@@ -60,10 +63,29 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// ─── GA4 (Firebase Analytics) — 2026-05-19 v82 ───────────────
+//   measurementId 기준 자동 활성화. PROD = G-BG79MS3FZP / DEV = G-VJKVM8V9TR.
+//   isSupported() — 일부 브라우저(ITP·Privacy Browser)에서 작동 안 함 → 안전 가드.
+//   ui/analytics.js 헬퍼에서 분기 결로 사용.
+let _analytics = null;
+isSupported().then(supported => {
+    if (supported) {
+        _analytics = getAnalytics(app);
+        if (typeof console !== 'undefined') {
+            console.log(`[analytics] env=${ENV_LABEL} measurementId=${firebaseConfig.measurementId}`);
+        }
+    }
+}).catch(() => { /* 일부 환경에서 isSupported 자체 실패 — 조용히 통과 */ });
+
+export function getAnalyticsInstance() {
+    return _analytics;
+}
+
 export {
     db, auth,
     doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc,
     collection, collectionGroup, query, where, orderBy, limit, serverTimestamp,
     onSnapshot,
-    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged
+    GoogleAuthProvider, signInWithCredential, signOut, onAuthStateChanged,
+    logEvent, setUserProperties, setUserId
 };

@@ -612,6 +612,16 @@ async function runFeedbackFinalize(userId, feedbackId, turns, context, endReason
             category,
             categoryConfidence: confidence,
         });
+
+        // (2026-05-19 v82) GA4 — 피드백 전송 전환 자리. 본문은 안 보냄.
+        try {
+            const { trackEvent, EVENTS } = await import('./analytics.js');
+            trackEvent(EVENTS.FEEDBACK_SUBMITTED, {
+                end_reason: endReason || 'unknown',
+                category: category || 'other',
+                turn_count: Array.isArray(turns) ? turns.length : 0,
+            });
+        } catch (_) {}
     } catch (e) {
         console.error('[swanFeedback] finalizeFeedback failed:', e);
     }

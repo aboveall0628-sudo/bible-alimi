@@ -1206,6 +1206,21 @@ function renderFinishCard(body) {
     `;
     document.getElementById('onboarding-go-today').addEventListener('click', () => {
         const cb = _state.onComplete;
+
+        // (2026-05-19 v82) GA4 — 사용자 속성 4종 + onboarding_completed 전환 자리
+        try {
+            const draft = _state.draft || {};
+            import('./analytics.js').then(({ setUserProps, trackEvent, EVENTS }) => {
+                setUserProps({
+                    devotional_level: draft.devotionalLevel || 'beginner',
+                    age_tone: draft.ageTone || 'middle',
+                    beta_cohort: '2026_05_W3',
+                    user_role: 'general',
+                });
+                trackEvent(EVENTS.ONBOARDING_COMPLETED);
+            }).catch(() => { /* 분석 실패해도 흐름 영향 X */ });
+        } catch (_) {}
+
         closeOnboardingModal();
         // 어디서 모달을 띄웠든(가입 직후·설정 재시연 모두) 같은 결로 오늘 화면 진입.
         try {

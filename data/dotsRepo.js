@@ -49,6 +49,20 @@ export async function saveDot(dek, dotData) {
     if (dotData.source == null) dotData.source = 'self_report';
     const result = await saveRecord(dek, 'dots', dotData, docId);
 
+    // (2026-05-19 v82) GA4 — 도트 저장 자리. 본문·이름은 절대 안 보냄 (메타만).
+    try {
+        import('../ui/analytics.js').then(({ trackEvent, EVENTS }) => {
+            trackEvent(EVENTS.DOT_SAVED, {
+                kind: dotData.kind || 'schedule',
+                executor: dotData.executor || 'self',
+                source: dotData.source || 'self_report',
+                category: dotData.category || 'unknown',
+                has_person: !!(Array.isArray(dotData.linkedPersonIds) && dotData.linkedPersonIds.length),
+                has_org: !!(Array.isArray(dotData.linkedOrgIds) && dotData.linkedOrgIds.length),
+            });
+        }).catch(() => {});
+    } catch (_) {}
+
     // (본인 프로필 재기획 트랙 2026-05-14 S-B) 자연 발화 보조 트리거.
     //   R18d 결: "도트 평가하다가 자연스럽게 그 차원을 발화하면 미션 자동 클리어".
     //   linkedPersonIds·linkedOrgIds 가 있으면 인물·조직 카드 직접 만들지 않아도 클리어.

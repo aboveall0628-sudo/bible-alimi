@@ -398,6 +398,14 @@ export async function markMissionComplete(dek, userId, missionId, opts = {}) {
             }));
         } catch (_) { /* 이벤트 디스패치 실패는 무시 */ }
     }
+
+    // (2026-05-19 v82) GA4 — 미션 클리어 전환 자리 (영적 안전장치 가드는 analytics.js에서 처리)
+    try {
+        import('../ui/analytics.js').then(({ trackEvent, EVENTS }) => {
+            trackEvent(EVENTS.MISSION_CLEAR, { mission_id: missionId, module_id: moduleId });
+        }).catch(() => { /* 분석 실패해도 흐름 영향 X */ });
+    } catch (_) {}
+
     return true;
 }
 

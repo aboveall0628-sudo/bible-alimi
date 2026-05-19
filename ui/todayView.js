@@ -1207,6 +1207,18 @@ async function saveMeditationDoc() {
                 console.warn('[saveMeditationDoc] mission trigger failed:', e?.message || e);
             }
 
+            // (2026-05-19 v82) GA4 — 묵상 저장 전환 자리.
+            //   본문·기도 내용은 절대 안 보냄 (영적 안전장치). 길이·여부만 메타.
+            try {
+                import('./analytics.js').then(({ trackEvent, EVENTS }) => {
+                    trackEvent(EVENTS.MEDITATION_SAVED, {
+                        has_prayer: !!sensitive.prayer,
+                        has_commitment: !!sensitive.commitment,
+                        content_length: (sensitive.content || '').length,
+                    });
+                }).catch(() => {});
+            } catch (_) {}
+
             // (2026-05-18 후속) 슬림 베타 자리 정합 — 묵상·다짐 저장 시 도트 자동 자리.
             //   주간 리포트 통계가 도트 기반이라 슬림 사용자도 *진짜 리포트* 받을 수 있게.
             //   같은 날 도트는 *덮어쓰기* — id 고정.
