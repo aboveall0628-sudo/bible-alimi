@@ -190,6 +190,16 @@ export function showLockScreen() {
         console.error('[lockScreen] showLockScreen 호출됐는데 lock-screen-overlay div가 없음');
         return false;
     }
+
+    // (2026-05-20 v96 fix) 잠금 화면 자리 자리잡힐 때 자리잡혀 있던 모달 자리 모두 자리잡지 X 자리잡기.
+    //   사용자 점검 "모달 켠 채로 잠시 끄고 다시 로그인하니 비밀번호 화면 바로 앞에 모달 나옴"
+    //   잠금 자리 z-index 2000 자리잡혀 있어도 모달 자리잡힌 자리 DOM 자리잡혀 사용자한테 혼선 자리.
+    try {
+        document.querySelectorAll('.modal-overlay, .swan-overlay, .presurvey-backdrop, .mission-achievement').forEach(m => {
+            m.classList.add('hidden');
+        });
+    } catch (_) {}
+
     // 진행 중이던 fade-out timer 정리 (showLockScreen 빠르게 다시 호출되는 경우).
     if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
     el.classList.remove('hidden');
