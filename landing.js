@@ -38,6 +38,23 @@
             window.lucide.createIcons();
         }
 
+        // 2-b) 추천 코드(?ref=...) 처리
+        //   - sessionStorage 에 저장해 로그인 후 본 앱에서 selfCard.referredBy 로 이어주기
+        //   - 추천인 안내 줄 노출 (코드만 보여줌; 닉네임은 본 앱 진입 후 결합)
+        try {
+            var params = new URLSearchParams(location.search);
+            var ref = params.get('ref');
+            if (ref && /^[A-Za-z0-9_-]{2,32}$/.test(ref)) {
+                sessionStorage.setItem('sanctum.referralCode', ref);
+                var refEl = document.getElementById('landing-referral');
+                var refText = document.getElementById('landing-referral-text');
+                if (refEl && refText) {
+                    refText.textContent = '추천 코드 ' + ref + ' 로 초대받으셨어요';
+                    refEl.classList.remove('hidden');
+                }
+            }
+        } catch (_) { /* sessionStorage 차단 환경 → 그냥 패스 */ }
+
         // Phase E-9/M-1 + (2026-05-16) 뒤로가기 자연 자리잡기:
         //   CTA 클릭 시 e.preventDefault + location.replace 사용 — 랜딩이 브라우저 history 에
         //   안 남도록. 로그인 후 사용자가 뒤로가기 누르면 랜딩으로 되돌아가지 않음.
@@ -52,8 +69,14 @@
                     });
                     return;
                 }
-                // location.replace → history 에 자리잡지 않음
-                location.replace('./index.html?login=true');
+                // location.replace → history 에 자리잡지 않음.
+                // 추천 코드가 있으면 쿼리스트링에도 같이 넘겨줘서 본 앱 부팅 시 양쪽 다 인식.
+                var loginUrl = './index.html?login=true';
+                try {
+                    var savedRef = sessionStorage.getItem('sanctum.referralCode');
+                    if (savedRef) loginUrl += '&ref=' + encodeURIComponent(savedRef);
+                } catch (_) {}
+                location.replace(loginUrl);
             });
         }
 

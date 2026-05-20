@@ -164,7 +164,83 @@ html, body {
     outline-offset: 3px;
 }
 
-/* ── 5. 자물쇠 안내 ────────────────────────────────────────── */
+/* ── 4-b. 추천인 안내 — URL ?ref=코드 있을 때만 노출 ─────────── */
+.landing-referral {
+    margin-top: var(--sp-4);          /* 부제목 → 추천인 16px */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    /* JS 가 .hidden 토글 — ?ref= 없으면 안 그려짐 */
+}
+.landing-referral.hidden { display: none; }
+.landing-referral-icon { font-size: 14px; }
+
+/* ── 5. 기능 3 카드 — 1.5층 가치 보조 ─────────────────────── */
+.landing-features {
+    margin-top: var(--sp-7);          /* CTA → 기능 카드 64px */
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-4);
+}
+@media (max-width: 720px) {
+    .landing-features {
+        grid-template-columns: 1fr;   /* 모바일 1열 세로 */
+        gap: var(--sp-3);
+    }
+}
+.landing-feature {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5) var(--sp-4);
+    text-align: left;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--motion), box-shadow var(--motion);
+}
+.landing-feature:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+.landing-feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-bottom: var(--sp-3);
+}
+.landing-feature-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.75;
+}
+.landing-feature-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-2);
+    line-height: 1.4;
+    word-break: keep-all;
+}
+.landing-feature-desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    word-break: keep-all;
+}
+
+/* ── 5-b. 자물쇠 안내 (기존 자리, 현재 미사용) ───────────── */
 .landing-lock-note {
     margin-top: var(--sp-3);          /* CTA → 안내 12px */
     display: flex;

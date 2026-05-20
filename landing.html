@@ -66,11 +66,42 @@
             <!-- 3. 부제목 -->
             <p class="landing-subtitle">매일의 일상, 매일의 성소, 하나의 시스템</p>
 
+            <!-- 추천인 안내 — URL ?ref=코드 있을 때만 landing.js 가 노출 -->
+            <p class="landing-referral hidden" id="landing-referral" aria-live="polite">
+                <span class="landing-referral-icon" aria-hidden="true">🤝</span>
+                <span class="landing-referral-text" id="landing-referral-text"></span>
+            </p>
+
             <!-- 4. Primary CTA — anchor로 두면 JS가 죽거나 핸들러 등록 전에 눌러도 동작 -->
             <a id="landing-cta" class="landing-cta" href="./index.html?login=true"
                role="button" aria-label="Google 계정으로 시작하기">
                 Google 계정으로 시작하기
             </a>
+
+            <!-- 5. 기능 3 카드 — 1.5층 가치 명제 보조. 묵상·도트·리포트 한 흐름 안내. -->
+            <section class="landing-features" aria-label="Sanctum OS 핵심 기능">
+                <article class="landing-feature">
+                    <div class="landing-feature-icon" aria-hidden="true">
+                        <i data-lucide="book-open"></i>
+                    </div>
+                    <h2 class="landing-feature-title">말씀과 깊이 만나는 자리</h2>
+                    <p class="landing-feature-desc">매일의 묵상이 흘러가 버리지 않게. 깨달은 한 줄을 오늘의 결단으로 이어드려요.</p>
+                </article>
+                <article class="landing-feature">
+                    <div class="landing-feature-icon" aria-hidden="true">
+                        <i data-lucide="circle-dot"></i>
+                    </div>
+                    <h2 class="landing-feature-title">오늘을 한 점으로</h2>
+                    <p class="landing-feature-desc">시간표에 옮긴 결단이 잘 됐는지 3초만에 평가해요. 매일의 결이 쌓여 흐름이 돼요.</p>
+                </article>
+                <article class="landing-feature">
+                    <div class="landing-feature-icon" aria-hidden="true">
+                        <i data-lucide="line-chart"></i>
+                    </div>
+                    <h2 class="landing-feature-title">AI가 흐름을 읽어드려요</h2>
+                    <p class="landing-feature-desc">주간·월간 리포트가 자동으로. 어떤 자리에서 평안했고 어디서 마음이 흔들렸는지 한눈에.</p>
+                </article>
+            </section>
 
             <!-- 6. 스크린샷 — 오늘 화면 미리보기 (실제 dim 1270x911로 CLS 방지) -->
             <img class="landing-screenshot" src="assets/screenshot-today.png"
