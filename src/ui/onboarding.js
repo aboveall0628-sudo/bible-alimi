@@ -63,7 +63,10 @@ import { typeText, shouldReduceMotion, setTextInstant } from './aiThinking.js';
 // (2026-05-20 v105) 사용자 명시 "성경 본문 자리·묵상 트랙 자리 없애기" — 두 step 자기 결로 자리잡지 X.
 //   step 8 (성경 본문 source) · step 9 (묵상 트랙) → renderStep dispatch 자기 결로 자리잡혀 자동 통과.
 //   dot stepper 자기 결로 12개로 자리잡힘 (14 → 12).
-const TOTAL_STEPS = 12;
+// (2026-05-20 v111) 사용자 명시 "온보딩에도 새 묵상 계획 자리잡혔으면" — 묵상 트랙 자리 복원(step 8).
+//   추천 트랙 카드 + [직접 만들기 →] 카드 자리. [직접 만들기] = v110 모달(시작일 자리 숨김).
+//   번역본 자리는 그대로 빠진 결 유지. TOTAL_STEPS 12 → 13.
+const TOTAL_STEPS = 13;
 
 const CUTI_LEVELS = [
     {
@@ -219,6 +222,9 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
             // (S-E7) 묵상 트랙 — step 6 에서 큐티 수준 따라 추천. 'one-book' 선택 시 oneBookAbbr 채워짐.
             selectedTrack: null,         // 'essentials100' | 'preset-4parts' | 'preset-newtestament' | 'one-book' | 'custom'
             oneBookAbbr: null,           // 'one-book' 선택 시 책 약자 ('시'·'요'·'빌'·'잠'·'창')
+            // (v111) 'custom' 선택 시 — v110 모달로 만든 user plan id·name 자리잡혀 자기 결로
+            customPlanId: null,
+            customPlanName: null,
             // 첫 묵상 — step 9 에서 트랙 따라 자동 셋업
             meditationNote: '',
             // step 9 시점 사용자가 본 본문 (저장 시 함께 박힘)
@@ -331,7 +337,7 @@ function renderStep(step) {
     // (베타 슬림 v1 A 묶음 / 후속 의사결정 제거 2026-05-18) 재번호 dispatch.
     // (2026-05-20 v102) step 2 안내 카드 신규.
     // (2026-05-20 v105) 사용자 명시 "성경 본문·묵상 트랙 없애기" — 옛 step 8·9 자리잡지 X 자리잡혀 자동 통과.
-    //   재번호: step 8 (옛 폰트) · step 9 (옛 첫 묵상) · step 10 (옛 결단) · step 11 (옛 타임박싱) · step 12 (옛 매일 알람)
+    // (2026-05-20 v111) 사용자 명시 "온보딩에도" — step 8 = 묵상 트랙 자리 복원. 폰트~알람 step 모두 +1 시프트.
     if (step === 1) renderSwanIntroStep(body);        // SWAN 첫 인사
     else if (step === 2) renderSwanIntroSetupCard(body); // 기본 세팅 안내
     else if (step === 3) renderNameStep(body);
@@ -339,11 +345,12 @@ function renderStep(step) {
     else if (step === 5) renderBirthdayStep(body);    // 양/음력 토글
     else if (step === 6) renderLocationStep(body);    // 도시·타임존
     else if (step === 7) renderCutiStep(body);
-    else if (step === 8) renderFontStep(body);        // (v105) 옛 step 10
-    else if (step === 9) renderMeditationStep(body);  // (v105) 옛 step 11 — 첫 묵상 한 절
-    else if (step === 10) renderCommitmentStep(body); // (v105) 옛 step 12 — 묵상의 결단(목표)
-    else if (step === 11) renderTimeboxStep(body);    // (v105) 옛 step 13 — 어느 시간
-    else if (step === 12) renderDailyAlarmStep(body); // (v105) 옛 step 14 — 매일 묵상 알람
+    else if (step === 8) renderTrackStep(body);       // (v111) 묵상 트랙 자리 복원
+    else if (step === 9) renderFontStep(body);        // (v111) +1 시프트
+    else if (step === 10) renderMeditationStep(body); // (v111) +1 시프트
+    else if (step === 11) renderCommitmentStep(body); // (v111) +1 시프트
+    else if (step === 12) renderTimeboxStep(body);    // (v111) +1 시프트
+    else if (step === 13) renderDailyAlarmStep(body); // (v111) +1 시프트
     else if (step === 99) renderFinishCard(body);
 
     // (2026-05-18 후속) step 9 (폰트 설정) 진입 시 큰 폰트 모드 해제 →
@@ -679,13 +686,16 @@ function renderBibleVersionStep(body) {
     document.getElementById('onboarding-next').addEventListener('click', () => renderStep(9));
 }
 
-// ─── Step 8: 묵상 트랙 (S-E7 신규) ────────────────────────
+// ─── Step 8: 묵상 트랙 (S-E7 신규 / v111 자리 복원) ────────
 function renderTrackStep(body) {
     const level = _state.draft.devotionalLevel || 'basic';
     const rec = RECOMMENDED_TRACKS_BY_LEVEL[level] || RECOMMENDED_TRACKS_BY_LEVEL.basic;
 
-    // 'one-book' 이미 선택된 상태에서 다시 들어오면 책 picker 그대로 노출.
+    // (v111) one-book 선택 시 책 picker 자리 — 그대로 유지 (간단한 1권 통독 결).
     const showBookPicker = _state.draft.selectedTrack === 'one-book' && !_state.draft.oneBookAbbr;
+    // (v111) 사용자가 [직접 만들기] 모달에서 자기 결로 자리잡은 plan
+    const customPlanName = _state.draft.customPlanName || '';
+    const customSelected = _state.draft.selectedTrack === 'custom';
 
     body.innerHTML = `
       <div class="onboarding-card onboarding-card-track">
@@ -717,6 +727,14 @@ function renderTrackStep(body) {
               ${opt.preparing ? '<span class="onboarding-track-coming-foot">1차 베타 후 열어볼 자리예요.</span>' : ''}
             </button>
           `).join('')}
+
+          <!-- (v111) [직접 만들기] 카드 — v110 모달 자리 (시작일 자동 = 오늘) -->
+          <button type="button" class="onboarding-track-card onboarding-track-card-custom${customSelected ? ' selected' : ''}"
+                  id="onboarding-track-custom">
+            <span class="onboarding-track-icon" aria-hidden="true">🪄</span>
+            <span class="onboarding-track-label">직접 만들기</span>
+            <span class="onboarding-track-desc">${customSelected && customPlanName ? `✓ ${escapeHtml(customPlanName)}` : '원하는 책·진행 속도 자유롭게 자리잡혀요'}</span>
+          </button>
         </div>
 
         <div id="onboarding-book-picker" class="onboarding-book-picker"${showBookPicker ? '' : ' hidden'}>
@@ -773,11 +791,13 @@ function renderTrackStep(body) {
         const track = _state.draft.selectedTrack;
         if (!track) { nextBtn.disabled = true; return; }
         if (track === 'one-book' && !_state.draft.oneBookAbbr) { nextBtn.disabled = true; return; }
+        if (track === 'custom' && !_state.draft.customPlanId) { nextBtn.disabled = true; return; }
         nextBtn.disabled = false;
     };
     updateBtn();
 
-    document.querySelectorAll('.onboarding-track-card').forEach(btn => {
+    // (v111) 추천·옵션 트랙 카드 — [직접 만들기]는 별도 핸들러
+    document.querySelectorAll('.onboarding-track-card:not(.onboarding-track-card-custom)').forEach(btn => {
         btn.addEventListener('click', () => {
             // (S-E7.2) preparing 트랙은 클릭 무시 — 시각적 비활성 + 안내만.
             if (btn.classList.contains('disabled')) return;
@@ -791,6 +811,26 @@ function renderTrackStep(body) {
             updateBtn();
         });
     });
+
+    // (v111) [직접 만들기] 카드 클릭 → v110 모달(시작일 숨김) 띄움.
+    const customBtn = document.getElementById('onboarding-track-custom');
+    if (customBtn) {
+        customBtn.addEventListener('click', () => {
+            import('./settings.js').then(({ openNewPlanModal }) => {
+                openNewPlanModal({
+                    hideStartDate: true,
+                    onCreate: (plan) => {
+                        _state.draft.selectedTrack = 'custom';
+                        _state.draft.customPlanId = plan.id;
+                        _state.draft.customPlanName = plan.name;
+                        _state.draft.oneBookAbbr = null;
+                        // 카드 갱신 — 같은 step 다시 렌더해서 ✓ 선택 결 자연 자리잡혀
+                        renderStep(8);
+                    },
+                });
+            }).catch((e) => console.warn('[onboarding] openNewPlanModal failed:', e));
+        });
+    }
 
     // (2026-05-18 후속) 책 선택 — 추천 5권 또는 66권 칩 어디든 클릭 가능.
     const onBookSelect = (abbr) => {
@@ -829,9 +869,9 @@ function renderTrackStep(body) {
         });
     }
 
-    // (베타 슬림 v1 A 묶음) track: back=7(bible) · next=9(font)
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
-    nextBtn.addEventListener('click', () => renderStep(8));
+    // (v111) track: back=7(cuti) · next=9(font)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
+    nextBtn.addEventListener('click', () => renderStep(9));
 }
 
 // ─── Step 9: 폰트 크기 ────────────────────────────────────
@@ -895,18 +935,18 @@ function renderFontStep(body) {
             });
         });
     });
-    // (의사결정 제거 후속 2026-05-18) font: back=8(track) · next=10(meditation으로 직접 — principle 빈 자리)
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
+    // (v111 자리 시프트) font: back=8(track) · next 설문→10(meditation)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
     // (Phase 2-1 / 2026-05-18 사용자 명시 "폰트 크기 선택하고 바로 설문으로 들어가는게 좋을 것 같아")
     //   폰트 후 → 사전 설문 자연 진입 → 마침 시 step 10 자연 이어. 사전 설문 미준비 시 곧장 step 10.
     document.getElementById('onboarding-next').addEventListener('click', () => {
         if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
             window.__sanctumOpenPreSurveyForm({
-                onComplete: () => renderStep(9),
+                onComplete: () => renderStep(10),
             });
             return;
         }
-        renderStep(9);
+        renderStep(10);
     });
 }
 
@@ -1015,16 +1055,14 @@ function renderMeditationStep(body) {
 
     // 오늘 묵상 이미 있는지 비동기 체크 — 있으면 안내 카드 노출, 합치기 모드로 작동
     checkExistingMeditation().catch(() => {});
-    // (의사결정 제거 후속 2026-05-18) meditation: back=9(font로 직접 — principle 빈 자리)
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
-    // (2단계 진입 2026-05-18) meditation 의 [나중에]·[다음] = step 11(결단)로 이동.
-    //   persistAll 은 마지막 step (현재 13) 끝나는 시점에만 호출.
+    // (v111 자리 시프트) meditation: back=9(font) · skip/next=11(commitment)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.meditationNote = '';
-        renderStep(10);
+        renderStep(11);
     });
     document.getElementById('onboarding-next-meditation').addEventListener('click', () => {
-        renderStep(10);
+        renderStep(11);
     });
 }
 
@@ -1049,12 +1087,13 @@ function renderCommitmentStep(body) {
     `;
     const textarea = document.getElementById('onboarding-commitment');
     textarea.addEventListener('input', () => { _state.draft.firstCommitment = textarea.value.trim(); });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
+    // (v111 자리 시프트) commitment: back=10(meditation) · skip/next=12(timebox)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.firstCommitment = '';
-        renderStep(11);
+        renderStep(12);
     });
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(11));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(12));
 }
 
 // ─── Step 11 (v105): 오늘의 시간표 — 2단계 2026-05-18 / v105 카피 갈아끼움 ───
@@ -1080,12 +1119,13 @@ function renderTimeboxStep(body) {
     timeInput.addEventListener('input', () => { _state.draft.firstCommitmentTime = timeInput.value; });
     // 초기 디폴트 자리잡기
     if (!_state.draft.firstCommitmentTime) _state.draft.firstCommitmentTime = '19:00';
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
+    // (v111 자리 시프트) timebox: back=11(commitment) · skip/next=13(dailyAlarm)
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(11));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.firstCommitmentTime = '';
-        renderStep(12);
+        renderStep(13);
     });
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(12));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(13));
 }
 
 // ─── Step 13: 매일 묵상 알람 시간 — 2단계 2026-05-18 ────────
@@ -1165,7 +1205,8 @@ function renderDailyAlarmStep(body) {
         });
     }
 
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(11));
+    // (v111 자리 시프트) dailyAlarm: back=12(timebox) · finish=99
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(12));
     document.getElementById('onboarding-finish').addEventListener('click', async () => {
         const finishBtn = document.getElementById('onboarding-finish');
         finishBtn.disabled = true;

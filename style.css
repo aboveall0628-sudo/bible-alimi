@@ -3253,6 +3253,11 @@ html[data-note-font="serif"] .note-editor h3 {
     text-transform: none; letter-spacing: 0;
     margin-left: 6px;
 }
+/* (v111) 온보딩 backdrop(9500) 위에 띄우기 — 온보딩 안 [직접 만들기] 자리 */
+#new-plan-modal { z-index: 10000; }
+/* (v111) 시작일 자리 숨김 + 진행 속도만 한 줄 — hideStartDate 모드 */
+.newplan-options-row-single .newplan-field-inline { flex: 1 1 100%; }
+
 /* (v109 결 C #3) 그룹 단위 전체 선택 토글 */
 .newplan-group-toggle {
     background: transparent;
@@ -9051,6 +9056,28 @@ button.mission-progress-block:hover {
 .onboarding-track-card-highlight {
     border-color: var(--accent-soft, #b5bcae);
     background: var(--surface, #fbfaf6);
+}
+
+/* (v111) [직접 만들기] 카드 — 모달 띄우는 자리. dashed border 톤으로 "내가 만든다" 결 강조 */
+.onboarding-track-card-custom {
+    grid-column: 1 / -1;
+    border-style: dashed;
+    border-color: var(--accent-soft, #b5bcae);
+    background: transparent;
+}
+.onboarding-track-card-custom:hover {
+    border-color: var(--accent, #6d7666);
+    border-style: dashed;
+    background: var(--surface-elev, #f4f1ea);
+}
+.onboarding-track-card-custom.selected {
+    border-style: solid;
+    border-color: var(--accent, #6d7666);
+    background: var(--accent-bg, #eef0ea);
+}
+.onboarding-track-card-custom.selected .onboarding-track-desc {
+    color: var(--accent, #6d7666);
+    font-weight: 500;
 }
 
 /* (S-E7.2) "곧 열려요" — 1차 베타 후 풀릴 자리 (예: 직접 만들기) */

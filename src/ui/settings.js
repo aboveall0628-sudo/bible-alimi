@@ -2542,8 +2542,13 @@ function refreshScriptureCard() {
  * Phase E-8/B-2: "새 묵상 계획 만들기" 모달.
  * 이름 입력 + 책 자유 선택(4파트 그룹). 1권 이상 선택 + 이름 있으면 [만들기] 활성.
  * 만들면 그 계획으로 자동 활성화되고 카드 다시 그림.
+ *
+ * (2026-05-20 v111 — 온보딩 진입) opts:
+ *   - hideStartDate: true 면 시작일 input 자리 숨김(자동 = 오늘)
+ *   - onCreate: 모달이 만들기 성공 후 호출, plan 객체 전달. refreshScriptureCard 자리는 건너뛰고 호출처에 위임.
  */
-function openNewPlanModal() {
+export function openNewPlanModal(opts = {}) {
+    const { hideStartDate = false, onCreate = null } = opts;
     // 이미 열려있으면 무시
     if (document.getElementById('new-plan-modal')) return;
 
@@ -2659,11 +2664,12 @@ function openNewPlanModal() {
                     <p class="setting-hint" style="margin: 4px 0 var(--sp-2);">한 권씩 골라도 좋고, 그룹 옆 <b>전체 자기 결로</b> 자리잡으면 한 번에 자기 결로.</p>
                     <div id="newplan-books" class="newplan-books">${bookGroups}</div>
                 </div>
-                <div class="newplan-options-row">
+                <div class="newplan-options-row${hideStartDate ? ' newplan-options-row-single' : ''}">
+                    ${hideStartDate ? '' : `
                     <label class="newplan-field newplan-field-inline">
                         <span>시작일</span>
                         <input id="newplan-start" type="date" value="${todayISO}" min="${todayISO}">
-                    </label>
+                    </label>`}
                     <label class="newplan-field newplan-field-inline">
                         <span>진행 속도</span>
                         <select id="newplan-pace">
@@ -2695,7 +2701,7 @@ function openNewPlanModal() {
     const countEl = overlay.querySelector('#newplan-count');
     const totalEl = overlay.querySelector('#newplan-total');
     const selectedListEl = overlay.querySelector('#newplan-selected-list');
-    const startInp = overlay.querySelector('#newplan-start');
+    const startInp = overlay.querySelector('#newplan-start'); // hideStartDate면 null
     const paceSel = overlay.querySelector('#newplan-pace');
     const createBtn = overlay.querySelector('#newplan-create-btn');
 
@@ -2791,11 +2797,17 @@ function openNewPlanModal() {
             else planName = `${titles[0]} 외 ${titles.length - 1}권 묵상`;
         }
         // (2026-05-20 v109) 시작일 + 진행 속도 자리잡혀 자기 결로 자기 자리
-        const startDate = startInp.value || null;
+        // (v111) hideStartDate면 startInp=null·startDate=null(addUserPlan 안 오늘 자동)
+        const startDate = startInp ? (startInp.value || null) : null;
         const pace = Number(paceSel.value || 1);
         const plan = addUserPlan({ name: planName, books, startDate, pace });
         close();
         if (plan) {
+            // (v111) onCreate 콜백 자리 있으면 외부 호출처(온보딩)에 위임. 토스트·refreshScriptureCard 건너뛰기.
+            if (typeof onCreate === 'function') {
+                try { onCreate(plan); } catch {}
+                return;
+            }
             refreshScriptureCard();
             // (v109 ⑦) 만들기 후 흐름 — 토스트 + 첫 본문 보러 가기 CTA
             //   시작일이 오늘이면 "첫 본문 보러 갈까요?", 미래면 안내만.
