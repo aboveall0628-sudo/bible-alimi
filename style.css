@@ -3118,6 +3118,29 @@ html[data-note-font="serif"] .note-editor h3 {
     max-height: 360px; overflow-y: auto;
     padding: var(--sp-2);
 }
+/* (2026-05-20 v107) 구약·신약 자리 헤더 */
+.newplan-testament {
+    margin-bottom: var(--sp-4);
+}
+.newplan-testament:last-child { margin-bottom: 0; }
+.newplan-testament-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 8px 4px;
+    border-bottom: 2px solid var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+}
+.newplan-book-chapters {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-left: 2px;
+}
+.newplan-book:has(input:checked) .newplan-book-chapters {
+    color: var(--accent);
+}
 .newplan-group { margin-bottom: var(--sp-3); }
 .newplan-group:last-child { margin-bottom: 0; }
 .newplan-group-title {

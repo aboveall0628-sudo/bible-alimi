@@ -505,7 +505,7 @@ function injectExtraSections() {
     bibleVersionCard.innerHTML = `
         <h3 class="section-title"><i class="section-icon" data-lucide="book-open"></i> 성경 번역본</h3>
         <p class="section-desc">
-            지금은 개역개정으로 만나실 수 있어요. 다른 번역본도 곧 준비 중이에요. 준비 끝나면 알림으로 알려드릴게요.
+            지금은 개역개정으로 만나실 수 있어요.
         </p>
         <div id="settings-bible-version-list" class="settings-bible-list"></div>
     `;
@@ -2319,17 +2319,85 @@ function openNewPlanModal() {
     overlay.id = 'new-plan-modal';
     overlay.className = 'modal-overlay';
 
-    const bookGroups = BIBLE_METADATA.parts.map(part => {
-        const items = part.books.map(([abbr, full]) => `
-            <label class="newplan-book">
-                <input type="checkbox" name="newplan-book" value="${abbr}" data-full="${escapeAttr(full)}" data-chapters="${part.books.find(b => b[0] === abbr)[2]}">
-                <span>${full}</span>
-            </label>
-        `).join('');
+    // (2026-05-20 v107) 사용자 명시 — 성경 66권 자기 결로 자기 자리 순서, 구약/신약 + 5/4 카테고리, 총 장수 옆.
+    //   기존 4파트(매일성경) 자리 자기 결로 자리잡지 X · 새 BIBLE_BOOK_GROUPS 자기 결로 자기 자리잡혀.
+    const BIBLE_BOOK_GROUPS = [
+        {
+            testament: '구약',
+            groups: [
+                { name: '모세오경', books: [
+                    ['창', '창세기', 50], ['출', '출애굽기', 40], ['레', '레위기', 27],
+                    ['민', '민수기', 36], ['신', '신명기', 34],
+                ]},
+                { name: '역사서', books: [
+                    ['수', '여호수아', 24], ['삿', '사사기', 21], ['룻', '룻기', 4],
+                    ['삼상', '사무엘상', 31], ['삼하', '사무엘하', 24],
+                    ['왕상', '열왕기상', 22], ['왕하', '열왕기하', 25],
+                    ['대상', '역대상', 29], ['대하', '역대하', 36],
+                    ['라', '에스라', 10], ['느', '느헤미야', 13], ['에', '에스더', 10],
+                ]},
+                { name: '시가서', books: [
+                    ['욥', '욥기', 42], ['시', '시편', 150], ['잠', '잠언', 31],
+                    ['전', '전도서', 12], ['아', '아가', 8],
+                ]},
+                { name: '대선지서', books: [
+                    ['사', '이사야', 66], ['렘', '예레미야', 52], ['애', '예레미야 애가', 5],
+                    ['겔', '에스겔', 48], ['단', '다니엘', 12],
+                ]},
+                { name: '소선지서', books: [
+                    ['호', '호세아', 14], ['욜', '요엘', 3], ['암', '아모스', 9],
+                    ['옵', '오바댜', 1], ['요나', '요나', 4], ['미', '미가', 7],
+                    ['나', '나훔', 3], ['합', '하박국', 3], ['습', '스바냐', 3],
+                    ['학', '학개', 2], ['슥', '스가랴', 14], ['말', '말라기', 4],
+                ]},
+            ],
+        },
+        {
+            testament: '신약',
+            groups: [
+                { name: '복음서', books: [
+                    ['마', '마태복음', 28], ['막', '마가복음', 16], ['눅', '누가복음', 24],
+                    ['요', '요한복음', 21],
+                ]},
+                { name: '역사서', books: [
+                    ['행', '사도행전', 28],
+                ]},
+                { name: '서신서', books: [
+                    ['롬', '로마서', 16], ['고전', '고린도전서', 16], ['고후', '고린도후서', 13],
+                    ['갈', '갈라디아서', 6], ['엡', '에베소서', 6], ['빌', '빌립보서', 4],
+                    ['골', '골로새서', 4], ['살전', '데살로니가전서', 5], ['살후', '데살로니가후서', 3],
+                    ['딤전', '디모데전서', 6], ['딤후', '디모데후서', 4], ['딛', '디도서', 3],
+                    ['몬', '빌레몬서', 1], ['히', '히브리서', 13], ['약', '야고보서', 5],
+                    ['벧전', '베드로전서', 5], ['벧후', '베드로후서', 3],
+                    ['요일', '요한1서', 5], ['요이', '요한2서', 1], ['요삼', '요한3서', 1],
+                    ['유', '유다서', 1],
+                ]},
+                { name: '예언서', books: [
+                    ['계', '요한계시록', 22],
+                ]},
+            ],
+        },
+    ];
+
+    const bookGroups = BIBLE_BOOK_GROUPS.map(testament => {
+        const groupHtml = testament.groups.map(grp => {
+            const items = grp.books.map(([abbr, full, chapters]) => `
+                <label class="newplan-book">
+                    <input type="checkbox" name="newplan-book" value="${abbr}" data-full="${escapeAttr(full)}" data-chapters="${chapters}">
+                    <span>${full} <span class="newplan-book-chapters">${chapters}장</span></span>
+                </label>
+            `).join('');
+            return `
+                <div class="newplan-group">
+                    <div class="newplan-group-title">${grp.name} <span class="newplan-group-desc">${grp.books.length}권</span></div>
+                    <div class="newplan-group-books">${items}</div>
+                </div>
+            `;
+        }).join('');
         return `
-            <div class="newplan-group">
-                <div class="newplan-group-title">${part.name.replace('파트', 'P')} <span class="newplan-group-desc">${part.desc}</span></div>
-                <div class="newplan-group-books">${items}</div>
+            <div class="newplan-testament">
+                <div class="newplan-testament-title">${testament.testament}</div>
+                ${groupHtml}
             </div>
         `;
     }).join('');
@@ -2385,16 +2453,17 @@ function openNewPlanModal() {
     overlay.querySelector('.modal-cancel-btn').addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-    // 만들기 — 체크된 책들을 [abbr, full, chapters] 튜플로 모아 addUserPlan
+    // (2026-05-20 v107) 만들기 — 체크된 책들을 성경 순서(BIBLE_BOOK_GROUPS) 자기 결로 자기 자리.
     createBtn.addEventListener('click', () => {
         const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
         if (checked.length === 0) return;
-        // 원래 4파트 순서를 유지하려면 BIBLE_METADATA 순서대로 모음
         const checkedSet = new Set(checked.map(c => c.value));
         const books = [];
-        BIBLE_METADATA.parts.forEach(part => {
-            part.books.forEach(([abbr, full, chapters]) => {
-                if (checkedSet.has(abbr)) books.push([abbr, full, chapters]);
+        BIBLE_BOOK_GROUPS.forEach(testament => {
+            testament.groups.forEach(grp => {
+                grp.books.forEach(([abbr, full, chapters]) => {
+                    if (checkedSet.has(abbr)) books.push([abbr, full, chapters]);
+                });
             });
         });
         const plan = addUserPlan({ name: nameInp.value, books });

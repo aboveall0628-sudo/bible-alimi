@@ -97,6 +97,10 @@ function _ensureOsListener() {
 function renderThemeChips() {
     const row = document.getElementById('theme-mode-row');
     if (!row) return;
+    // (v103 후속) 옛 settings-font-chip-row 클래스 자리 잡혀 있으면 제거 — 캐시 자리 호환.
+    if (row.classList.contains('settings-font-chip-row')) {
+        row.classList.remove('settings-font-chip-row');
+    }
     const current = getThemeMode();
     row.innerHTML = `
         <select id="theme-mode-select" class="settings-select" aria-label="화면 모드 선택">

@@ -18,24 +18,15 @@
  *   현재 코드에 본문 데이터가 들어 있는 건 "개역개정" 단일.
  *   다른 번역본은 자리만 마련 (preparing=true) — 사용자가 알아챌 수 있게.
  */
+// (2026-05-20 v106) 사용자 명시 "새번역·NIV 한글 자리잡지 X · 나중에 생기면 자기 결로 추가" —
+//   '준비 중' 자리잡혔던 자리 자기 결로 자리잡혀 자리잡지 X. 자기 결로 자기 결로 자리잡혀 자기 자리잡혀 자리.
+//   미래 자리잡혀 자기 결로 자리잡힐 후보 = 새번역·NIV 한글·공동번역·매일성경 등.
 export const BIBLE_VERSIONS = [
     {
         id: 'krv',
         label: '개역개정',
         desc: '한국 교회에서 가장 널리 읽혀요. 디폴트.',
         preparing: false,
-    },
-    {
-        id: 'new-korean',
-        label: '새번역',
-        desc: '현대어로 자연스럽게 풀어 옮긴 번역.',
-        preparing: true,
-    },
-    {
-        id: 'niv-korean',
-        label: 'NIV 한글',
-        desc: '국제 표준 영문 NIV의 한글 짝.',
-        preparing: true,
     },
 ];
 

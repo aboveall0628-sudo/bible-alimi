@@ -48,10 +48,10 @@ let _gcalEvents = [];  // plan 레인의 외부 일정
 let _onChange = null;  // 데이터 갱신 시 외부에 알리기 (todayView가 결단 패널 다시 그릴 수 있게)
 
 // 모바일 변수
+// (2026-05-20) 사용자 결정 — 핀치 줌은 viewport 자체 줌과 충돌 우려로 제외.
+// 가변 폰트는 rem 단위 + 시스템 폰트 설정으로 자연 자리잡혀요. (디자인 시스템 v1 §접근성 정합)
 let _mobileTab = 'plan'; // 'plan' | 'actual'
 const _tabScrollPos = { plan: 0, actual: 0 }; // 탭별 스크롤 위치 보존
-let _mobileZoomScale = 1.0; // 핀치 줌 배율 (0.8 ~ 1.8)
-let _pinchInitDist = 0; // 핀치 제스처 최초 거리
 
 /**
  * 타임라인 마운트 (앱 시작 시 1회)
@@ -66,7 +66,7 @@ export function initTimeline({ userId, date, onChange }) {
 /**
  * 데이터 다시 로드 + 렌더 (잠금 해제, 날짜 변경, 평가 저장 후 호출)
  */
-export async function refreshTimeline({ userId, date, scrollToNow = false, fromSave = false }) {
+export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     _userId = userId;
     _date = date;
     const dek = getDEK();
@@ -102,11 +102,8 @@ export async function refreshTimeline({ userId, date, scrollToNow = false, fromS
 
     render();
 
-    // 모바일 자동 전환 처리
-    if (fromSave && window.matchMedia('(max-width: 768px)').matches) {
-        _mobileTab = 'actual';
-        renderMobile();
-    }
+    // (2026-05-20) 저장 후 자동 탭 전환은 사용자 결정으로 제외. 평가 모달은 항상 실제 탭에서
+    // 열리므로 자동 전환 효과 거의 없음 — 사용자 자리 그대로 두는 자연 결.
 
     // 마운트/날짜 변경/사용자 명시 액션에서만 현재 시간으로 이동.
     // 인라인 저장 후 refresh 같은 자동 refresh는 사용자 스크롤 위치를 보존.
@@ -210,52 +207,18 @@ function renderDesktop() {
     bindCellEvents(actualCol, 'actual');
 }
 
-function bindMobileZoom(el) {
-    el.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
-            _pinchInitDist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-        }
-    }, { passive: true });
-
-    el.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && _pinchInitDist > 0) {
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            const factor = dist / _pinchInitDist;
-            // 0.8배 ~ 1.8배 범위 제한
-            const newScale = Math.min(Math.max(_mobileZoomScale * factor, 0.8), 1.8);
-            el.style.setProperty('--mobile-zoom-scale', newScale.toFixed(2));
-        }
-    }, { passive: true });
-
-    el.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) {
-            const currentVar = parseFloat(el.style.getPropertyValue('--mobile-zoom-scale') || '1.0');
-            _mobileZoomScale = currentVar;
-            _pinchInitDist = 0;
-        }
-    });
-}
-
 function renderMobile() {
     const list = document.getElementById('utl-mobile-list');
     if (!list) return;
 
-    // Fix 5: 스크롤 위치 기록
-    const scrollEl = document.getElementById('main-content') || window;
-    const currentScroll = scrollEl.scrollTop || window.scrollY || 0;
-    _tabScrollPos[_mobileTab] = currentScroll;
+    // Fix 5: 탭 전환 직전 스크롤 위치 보존 (탭별 자리 자연 복원)
+    _tabScrollPos[_mobileTab] = list.scrollTop;
 
-    // A. planSlots (계획 탭 카드들)
+    // A. planSlots (계획 탭 카드들) — TDS 카피 안 이모지 X (📅 접두사 제거)
     const planSlots = _decisions.filter(d => d.timeSlot != null).map(d => ({
         slot: d.timeSlot,
         duration: d.durationSlots || 4,
-        label: (d.gcalEventId ? '📅 ' : '') + (d.title ?? d.text ?? '(이름 없음)'),
+        label: d.title ?? d.text ?? '(이름 없음)',
         kind: 'decision',
         id: d.id
     })).sort((a, b) => a.slot - b.slot);
@@ -314,13 +277,15 @@ function renderMobile() {
             <div class="utl-mobile-guide-card" data-decision-id="${item.id}" data-slot="${item.slot}" data-label="${escapeHtml(item.label)}">
                 <span class="utl-mobile-guide-card-time">${slotToTime(item.slot)}</span>
                 <div class="utl-mobile-guide-card-label">${escapeHtml(item.label)}</div>
-                <div class="utl-mobile-guide-card-cta">👉 실제 기록하고 평가</div>
+                <div class="utl-mobile-guide-card-cta">어땠나요?</div>
             </div>
         `).join('');
 
+        // (TDS 정합) 카피 안 이모지 X · "평가" 단어 우회 — 인과·관찰 결로 표현
         guideCarouselHtml = `
             <div class="utl-mobile-guide-container">
-                <div class="utl-mobile-guide-title">💡 오늘 이런 계획이 있었어요! 실제로는 어땠나요?</div>
+                <div class="utl-mobile-guide-title">오늘 이런 계획이 있었어요</div>
+                <div class="utl-mobile-guide-sub">실제로는 어땠나요?</div>
                 <div class="utl-mobile-guide-carousel">
                     ${cardsHtml}
                 </div>
@@ -360,9 +325,7 @@ function renderMobile() {
                     <div class="utl-mobile-body">
                         <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
                         ${item.linkedPlanTitle ? `
-                            <div class="utl-mobile-plan-origin">
-                                📋 계획 출처: ${escapeHtml(item.linkedPlanTitle)}
-                            </div>
+                            <div class="utl-mobile-plan-origin">계획 출처: ${escapeHtml(item.linkedPlanTitle)}</div>
                         ` : ''}
                     </div>
                 </div>
@@ -376,12 +339,24 @@ function renderMobile() {
         </div>
     `;
 
+    // (TDS) "박" 어간·"평가" 단어 우회 + 명령형 → 해요체
+    // 계획 빈 자리 — 다음 자리로 자연 안내하는 카드 (명세 정합)
+    const planEmptyHtml = `
+        <div class="utl-empty-card utl-mobile-plan-empty" style="text-align:center;">
+            <p>아직 계획이 없어요.<br>오늘의 목표를 추가하고 시간표로 옮겨 보세요.</p>
+            <button type="button" class="utl-mobile-plan-empty-link"
+                style="margin-top:var(--sp-3); padding:var(--sp-2) var(--sp-4); border-radius:var(--radius); background:var(--accent-soft); color:var(--accent); border:none; font-weight:600; cursor:pointer;"
+                onclick="document.getElementById('section-decisions')?.scrollIntoView({behavior:'smooth'})">
+                오늘의 목표로 이동
+            </button>
+        </div>
+    `;
     const bodyHtml = _mobileTab === 'plan'
         ? (planEmpty
-            ? emptyHtml('아직 계획이 비어있어요. 오늘의 목표를 적거나, 등산로에서 한 걸음을 박아 보세요.')
+            ? planEmptyHtml
             : planSlots.map(renderRow).join(''))
         : (actualEmpty
-            ? emptyHtml('아직 기록이 없어요. 계획 탭의 슬롯을 톡 눌러 평가하거나, 아래 [+ 추가] 로 빈 시간을 채워 보세요.')
+            ? emptyHtml('아직 비어있어요. 위 안내 카드를 톡 누르거나, 아래 [+ 추가]로 자유롭게 적어 보세요.')
             : actualSlots.map(renderRow).join(''));
 
     const addBtnHtml = _mobileTab === 'actual'
@@ -389,10 +364,6 @@ function renderMobile() {
         : '';
 
     list.innerHTML = `${tabsHtml}${guideCarouselHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>${addBtnHtml}`;
-
-    // 핀치 줌 배율 및 제스처 바인딩
-    list.style.setProperty('--mobile-zoom-scale', _mobileZoomScale.toFixed(2));
-    bindMobileZoom(list);
 
     // 탭 클릭
     list.querySelectorAll('.utl-mobile-tab').forEach(btn => {
@@ -435,12 +406,13 @@ function renderMobile() {
                         const dek = getDEK();
                         if (dek) {
                             try {
-                                await deleteDot(dek, _userId, dotId);
+                                // dotsRepo.deleteDot 시그니처는 (id) 한 인자.
+                                await deleteDot(dotId);
                                 showToast('기록을 지웠어요');
                                 if (_onChange) _onChange();
                                 await refreshTimeline({ userId: _userId, date: _date });
                             } catch (e) {
-                                showToast('지우는 중에 잠깐 막혔어요');
+                                showToast('지우는 중에 잠깐 멈췄어요. 다시 시도해 보세요.');
                             }
                         }
                     }
@@ -460,8 +432,8 @@ function renderMobile() {
             if (preventClick) return;
 
             if (_mobileTab === 'plan') {
-                // 계획 탭 카드 클릭 시 토스트 피드백만
-                showToast('평가는 [실제] 탭에서 해 주세요. 계획은 오늘을 타임박싱하는 의도 선언이에요.');
+                // 계획 탭 카드 클릭 시 — 의도 선언 자리. 돌아봄은 실제 탭에서 (TDS "평가" 우회)
+                showToast('실제 탭에서 함께 돌아봐요. 계획 자리는 오늘 시간표에 넣은 의도예요.');
                 return;
             }
 
@@ -508,22 +480,34 @@ function renderMobile() {
         });
     }
 
-    // 좌우 스와이프 — 사용자 결정 (2026-05-13)
+    // 좌우 스와이프 (세로 우선 + 80px 임계값 — Fix 4)
     bindMobileSwipe(list);
+
+    // Fix 5: 스크롤 위치 복원 — 탭 전환 후 사용자가 보던 자리 자연 자리잡힘
+    requestAnimationFrame(() => {
+        list.scrollTop = _tabScrollPos[_mobileTab] || 0;
+    });
 }
 
 let _swipeStartX = null;
+let _swipeStartY = null;
 function bindMobileSwipe(el) {
     el.addEventListener('touchstart', (e) => {
         _swipeStartX = e.touches[0]?.clientX ?? null;
+        _swipeStartY = e.touches[0]?.clientY ?? null;
     }, { passive: true });
     el.addEventListener('touchend', (e) => {
-        if (_swipeStartX == null) return;
+        if (_swipeStartX == null || _swipeStartY == null) return;
         const endX = e.changedTouches[0]?.clientX ?? _swipeStartX;
+        const endY = e.changedTouches[0]?.clientY ?? _swipeStartY;
         const dx = endX - _swipeStartX;
+        const dy = endY - _swipeStartY;
         _swipeStartX = null;
-        // 50px 이상 좌우 스와이프 시 탭 전환
-        if (Math.abs(dx) < 50) return;
+        _swipeStartY = null;
+        // 세로 움직임이 우세하면 = 스크롤 의도. 탭 전환 X (간섭 차단)
+        if (Math.abs(dy) > Math.abs(dx)) return;
+        // 가로 80px 이상에서만 탭 전환 (실수 슬라이드 방지)
+        if (Math.abs(dx) < 80) return;
         if (dx < 0 && _mobileTab === 'plan')  { _mobileTab = 'actual'; renderMobile(); }
         if (dx > 0 && _mobileTab === 'actual') { _mobileTab = 'plan';   renderMobile(); }
     });
