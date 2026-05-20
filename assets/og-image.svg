@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- 배경 warm beige -->
+  <rect width="1200" height="630" fill="#F7F5F2"/>
+
+  <!-- vignette (가운데 살짝 밝게) -->
+  <defs>
+    <radialGradient id="vg" cx="50%" cy="46%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ECEAE3" stop-opacity="1"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#vg)"/>
+
+  <!-- 1. Sanctum mark — 두 보관함 + 수직 축 (currentColor 자리에 직접 올리브 박힘) -->
+  <g transform="translate(528 80) scale(1.6)">
+    <path fill="none" stroke="#5F6F4A" stroke-width="6"
+          stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="2"
+          d="M 50 10 L 50 60 L 85 60 L 85 25 L 20 25 L 20 75 L 70 75 L 70 40 L 35 40 L 35 100"/>
+  </g>
+
+  <!-- 2. BETA chip — accent-soft 필 + 올리브 텍스트 (landing 정합) -->
+  <g transform="translate(557 280)">
+    <rect width="86" height="32" rx="16" fill="rgba(95,111,74,0.10)"/>
+    <text x="43" y="22" text-anchor="middle"
+          font-family="Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+          font-weight="600" font-size="16" fill="#5F6F4A" letter-spacing="0.1em">BETA</text>
+  </g>
+
+  <!-- 3. 제목 Sanctum OS -->
+  <text x="600" y="412" text-anchor="middle"
+        font-family="Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+        font-weight="700" font-size="92" fill="#5F6F4A" letter-spacing="-2.4">Sanctum OS</text>
+
+  <!-- 4. 분리선 — warm warn 톤 -->
+  <line x1="572" y1="450" x2="628" y2="450" stroke="#A6864C" stroke-width="3"/>
+
+  <!-- 5. 부제 -->
+  <text x="600" y="510" text-anchor="middle"
+        font-family="Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+        font-weight="600" font-size="30" fill="#1A1A1A" letter-spacing="-0.4">매일의 일상, 매일의 성소, 하나의 시스템</text>
+</svg>

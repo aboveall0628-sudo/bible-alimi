@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git ls-remote *)",
       "Bash(git ls-tree *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "PowerShell($tools = @{}; foreach \\($name in @\\('magick','inkscape','rsvg-convert','node','npx'\\)\\) { $cmd = Get-Command $name -ErrorAction SilentlyContinue; if \\($cmd\\) { $tools[$name] = $cmd.Source } else { $tools[$name] = 'X' } }; $tools | Format-Table -AutoSize)",
+      "Bash(grep -iE \"^sharp$|^@resvg|^puppeteer|^playwright\")",
+      "PowerShell($chromePaths = @\\('C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe', 'C:\\\\Program Files \\(x86\\)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe', 'C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe'\\); foreach \\($p in $chromePaths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } })"
     ]
   }
 }
