@@ -827,8 +827,14 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 #meditation-content.collapsed { display: none; }
 
 /* 페이지 헤더의 우측 액션 묶음 (날짜 입력 + 전체 접기 버튼) */
+/* (2026-05-20 v101 fix) 사용자 점검 "펼치기가 저기로 가야 한다니까" — 우측 끝 강제. */
 .page-header-actions {
-    display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
 }
 
 /* ── Date picker ── */
