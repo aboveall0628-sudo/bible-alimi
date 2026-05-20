@@ -221,7 +221,7 @@ export function listAllPlans() {
  * 새 user plan 저장 + 활성화 + 초기 시작점(첫 책 1장 / 오늘) 박기.
  * books가 비어 있거나 이름이 빈 문자열이면 null 반환.
  */
-export function addUserPlan({ name, books }) {
+export function addUserPlan({ name, books, startDate, pace }) {
     if (!name || !String(name).trim()) return null;
     if (!Array.isArray(books) || books.length === 0) return null;
     const id = 'user-' + Date.now();
@@ -229,18 +229,21 @@ export function addUserPlan({ name, books }) {
         id,
         name: String(name).trim(),
         books,
+        // (2026-05-20 v109) 진행 속도 자리잡혀 자기 결로 (1·2 = 매일 N장, 7 = 일주일 1권 등)
+        pace: typeof pace === 'number' && pace > 0 ? pace : 1,
         createdAt: todayLocalISO(),
     };
     const userPlans = getUserPlans();
     userPlans.push(plan);
     try { localStorage.setItem(USER_PLANS_KEY, JSON.stringify(userPlans)); } catch {}
-    // 초기 시작점 박기 — 첫 책 1장 / 오늘
+    // (2026-05-20 v109) 시작일 자리잡혀 자기 결로 — 미입력 시 오늘 자기 자리.
     const cur = read();
-    const today = todayLocalISO();
+    const anchorDate = (typeof startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(startDate))
+        ? startDate : todayLocalISO();
     const partId = id + '/p1';
     const nextOverrides = {
         ...cur.partOverrides,
-        [id]: { [partId]: { abbr: books[0][0], chapter: 1, anchorDate: today } },
+        [id]: { [partId]: { abbr: books[0][0], chapter: 1, anchorDate } },
     };
     write({ ...cur, activePlanId: id, partOverrides: nextOverrides });
     return plan;

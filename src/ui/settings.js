@@ -2379,8 +2379,10 @@ function openNewPlanModal() {
         },
     ];
 
+    // (2026-05-20 v109 결 C) 그룹 전체 토글 + 책별 장수 자리
     const bookGroups = BIBLE_BOOK_GROUPS.map(testament => {
-        const groupHtml = testament.groups.map(grp => {
+        const groupHtml = testament.groups.map((grp, gIdx) => {
+            const grpKey = `${testament.testament}-${gIdx}`;
             const items = grp.books.map(([abbr, full, chapters]) => `
                 <label class="newplan-book">
                     <input type="checkbox" name="newplan-book" value="${abbr}" data-full="${escapeAttr(full)}" data-chapters="${chapters}">
@@ -2388,8 +2390,11 @@ function openNewPlanModal() {
                 </label>
             `).join('');
             return `
-                <div class="newplan-group">
-                    <div class="newplan-group-title">${grp.name} <span class="newplan-group-desc">${grp.books.length}권</span></div>
+                <div class="newplan-group" data-grp="${grpKey}">
+                    <div class="newplan-group-title">
+                        <span>${grp.name} <span class="newplan-group-desc">${grp.books.length}권</span></span>
+                        <button type="button" class="newplan-group-toggle" data-grp="${grpKey}">전체 자기 결로</button>
+                    </div>
                     <div class="newplan-group-books">${items}</div>
                 </div>
             `;
@@ -2402,6 +2407,9 @@ function openNewPlanModal() {
         `;
     }).join('');
 
+    // 오늘 자리 ISO (시작일 디폴트)
+    const todayISO = new Date().toISOString().slice(0, 10);
+
     overlay.innerHTML = `
         <div class="modal-box modal-box--wide" role="dialog" aria-label="새 묵상 계획 만들기">
             <div class="modal-head">
@@ -2410,17 +2418,36 @@ function openNewPlanModal() {
             </div>
             <div class="modal-body">
                 <label class="newplan-field">
-                    <span>이름</span>
+                    <span>이름 (비워두면 자동으로 자리잡혀요)</span>
                     <input id="newplan-name" type="text" maxlength="40"
                            placeholder="예: 시편만 1년, 복음서 묵상, 욥기·전도서…">
                 </label>
                 <div class="newplan-field">
-                    <span>책 (1권 이상)</span>
-                    <p class="setting-hint" style="margin: 4px 0 var(--sp-2);">고른 책을 처음부터 한 장씩, 매일 한 장 진행해요. 시작일은 오늘로 자동 설정돼요. 나중에 "시작점"에서 바꿀 수 있어요.</p>
+                    <span>어떤 책을 묵상하실래요?</span>
+                    <p class="setting-hint" style="margin: 4px 0 var(--sp-2);">한 권씩 골라도 좋고, 그룹 옆 <b>전체 자기 결로</b> 자리잡으면 한 번에 자기 결로.</p>
                     <div id="newplan-books" class="newplan-books">${bookGroups}</div>
                 </div>
-                <div class="newplan-summary">
-                    <span id="newplan-count">0권 선택</span>
+                <div class="newplan-options-row">
+                    <label class="newplan-field newplan-field-inline">
+                        <span>시작일</span>
+                        <input id="newplan-start" type="date" value="${todayISO}" min="${todayISO}">
+                    </label>
+                    <label class="newplan-field newplan-field-inline">
+                        <span>진행 속도</span>
+                        <select id="newplan-pace">
+                            <option value="1" selected>매일 1장</option>
+                            <option value="2">매일 2장</option>
+                            <option value="3">매일 3장</option>
+                            <option value="5">매일 5장</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="newplan-summary" id="newplan-summary">
+                    <div class="newplan-summary-row">
+                        <span id="newplan-count">0권 선택</span>
+                        <span id="newplan-total" class="newplan-summary-sub"></span>
+                    </div>
+                    <div id="newplan-selected-list" class="newplan-selected-list"></div>
                 </div>
             </div>
             <div class="modal-foot">
@@ -2434,15 +2461,50 @@ function openNewPlanModal() {
 
     const nameInp = overlay.querySelector('#newplan-name');
     const countEl = overlay.querySelector('#newplan-count');
+    const totalEl = overlay.querySelector('#newplan-total');
+    const selectedListEl = overlay.querySelector('#newplan-selected-list');
+    const startInp = overlay.querySelector('#newplan-start');
+    const paceSel = overlay.querySelector('#newplan-pace');
     const createBtn = overlay.querySelector('#newplan-create-btn');
 
-    // (2026-05-20 v108) 사용자 점검 "선택했는데 안 만들어져" — 이름 자리 자기 결로 자기 자기 결로 자기 결로 비어 있어서 disabled 자리잡힘.
-    //   자리잡기: 책 1권 이상이면 자기 결로 만들기 enabled · 이름 비어 있으면 선택한 책 자기 결로 자기 자기 결로 자동 자리.
+    // (2026-05-20 v109 결 C) 책 1권 이상이면 만들기 enabled + 선택한 책 목록·총 분량·예상 기간 자기 결로 자리잡혀
     const refreshState = () => {
-        const checked = overlay.querySelectorAll('input[name="newplan-book"]:checked');
+        const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
+        const totalChapters = checked.reduce((sum, c) => sum + Number(c.dataset.chapters || 0), 0);
         countEl.textContent = `${checked.length}권 선택`;
         createBtn.disabled = checked.length === 0;
+
+        // 총 분량 + 예상 기간 자리잡혀 자기 결로
+        if (checked.length === 0) {
+            totalEl.textContent = '';
+            selectedListEl.innerHTML = '';
+        } else {
+            const pace = Number(paceSel.value || 1);
+            const days = Math.ceil(totalChapters / pace);
+            const period = days >= 365 ? `약 ${(days / 365).toFixed(1)}년`
+                         : days >= 30  ? `약 ${(days / 30).toFixed(1)}개월`
+                         : `${days}일`;
+            totalEl.textContent = `· 총 ${totalChapters}장 · 매일 ${pace}장이면 ${period}`;
+            const titles = checked.map(c => c.dataset.full || c.value);
+            selectedListEl.innerHTML = `<span class="newplan-selected-label">선택한 책:</span> ${titles.join(' · ')}`;
+        }
     };
+    paceSel.addEventListener('change', refreshState);
+    // (v109) 그룹 전체 자리잡기 토글
+    overlay.querySelectorAll('.newplan-group-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const grpKey = btn.dataset.grp;
+            const grpEl = overlay.querySelector(`.newplan-group[data-grp="${grpKey}"]`);
+            if (!grpEl) return;
+            const inputs = grpEl.querySelectorAll('input[name="newplan-book"]');
+            const allChecked = [...inputs].every(i => i.checked);
+            inputs.forEach(i => { i.checked = !allChecked; });
+            btn.textContent = allChecked ? '전체 자기 결로' : '전체 자기 결로 X';
+            refreshState();
+            const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
+            autoFillName(checked);
+        });
+    });
     // 이름 자기 결로 자기 자기 결로 자기 결로 자기 결로 자기 결로 — 선택한 책 자기 결로 자기 자리잡혀 자기 결로
     const autoFillName = (checkedBooks) => {
         if (nameInp.value.trim().length > 0) return; // 사용자 자기 결로 자기 자기 결로 자기 결로
@@ -2488,7 +2550,7 @@ function openNewPlanModal() {
                 });
             });
         });
-        // 이름 자리 자기 결로 자기 자기 결로 자리잡힌 자리 = placeholder 자기 결로 자기 자리
+        // 이름 자기 결로 자기 자기 결로 자리잡힌 자리 = 자동 자리잡혀 자기 자리
         let planName = nameInp.value.trim();
         if (!planName) {
             const titles = books.map(b => b[1]);
@@ -2496,9 +2558,18 @@ function openNewPlanModal() {
             else if (titles.length <= 3) planName = `${titles.join('·')} 묵상`;
             else planName = `${titles[0]} 외 ${titles.length - 1}권 묵상`;
         }
-        const plan = addUserPlan({ name: planName, books });
+        // (2026-05-20 v109) 시작일 + 진행 속도 자리잡혀 자기 결로 자기 자리
+        const startDate = startInp.value || null;
+        const pace = Number(paceSel.value || 1);
+        const plan = addUserPlan({ name: planName, books, startDate, pace });
         close();
-        if (plan) refreshScriptureCard();
+        if (plan) {
+            refreshScriptureCard();
+            // (v109 ⑦) 만들기 후 흐름 — 토스트 + 첫 본문 자기 결로 자기 자리
+            import('./quickReview.js').then(({ showToast }) => {
+                showToast(`✅ "${plan.name}" 자리잡혔어요. ${startDate === todayISO || !startDate ? '오늘부터 시작해요.' : `${startDate}부터 시작해요.`}`);
+            }).catch(() => {});
+        }
     });
 
     setTimeout(() => nameInp.focus(), 50);
