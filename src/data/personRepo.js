@@ -386,6 +386,27 @@ const MODULE_FROM_MISSION_ID = {
  * @param {Object} opts - { signal?:string, contextDotId?:string }
  * @returns {Promise<boolean>} 이번 호출로 새로 클리어됐는지 (idempotent — 이미 클리어면 false)
  */
+// (2026-05-20 v97) 미션 진행도 리셋 — 운영자 페이지 [미션 진행도 리셋] 버튼 자리에서 호출.
+//   selfCard 안 tutorialState + missionStatus 둘 다 비움. 다음 진입에선 첫 진입처럼 미션 카드 다 자리잡혀 보임.
+//   사용자 두 번째 계정에서 한 번 자리잡힌 미션 다시 못 봐 갑갑한 자리 해소용.
+//   주의: 자기 자리 selfCard 안 다른 필드(name·birthday·referralCode 등)는 그대로 둠.
+export async function resetMissionProgress(dek, userId) {
+    const self = await getSelfCard(dek, userId);
+    if (!self) return false;
+    const next = {
+        ...self,
+        tutorialState: {},
+        missionStatus: {},
+    };
+    await saveSelfCard(dek, userId, next);
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+            window.dispatchEvent(new CustomEvent('sanctum:mission-reset'));
+        } catch (_) {}
+    }
+    return true;
+}
+
 export async function markMissionComplete(dek, userId, missionId, opts = {}) {
     const moduleId = MODULE_FROM_MISSION_ID[missionId];
     if (!moduleId) return false;
