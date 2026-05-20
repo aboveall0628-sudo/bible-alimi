@@ -540,7 +540,7 @@ async function onVaultUnlocked(dek) {
     scheduleDailyMeditationNotification(currentUserId)
         .catch(e => console.warn('[notifications] schedule failed:', e));
 
-    showToast('🔓 안전하게 열렸어요');
+    // (2026-05-20 v96) 사용자 명시 "안전하게 열렸어요 토스트 없어도 됨 · 웹·모바일 전부 없애" — 자리잡지 X.
 
     // (S-E4 / S-E6 2026-05-15) 잠금 해제 직후 미션 게이트 UI 첫 렌더 —
     //   사이드바 잠금 톤·도트 진행도·추천 카드. switchView 를 거치지 않아도 첫 화면에서 자리잡음.

@@ -8,8 +8,8 @@
     "orientation": "portrait",
     "lang": "ko",
     "dir": "ltr",
-    "background_color": "#FAF7F2",
-    "theme_color": "#FAF7F2",
+    "background_color": "#F7F5F2",
+    "theme_color": "#F7F5F2",
     "categories": ["lifestyle", "productivity"],
     "icons": [
         {

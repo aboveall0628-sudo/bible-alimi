@@ -5,14 +5,15 @@
    ========================================================================== */
 
 :root {
-    --bg: #FAFAF7;
+    /* 디자인 시스템 v1 정합 — Muted Olive + warm beige 결 (style.css 와 100% 동기) */
+    --bg: #F7F5F2;
     --bg-card: #FFFFFF;
-    --bg-elev: #F4F4F0;
-    --text-primary: #2C2C2E;
-    --text-secondary: #6B6B70;
-    --accent: #3E5C76;
-    --accent-soft: rgba(62, 92, 118, 0.10);
-    --border: #E8E8E5;
+    --bg-elev: #F4F1ED;
+    --text-primary: #1A1A1A;
+    --text-secondary: #76706A;
+    --accent: #5F6F4A;
+    --accent-soft: rgba(95, 111, 74, 0.08);
+    --border: #E8E3DC;
 
     --radius: 12px;
     --radius-lg: 16px;
@@ -33,14 +34,15 @@
 }
 
 [data-theme="dark"] {
-    --bg: #1A1A1C;
-    --bg-card: #232325;
-    --bg-elev: #2A2A2D;
-    --text-primary: #ECECEE;
-    --text-secondary: #9A9A9F;
-    --accent: #6B8AA8;
-    --accent-soft: rgba(107, 138, 168, 0.14);
-    --border: #38383B;
+    /* warm dark 결 */
+    --bg: #1A1815;
+    --bg-card: #221F1B;
+    --bg-elev: #2A2722;
+    --text-primary: #F0EBE0;
+    --text-secondary: #B8B0A6;
+    --accent: #8FA078;
+    --accent-soft: rgba(143, 160, 120, 0.12);
+    --border: #3A352F;
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.32);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.40);
 }
