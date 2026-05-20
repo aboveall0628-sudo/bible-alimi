@@ -2,46 +2,48 @@
  * missionCatalog.js — 튜토리얼 미션 단일 출처
  *
  * (본인 프로필 재기획 트랙 2026-05-14 S-B)
+ * (2026-05-20 Phase 3) 베타 미션 재편 — 사용자 명시:
+ *   - 알림 시각 정하기·첫 묵상 일지 = 온보딩에서 자리잡힘 → 미션에서 빠짐
+ *   - 첫 실천 평가 후 일일 리포트 보기 신규
+ *   - SWAN 말 걸기·감사·기도·테마·24단어·새벽·자기전·친구초대 8건 신규
+ *   - streak 3·7·14 진행도(N/M일)·달성률 표시
+ *   - 미션 클리어 시 typing breath 결 + SWAN 카피 자리잡기
  *
  * R18 결: 14일은 권장 페이스, 실제 잠금 해제는 미션 클리어로.
  *
  * 명명 규칙 (a) A1: `{module}_{verb}_{n}` — 자기 설명적.
- *   예) `person_first_dot`, `org_first_dot`, `economy_first_transaction`
  *   personRepo.js 의 MODULE_FROM_MISSION_ID 와 키 동일하게 유지.
- *
- * 경제 합류 정책 (b) B4: 경제 모듈은 처음부터 unlocked.
- *   1.a (#54 경제 재기획) 트랙 끝나면 그때 트리거 자리 박음.
- *   현재 economy_first_transaction 는 카탈로그에만 박혀 있고 후크는 없음 (deferred=true).
- *
- * 잠금 해제 조건 (c) C1: missionProgress 기반만.
- *   Day 14 자동 fallback 없음 — 사용자 페이스로 끝까지.
- *   "튜토리얼성 미션이라 못 깨게 만들 생각 X, '오 이런 기능이?!' 알 수 있게만"
- *   (사용자 명시 2026-05-14)
  *
  * 난이도 difficulty (2026-05-15 S-E 추천 카드 트랙):
  *   1 = 가장 가벼움 (메뉴 진입·토글 1번)
  *   2 = 가벼움 (한 줄 입력·1건 열어보기)
  *   3 = 보통 (카드 1장·도트 1개·거래 1건)
- *   4 = 무거움 (분별 흐름·주간 리포트)
- *   "다음 해볼 만한 미션" 추천 카드에서 미완료 중 오름차순 정렬에 사용.
+ *   4 = 무거움 (분별 흐름·주간 리포트·14일 streak)
+ *
+ * 신규 필드 (2026-05-20 Phase 3):
+ *   - successCopy: SWAN 결 클리어 카피 (타이핑 애니메이션 결로 자리잡힘)
+ *   - progressFn: 진행도 자리잡힌 미션 (streak 3·7·14) — 'meditationStreak' 자리잡힌 결
  *
  * 사용처:
  *   - personRepo.markMissionComplete(dek, userId, missionId, opts) 호출
  *   - 사이드바 잠금 가드 (isModuleLocked) — 같은 moduleId 키 사용
  *   - "오늘의 시작" 카드 미션 진행도 블록 — getOpenMissions + 이 카탈로그 join
  *   - "다음 해볼 만한 미션" 추천 카드 — difficulty 오름차순 정렬
+ *   - 미션 클리어 모달·카드 — successCopy + typing breath
  */
 
 // (베타 슬림 v1 2026-05-18) `slim` 플래그 — true 이면 슬림 모드에서도 노출.
 //   false 면 풀 모드 전용 (인물·조직·경제·목표·의사결정 모듈 자리).
 //   미션 카드 추가 시 slim 플래그 의무.
 export const MISSION_CATALOG = {
+    // ─── 풀 모드 전용 (메인 사용자만) ──────────────────────────
     person_first_dot: {
         moduleId: 'persons',
         icon: '📒',
         title: '첫 인물 카드 만들기',
         hint: '도트에 사람 1명 등장시키거나, 인물 카드 1장 만들기',
         unlockCopy: '인물 모듈이 열렸어요',
+        successCopy: '첫 사람이 자리잡혔어요. 만남이 자리잡힌 결을 잊지 않게 도울게요.',
         trigger: 'savePerson(isSelf=false) | saveDot(linkedPersonIds≠∅)',
         deferred: false,
         slim: false,
@@ -53,6 +55,7 @@ export const MISSION_CATALOG = {
         title: '첫 조직 카드 만들기',
         hint: '도트에 조직 1곳 등장시키거나, 조직 카드 1장 만들기',
         unlockCopy: '조직 모듈이 열렸어요',
+        successCopy: '첫 공동체가 자리잡혔어요. 내가 속한 자리를 같이 봐 갈게요.',
         trigger: 'saveOrganization | saveDot(linkedOrgIds≠∅)',
         deferred: false,
         slim: false,
@@ -64,7 +67,7 @@ export const MISSION_CATALOG = {
         title: '첫 거래 적기',
         hint: '오늘 들어오거나 나간 돈 한 줄 적기',
         unlockCopy: '경제 미션이 클리어됐어요',
-        // 1.a 트랙(이벤트 도트 + 거래 9종) 자리잡음 — 트리거는 saveDot(kind='event', eventType='transaction')
+        successCopy: '첫 거래가 자리잡혔어요. 돈의 결도 묵상 자리예요.',
         trigger: 'saveDot(kind=event, eventType=transaction)',
         deferred: false,
         slim: false,
@@ -76,6 +79,7 @@ export const MISSION_CATALOG = {
         title: '첫 목표 정하기',
         hint: '오늘·이번 주·이번 달 어디든 목표 1개 적기',
         unlockCopy: '목표 모듈이 열렸어요',
+        successCopy: '첫 목표가 자리잡혔어요. 묵상이 일상으로 자연 자리잡힐 거예요.',
         trigger: 'saveGoal(prev=null)',
         deferred: false,
         slim: false,
@@ -87,43 +91,149 @@ export const MISSION_CATALOG = {
         title: '첫 분별의 자리',
         hint: '결정 1개를 원칙·판례로 기록',
         unlockCopy: '분별의 자리가 열렸어요',
+        successCopy: '첫 분별이 자리잡혔어요. 결정이 자기 결을 자리잡아 갈 거예요.',
         trigger: 'savePrecedent(isNew)',
         deferred: false,
         slim: false,
         difficulty: 4,
     },
-    report_first_weekly: {
-        moduleId: 'reports',
-        icon: '📊',
-        title: '첫 주간 리포트',
-        hint: '한 주 도트 쌓고 주간 리포트 생성',
-        unlockCopy: '리포트 모듈이 열렸어요',
-        trigger: 'saveWeekReport(첫 호출)',
+
+    // ─── 베타·메인 공통 (slim: true) ───────────────────────────
+    // ⚙️ 가장 가벼운 자리 (난이도 1)
+    settings_explore: {
+        moduleId: 'settings',
+        icon: '⚙️',
+        title: '설정 한 번 둘러보기',
+        hint: '설정 화면 진입해서 카드들 살펴보기',
+        unlockCopy: '설정 자리를 둘러봤어요',
+        successCopy: '설정 자리 자연 자리잡혔어요. 취향에 맞게 자유롭게 갈아끼우세요.',
+        trigger: 'switchView(settings)',
         deferred: false,
         slim: true,
-        difficulty: 4,
+        difficulty: 1,
     },
-    meditation_first_save: {
+    swan_first_chat: {
+        moduleId: 'swan',
+        icon: '💬',
+        title: 'SWAN한테 말 한 번 걸기',
+        hint: '우측 아래 풍선 클릭 → SWAN한테 한 마디',
+        unlockCopy: 'SWAN과 한 번 자리잡혔어요',
+        successCopy: '반가워요. 앞으로도 자유롭게 들러주세요. 짧은 한 마디도 환영이에요.',
+        trigger: 'swanFeedback.finalize',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+    gratitude_note: {
         moduleId: 'meditation',
-        icon: '⛪',
-        title: '첫 묵상 일지',
-        hint: '큐티 1회 + 노트 1줄',
-        unlockCopy: '묵상 모듈이 열렸어요',
-        // 묵상 모듈 자체는 Day 0 부터 활성 — 이 미션은 "묵상 시스템에 노트 발화" 흔적용
-        trigger: 'saveMeditationDoc(content·prayer 비어있지 않음)',
+        icon: '❤️',
+        title: '감사 한 줄 자리잡기',
+        hint: '묵상 노트 어디든 "감사" 한 줄 자리잡기',
+        unlockCopy: '감사가 자리잡혔어요',
+        successCopy: '감사 한 줄이 자리잡혔어요. 작은 결이 가장 깊은 자리예요.',
+        trigger: 'saveMeditationDoc(text matches /감사/)',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+    prayer_section: {
+        moduleId: 'meditation',
+        icon: '🙏',
+        title: '기도 자리잡기',
+        hint: '묵상에 기도 섹션 한 번 자리잡기',
+        unlockCopy: '기도 자리가 열렸어요',
+        successCopy: '기도가 자리잡혔어요. 묵상의 마지막 결은 기도예요.',
+        trigger: 'saveMeditationDoc(prayer 비어있지 않음)',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+    theme_change: {
+        moduleId: 'settings',
+        icon: '🎨',
+        title: '테마·폰트 한 번 갈아끼움',
+        hint: '다크모드·강조색·시스템 폰트 1번 바꿔보기',
+        unlockCopy: '결이 자기한테 맞춰졌어요',
+        successCopy: '취향이 자리잡힌 결이 묵상 자리에도 자연 자리잡혀요.',
+        trigger: 'theme/accent/font 변경',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+    recovery_code_view: {
+        moduleId: 'settings',
+        icon: '📜',
+        title: '24단어 복구 코드 보기',
+        hint: '보안 설정에서 복구 코드 1번 열어보기',
+        unlockCopy: '복구 자리를 알게 됐어요',
+        successCopy: '24단어가 자리잡혔어요. 다음 자리잡힘에서도 안전하게 자리잡혀요.',
+        trigger: 'showRecoveryCodes',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+
+    // 📖 묵상 결 (난이도 2)
+    first_review_then_daily_report: {
+        moduleId: 'reports',
+        icon: '📈',
+        title: '실천 평가 후 일일 리포트 보기',
+        hint: '도트 1개 평가하고 → 그날 일일 리포트 열어보기',
+        unlockCopy: '리포트 자리가 열렸어요',
+        successCopy: '실천이 평가 자리잡고 리포트가 자리잡았어요. 자기 결이 보이기 시작해요.',
+        trigger: 'quickReview saved → daily report opened',
         deferred: false,
         slim: true,
         difficulty: 2,
     },
-    // (2026-05-18 후속) 묵상 streak 3 단계 — 사용자 명시 "연속 미션 추가"
-    //   trigger 계산 자리는 data/reminderGenerator.js 또는 todayView.js 의 streak 함수 결과 활용 예정 (별도 트랙)
+    past_meditation_revisit: {
+        moduleId: 'meditation',
+        icon: '📚',
+        title: '지난 묵상 다시 보기',
+        hint: '"지난 묵상" 화면에서 예전 묵상 1건 열어보기',
+        unlockCopy: '지난 묵상 자리를 알게 됐어요',
+        successCopy: '지난 자리를 다시 자리잡았어요. 흐름이 자기 자리를 자리잡아 가요.',
+        trigger: 'switchView(past) | 묵상 1건 다시 열기',
+        deferred: false,
+        slim: true,
+        difficulty: 2,
+    },
+    morning_meditation: {
+        moduleId: 'meditation',
+        icon: '🌅',
+        title: '새벽 묵상 한 번',
+        hint: '아침 5~8시 자리에서 묵상 1번',
+        unlockCopy: '새벽 자리가 자리잡혔어요',
+        successCopy: '새벽 묵상이 자리잡혔어요. 하루의 첫 결이 말씀이에요.',
+        trigger: 'saveMeditationDoc(hour in 5..8)',
+        deferred: false,
+        slim: true,
+        difficulty: 2,
+    },
+    evening_meditation: {
+        moduleId: 'meditation',
+        icon: '🌙',
+        title: '자기 전 묵상 한 번',
+        hint: '밤 9~12시 자리에서 묵상 1번',
+        unlockCopy: '자기 전 자리가 자리잡혔어요',
+        successCopy: '하루의 마지막 결이 말씀에 자리잡혔어요. 평안 자리예요.',
+        trigger: 'saveMeditationDoc(hour in 21..23)',
+        deferred: false,
+        slim: true,
+        difficulty: 2,
+    },
+
+    // 🌱 묵상 streak (진행도 자리)
     meditation_streak_3: {
         moduleId: 'meditation',
         icon: '🌱',
         title: '3일 연속 묵상하기',
         hint: '연속 3일 묵상 노트 1줄 이상',
         unlockCopy: '3일 연속 묵상이 자리잡았어요',
+        successCopy: '첫 새싹 자리잡혔어요. 작아 보이지만 가장 어려운 자리예요.',
         trigger: 'meditationStreak >= 3',
+        progressFn: 'meditationStreak',  // 동적 진행도 (현재 N / 3)
+        progressTarget: 3,
         deferred: false,
         slim: true,
         difficulty: 2,
@@ -134,7 +244,10 @@ export const MISSION_CATALOG = {
         title: '7일 연속 묵상하기',
         hint: '한 주 동안 매일 묵상',
         unlockCopy: '한 주 연속 묵상이 자리잡았어요',
+        successCopy: '한 주 완주! 묵상이 일상에 자연 자리잡힌 결이에요.',
         trigger: 'meditationStreak >= 7',
+        progressFn: 'meditationStreak',
+        progressTarget: 7,
         deferred: false,
         slim: true,
         difficulty: 3,
@@ -145,44 +258,41 @@ export const MISSION_CATALOG = {
         title: '14일 연속 묵상하기',
         hint: '베타 기간 내내 매일 묵상 — 최상위 streak',
         unlockCopy: '14일 연속 묵상 — 깊이 자리잡았어요',
+        successCopy: '이 자리까지 자리잡은 사람, 정말 드물어요. 자랑스러워요.',
         trigger: 'meditationStreak >= 14',
+        progressFn: 'meditationStreak',
+        progressTarget: 14,
         deferred: false,
         slim: true,
         difficulty: 4,
     },
-    // (S-D 후속 2026-05-15) 풀사이클 한 바퀴를 자연 발화로 풀기 위한 3 미션 추가
-    past_meditation_revisit: {
-        moduleId: 'meditation',
-        icon: '📚',
-        title: '지난 묵상 다시 보기',
-        hint: '"지난 묵상" 화면에서 예전에 적은 묵상 1건 열어보기',
-        unlockCopy: '지난 묵상 자리를 알게 됐어요',
-        trigger: 'switchView(past) | 묵상 1건 다시 열기',
+
+    // 📊 리포트
+    report_first_weekly: {
+        moduleId: 'reports',
+        icon: '📊',
+        title: '첫 주간 리포트',
+        hint: '한 주 도트 쌓고 주간 리포트 생성',
+        unlockCopy: '리포트 모듈이 열렸어요',
+        successCopy: '첫 주간 리포트가 자리잡혔어요. 한 주가 자기 결로 자리잡혀 보여요.',
+        trigger: 'saveWeekReport(첫 호출)',
         deferred: false,
         slim: true,
-        difficulty: 2,
+        difficulty: 4,
     },
-    notification_setup: {
-        moduleId: 'notifications',
-        icon: '🔔',
-        title: '알림 시각 정하기',
-        hint: '설정에서 매일 묵상 알람 시간 한 번 정하기',
-        unlockCopy: '알림이 자리잡았어요',
-        trigger: 'saveNotificationTime',
+
+    // 🔗 친구 초대 (네트워크 결)
+    invite_first_friend: {
+        moduleId: 'referral',
+        icon: '🔗',
+        title: '친구 1명 초대하기',
+        hint: '내 추천 링크로 가입자 1명 자리잡기',
+        unlockCopy: '첫 친구가 자리잡혔어요',
+        successCopy: '첫 친구가 자리잡혔어요. 같이 가는 사람이 자리잡히면 길이 자연 자리잡혀요.',
+        trigger: 'referralCount >= 1',
         deferred: false,
         slim: true,
-        difficulty: 1,
-    },
-    settings_explore: {
-        moduleId: 'settings',
-        icon: '⚙️',
-        title: '설정 한 번 둘러보기',
-        hint: '설정 화면 진입해서 카드들 살펴보기',
-        unlockCopy: '설정 자리를 둘러봤어요',
-        trigger: 'switchView(settings)',
-        deferred: false,
-        slim: true,
-        difficulty: 1,
+        difficulty: 3,
     },
 };
 
@@ -205,7 +315,6 @@ export function getActiveMissionIds(opts) {
     if (opts && typeof opts.slim === 'boolean') {
         useSlim = opts.slim;
     } else {
-        // 동적 import 회피 — featureFlags 직접 참조
         try {
             const html = document.documentElement;
             useSlim = html.getAttribute('data-tier') === 'slim';

@@ -22,6 +22,8 @@
 
 import { MISSION_CATALOG, getActiveMissionIds, getRecommendedMissions } from '../config/missionCatalog.js';
 import { isModuleLocked, getOpenMissions, getSelfCard } from '../data/personRepo.js';
+// (2026-05-20 Phase 3) 미션 클리어 카드에 typing breath 자리잡기 — 온보딩·소크라테스 결과 같은 결
+import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
 
 // nav 버튼 id ↔ moduleId 매핑.
 //   - 'today', 'self-profile', 'settings', 'economy', 'meditation' 같은 항상 unlocked 모듈은 X
@@ -37,16 +39,28 @@ const NAV_LOCK_TARGETS = {
 //   (S-E 2026-05-15) 미션별로 진입 자리가 다름. moduleId 단순 매핑으로 부족.
 //   예: past_meditation_revisit 은 moduleId=meditation 이지만 "지난 묵상" view 로 가야 함.
 const ROUTE_BY_MISSION = {
-    person_first_dot: 'persons',
-    org_first_dot: 'organizations',
-    economy_first_transaction: 'economy',
-    goal_first_save: 'today',
-    decision_first_record: 'today',
-    report_first_weekly: 'reports',
-    meditation_first_save: 'today',
-    past_meditation_revisit: 'past',
-    notification_setup: 'settings',
-    settings_explore: 'settings',
+    // ─── 풀 모드 전용 ─────────────────────────────────────────
+    person_first_dot:                'persons',
+    org_first_dot:                   'organizations',
+    economy_first_transaction:       'economy',
+    goal_first_save:                 'today',
+    decision_first_record:           'today',
+    // ─── 베타·메인 공통 (2026-05-20 Phase 3) ──────────────────
+    settings_explore:                'settings',
+    swan_first_chat:                 'today',          // 풍선은 어디서나 자리잡혀 있어요
+    gratitude_note:                  'today',          // 묵상 에디터 자리
+    prayer_section:                  'today',          // 묵상 에디터 자리
+    theme_change:                    'settings',
+    recovery_code_view:              'settings',
+    first_review_then_daily_report:  'today',          // 도트 평가 자리
+    past_meditation_revisit:         'past',
+    morning_meditation:              'today',
+    evening_meditation:              'today',
+    meditation_streak_3:             'today',
+    meditation_streak_7:             'today',
+    meditation_streak_14:            'today',
+    report_first_weekly:             'reports',
+    invite_first_friend:             'self-profile',   // 추천 링크 카드 자리
 };
 
 /**
@@ -617,6 +631,10 @@ function showMissionAchievement(mission) {
         // 기존 카드 제거
         document.querySelectorAll('.mission-achievement').forEach(el => el.remove());
 
+        // (2026-05-20 Phase 3) successCopy 우선·없으면 unlockCopy 폴백.
+        //   successCopy = SWAN 결 따뜻한 카피 / unlockCopy = 짧은 시스템 줄.
+        const copyText = mission.successCopy || mission.unlockCopy || '';
+
         const card = document.createElement('div');
         card.className = 'mission-achievement';
         card.setAttribute('role', 'status');
@@ -626,23 +644,50 @@ function showMissionAchievement(mission) {
           <div class="mission-achievement-body">
             <div class="mission-achievement-head">미션 완료</div>
             <div class="mission-achievement-title">${escapeHtml(mission.title || '')}</div>
-            <div class="mission-achievement-hint">${escapeHtml(mission.unlockCopy || '')}</div>
+            <div class="mission-achievement-hint ai-typing"></div>
           </div>
           <button type="button" class="mission-achievement-close" aria-label="닫기">×</button>
         `;
         document.body.appendChild(card);
-        // 다음 프레임에 .show — 진입 애니메이션
         requestAnimationFrame(() => card.classList.add('show'));
 
+        // (2026-05-20 Phase 3) typing breath — 온보딩·소크라테스 결과 같은 결로
+        //   prefers-reduced-motion 자리는 자연 즉시 노출 (setTextInstant).
+        const hintEl = card.querySelector('.mission-achievement-hint');
+        const TYPING_MS = 32;
+        const SETTLE_MS = 2400;     // typing 끝나고 자연 머무는 시간
+
+        let dismissed = false;
+        let autoTimer = null;
+
         const dismiss = () => {
+            if (dismissed) return;
+            dismissed = true;
+            if (autoTimer) clearTimeout(autoTimer);
             card.classList.remove('show');
-            setTimeout(() => card.remove(), 240);
+            setTimeout(() => { try { card.remove(); } catch (_) {} }, 240);
         };
+
+        const scheduleAutoDismiss = () => {
+            if (autoTimer) clearTimeout(autoTimer);
+            autoTimer = setTimeout(dismiss, SETTLE_MS);
+        };
+
+        if (shouldReduceMotion() || !copyText) {
+            setTextInstant(hintEl, copyText);
+            // 즉시 결 자리 = 3초 자연 머무름
+            autoTimer = setTimeout(dismiss, 3000);
+        } else {
+            // typing breath 결로 자리잡기 → 끝나면 SETTLE_MS 자연 머무름
+            typeText(hintEl, copyText, TYPING_MS)
+                .then(scheduleAutoDismiss)
+                .catch(() => {
+                    setTextInstant(hintEl, copyText);
+                    scheduleAutoDismiss();
+                });
+        }
+
         card.querySelector('.mission-achievement-close').addEventListener('click', dismiss);
-        // 3초 자동 닫기
-        const autoTimer = setTimeout(dismiss, 3000);
-        // 사용자 X 눌렀을 때 타이머 정리
-        card.addEventListener('remove', () => clearTimeout(autoTimer), { once: true });
     } catch (_) { /* 알림 실패는 무시 */ }
 }
 

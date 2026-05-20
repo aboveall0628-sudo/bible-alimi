@@ -334,16 +334,30 @@ export async function saveSelfCard(dek, userId, data) {
  *   같은 moduleId 두 미션(meditation_first_save & past_meditation_revisit)은 둘 다 'meditation' 잠금 풀기.
  */
 const MODULE_FROM_MISSION_ID = {
-    'person_first_dot':          'persons',
-    'org_first_dot':             'organizations',
-    'economy_first_transaction': 'economy',
-    'goal_first_save':           'goals',
-    'decision_first_record':     'decisions',
-    'report_first_weekly':       'reports',
-    'meditation_first_save':     'meditation',
-    'past_meditation_revisit':   'meditation',
-    'notification_setup':        'notifications',
-    'settings_explore':          'settings',
+    // ─── 풀 모드 전용 ─────────────────────────────────────────
+    'person_first_dot':              'persons',
+    'org_first_dot':                 'organizations',
+    'economy_first_transaction':     'economy',
+    'goal_first_save':               'goals',
+    'decision_first_record':         'decisions',
+    // ─── 베타·메인 공통 ───────────────────────────────────────
+    'settings_explore':              'settings',
+    'swan_first_chat':               'swan',
+    'gratitude_note':                'meditation',
+    'prayer_section':                'meditation',
+    'theme_change':                  'settings',
+    'recovery_code_view':            'settings',
+    'first_review_then_daily_report':'reports',
+    'past_meditation_revisit':       'meditation',
+    'morning_meditation':            'meditation',
+    'evening_meditation':            'meditation',
+    'meditation_streak_3':           'meditation',
+    'meditation_streak_7':           'meditation',
+    'meditation_streak_14':          'meditation',
+    'report_first_weekly':           'reports',
+    'invite_first_friend':           'referral',
+    // (2026-05-20 Phase 3) notification_setup·meditation_first_save 빠짐 —
+    //   온보딩 자리에서 자리잡혀 미션 결로 중복 자리잡혔던 자리. 사용자 명시 빼기.
 };
 
 /**
