@@ -286,41 +286,14 @@ function renderLocked() {
 }
 
 // ─── 1) 오늘의 시작 ───────────────────────────────────────
+// (2026-05-20 v92) 사용자 명시 "인사말 + 핀 원칙 카드 그냥 삭제 · 웹·모바일 같이 빼".
+//   today-start-card 자리(greeting + 핀 원칙) 통째로 자리잡지 X.
+//   미열람 리포트 Q&A 자리만 자연 자리잡혀 노출.
 function renderTodayStart(pinned, yesterdayReport, selfCard) {
     const root = document.getElementById('today-start-content');
     if (!root) return;
 
-    const greeting = greetingByHour();
-    // (2026-05-19) 호명 우선순위 — selfCard.nicknames[0] (별명) → selfCard.name (이름) → 호명 생략.
-    //   구글 OAuth 영문 이름은 사용 안 함. 사용자가 프로필에 설정한 값만.
-    const nickname = (Array.isArray(selfCard?.nicknames) && selfCard.nicknames[0] || '').trim();
-    const realName = (selfCard?.name || '').trim();
-    const displayName = nickname || realName;
-    const namePart = displayName ? `, ${displayName}님` : '';
-
-    const pinnedBlock = pinned
-        ? `
-            <div class="today-start-line">
-                <i class="today-start-icon" data-lucide="pin"></i>
-                <span class="today-start-label">오늘의 핀 원칙</span>
-                <span class="today-start-text">${escapeHtml(pinned)}</span>
-            </div>
-        ` : '';
-
-    // (2026-05-16) 한 줄 "어제 묵상에 가져간 질문" 자리 제거 — 사용자 명시 "한 줄 자리 안 본다".
-    //   대신 말씀 자리 직전 큰 카드(#section-yesterday-questions)로 옮김. renderYesterdayQuestionsCard.
-    root.innerHTML = `
-        <div class="today-start-card">
-            <div class="today-start-greeting">${escapeHtml(greeting)}${escapeHtml(namePart)}</div>
-            ${pinnedBlock}
-            ${!pinned ? `
-                <div class="today-start-empty">
-                    오늘의 핀 원칙을 정하면 여기에 나타나요.
-                </div>
-            ` : ''}
-            <div id="today-start-unseen-qna"></div>
-        </div>
-    `;
+    root.innerHTML = `<div id="today-start-unseen-qna"></div>`;
 
     // Phase E-9/R-QA 3세 — 미열람 리포트 Q&A 자동 노출 (lazy)
     renderUnseenReportQuestions().catch(e => console.warn('unseen Q&A render failed:', e));

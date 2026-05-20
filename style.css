@@ -730,7 +730,8 @@ button .btn-icon { vertical-align: text-bottom; }
     align-items: center;
     gap: var(--sp-2);
     width: 100%;
-    padding: 14px var(--sp-4);
+    /* (2026-05-20 v92 fix) 갤럭시 안드로이드 푸터 자리 자리잡혀 가려지는 자리 자연 자리 — safe-area + 자리 여유 */
+    padding: 14px var(--sp-4) calc(env(safe-area-inset-bottom, 0px) + 18px);
     margin: 0;
     background: transparent;
     border: none;
@@ -7888,9 +7889,11 @@ button.mission-progress-block:hover {
     to   { opacity: 1; }
 }
 .mission-hub-modal {
-    background: var(--surface, #fbfaf6);
+    /* (2026-05-20 v92 fix) 다크모드 자리 토큰 자리잡기 */
+    background: var(--color-surface, #fbfaf6);
+    border: 1px solid var(--color-border, #e3e1d8);
     border-radius: 14px;
-    box-shadow: 0 16px 44px rgba(36, 36, 32, 0.14);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.20);
     width: 100%;
     max-width: 440px;
     max-height: 80vh;
@@ -8060,19 +8063,25 @@ button.mission-progress-block:hover {
     left: 50%;
     transform: translateX(-50%) translateY(-12px);
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
+    flex-direction: column;
+    gap: 12px;
     min-width: 280px;
     max-width: 380px;
-    padding: 14px 16px 14px 14px;
-    background: var(--surface, #fbfaf6);
-    border: 1px solid var(--border-soft, #e3e1d8);
+    padding: 18px 20px 16px;
+    /* (2026-05-20 v92 fix) 다크모드 자리 토큰 자리잡기 — var(--color-surface) 자리 */
+    background: var(--color-surface, #fbfaf6);
+    border: 1px solid var(--color-border, #e3e1d8);
     border-radius: 14px;
-    box-shadow: 0 12px 32px rgba(36, 36, 32, 0.14);
-    z-index: 9200;       /* 허브 모달(9100) 보다 위, 온보딩(9500) 보다 아래 */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    z-index: 9200;
     opacity: 0;
     transition: opacity 220ms ease-out, transform 240ms ease-out;
     pointer-events: auto;
+}
+.mission-achievement-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
 }
 .mission-achievement.show {
     opacity: 1;
@@ -8099,22 +8108,22 @@ button.mission-progress-block:hover {
     text-transform: uppercase;
 }
 .mission-achievement-title {
-    color: var(--ink-primary, #2c2c28);
+    color: var(--color-ink-primary, var(--ink-primary, #2c2c28));
     font-size: 14.5px;
     font-weight: 600;
     line-height: 1.35;
 }
 .mission-achievement-hint {
-    color: var(--ink-secondary, #6f7068);
-    font-size: 12px;
-    line-height: 1.5;
+    color: var(--color-ink-secondary, var(--ink-secondary, #6f7068));
+    font-size: 13px;
+    line-height: 1.6;
 }
 .mission-achievement-close {
     background: transparent;
     border: 0;
     font-size: 20px;
     line-height: 1;
-    color: var(--ink-tertiary, #a8a8a3);
+    color: var(--color-ink-tertiary, var(--ink-tertiary, #a8a8a3));
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 6px;
@@ -8122,8 +8131,28 @@ button.mission-progress-block:hover {
     flex: 0 0 auto;
 }
 .mission-achievement-close:hover {
-    background: var(--surface-elev, #f4f1ea);
-    color: var(--ink-primary, #2c2c28);
+    background: var(--color-surface-elevated, var(--surface-elev, #f4f1ea));
+    color: var(--color-ink-primary, var(--ink-primary, #2c2c28));
+}
+/* (2026-05-20 v92 신규) 확인 버튼 — 자동 닫힘 X, 사용자가 직접 눌러 닫는 자리 */
+.mission-achievement-ok {
+    align-self: flex-end;
+    background: var(--accent, #6d7666);
+    color: var(--color-surface, #fff);
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 160ms, transform 100ms;
+}
+.mission-achievement-ok:hover {
+    opacity: 0.92;
+}
+.mission-achievement-ok:active {
+    transform: scale(0.97);
 }
 
 @media (max-width: 640px) {

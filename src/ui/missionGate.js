@@ -632,62 +632,52 @@ function showMissionAchievement(mission) {
         document.querySelectorAll('.mission-achievement').forEach(el => el.remove());
 
         // (2026-05-20 Phase 3) successCopy 우선·없으면 unlockCopy 폴백.
-        //   successCopy = SWAN 결 따뜻한 카피 / unlockCopy = 짧은 시스템 줄.
         const copyText = mission.successCopy || mission.unlockCopy || '';
 
         const card = document.createElement('div');
         card.className = 'mission-achievement';
-        card.setAttribute('role', 'status');
+        card.setAttribute('role', 'dialog');
         card.setAttribute('aria-live', 'polite');
+        card.setAttribute('aria-modal', 'false');
+        // (2026-05-20 v92) 사용자 명시: 자동 사라짐 X · 확인 버튼 자리 자리잡혀 닫힘. typing 자리 자연 자리.
         card.innerHTML = `
-          <span class="mission-achievement-icon" aria-hidden="true">${escapeHtml(mission.icon || '🎯')}</span>
-          <div class="mission-achievement-body">
-            <div class="mission-achievement-head">미션 완료</div>
-            <div class="mission-achievement-title">${escapeHtml(mission.title || '')}</div>
-            <div class="mission-achievement-hint ai-typing"></div>
+          <div class="mission-achievement-row">
+            <span class="mission-achievement-icon" aria-hidden="true">${escapeHtml(mission.icon || '🎯')}</span>
+            <div class="mission-achievement-body">
+              <div class="mission-achievement-head">미션 완료</div>
+              <div class="mission-achievement-title">${escapeHtml(mission.title || '')}</div>
+              <div class="mission-achievement-hint ai-typing"></div>
+            </div>
+            <button type="button" class="mission-achievement-close" aria-label="닫기">×</button>
           </div>
-          <button type="button" class="mission-achievement-close" aria-label="닫기">×</button>
+          <button type="button" class="mission-achievement-ok">확인</button>
         `;
         document.body.appendChild(card);
         requestAnimationFrame(() => card.classList.add('show'));
 
-        // (2026-05-20 Phase 3) typing breath — 온보딩·소크라테스 결과 같은 결로
-        //   prefers-reduced-motion 자리는 자연 즉시 노출 (setTextInstant).
         const hintEl = card.querySelector('.mission-achievement-hint');
-        const TYPING_MS = 32;
-        const SETTLE_MS = 2400;     // typing 끝나고 자연 머무는 시간
+        // (2026-05-20 v92) 사용자 명시 "타이핑 애니메이션이 너무 빨라서 정신 없어. 시간 좀 늘려줘" → 32 → 55ms
+        const TYPING_MS = 55;
 
         let dismissed = false;
-        let autoTimer = null;
-
         const dismiss = () => {
             if (dismissed) return;
             dismissed = true;
-            if (autoTimer) clearTimeout(autoTimer);
             card.classList.remove('show');
             setTimeout(() => { try { card.remove(); } catch (_) {} }, 240);
         };
 
-        const scheduleAutoDismiss = () => {
-            if (autoTimer) clearTimeout(autoTimer);
-            autoTimer = setTimeout(dismiss, SETTLE_MS);
-        };
-
         if (shouldReduceMotion() || !copyText) {
             setTextInstant(hintEl, copyText);
-            // 즉시 결 자리 = 3초 자연 머무름
-            autoTimer = setTimeout(dismiss, 3000);
         } else {
-            // typing breath 결로 자리잡기 → 끝나면 SETTLE_MS 자연 머무름
-            typeText(hintEl, copyText, TYPING_MS)
-                .then(scheduleAutoDismiss)
-                .catch(() => {
-                    setTextInstant(hintEl, copyText);
-                    scheduleAutoDismiss();
-                });
+            typeText(hintEl, copyText, TYPING_MS).catch(() => {
+                setTextInstant(hintEl, copyText);
+            });
         }
 
+        // 자동 사라짐 자리 자리잡지 X — 사용자가 [확인] 또는 [×] 클릭해야 닫힘
         card.querySelector('.mission-achievement-close').addEventListener('click', dismiss);
+        card.querySelector('.mission-achievement-ok').addEventListener('click', dismiss);
     } catch (_) { /* 알림 실패는 무시 */ }
 }
 
