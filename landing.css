@@ -164,24 +164,6 @@ html, body {
     outline-offset: 3px;
 }
 
-/* ── 4-b. 추천인 안내 — URL ?ref=코드 있을 때만 노출 ─────────── */
-.landing-referral {
-    margin-top: var(--sp-4);          /* 부제목 → 추천인 16px */
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 9999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.4;
-    /* JS 가 .hidden 토글 — ?ref= 없으면 안 그려짐 */
-}
-.landing-referral.hidden { display: none; }
-.landing-referral-icon { font-size: 14px; }
-
 /* ── 5. 기능 3 카드 — 1.5층 가치 보조 ─────────────────────── */
 .landing-features {
     margin-top: var(--sp-7);          /* CTA → 기능 카드 64px */

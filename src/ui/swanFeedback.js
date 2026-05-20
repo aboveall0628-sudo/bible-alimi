@@ -622,6 +622,20 @@ async function runFeedbackFinalize(userId, feedbackId, turns, context, endReason
                 turn_count: Array.isArray(turns) ? turns.length : 0,
             });
         } catch (_) {}
+
+        // (2026-05-20 Phase 3) swan_first_chat 미션 트리거 — SWAN 풍선 클릭 첫 결로 자리잡힘
+        try {
+            const { getDEK } = await import('./lockScreen.js');
+            const dek = getDEK();
+            if (dek) {
+                const { markMissionComplete } = await import('../data/personRepo.js');
+                await markMissionComplete(dek, userId, 'swan_first_chat', {
+                    signal: 'swanFeedback.finalize',
+                });
+            }
+        } catch (e) {
+            console.warn('[swanFeedback] swan_first_chat trigger failed:', e?.message || e);
+        }
     } catch (e) {
         console.error('[swanFeedback] finalizeFeedback failed:', e);
     }

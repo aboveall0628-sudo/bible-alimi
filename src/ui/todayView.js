@@ -1203,6 +1203,43 @@ async function saveMeditationDoc() {
                 await markMissionComplete(dek, _userId, 'meditation_first_save', {
                     signal: 'saveMeditationDoc'
                 });
+
+                // (2026-05-20 Phase 3) 신규 미션 트리거 5건 자리잡기
+                const text = `${sensitive.content || ''}\n${sensitive.prayer || ''}`;
+
+                // 1) 감사 한 줄 자리잡기 — 묵상 본문·기도에 "감사" 단어 자리
+                if (/감사/.test(text)) {
+                    await markMissionComplete(dek, _userId, 'gratitude_note', {
+                        signal: 'saveMeditationDoc:gratitude',
+                    });
+                }
+
+                // 2) 기도 섹션 자리잡기 — prayer 필드 비어있지 않음
+                if (sensitive.prayer && sensitive.prayer.trim()) {
+                    await markMissionComplete(dek, _userId, 'prayer_section', {
+                        signal: 'saveMeditationDoc:prayer',
+                    });
+                }
+
+                // 3·4) 새벽·자기 전 묵상 — 묵상 자리잡힌 시간 기준
+                const hour = new Date().getHours();
+                if (hour >= 5 && hour <= 8) {
+                    await markMissionComplete(dek, _userId, 'morning_meditation', {
+                        signal: `saveMeditationDoc:morning(${hour})`,
+                    });
+                } else if (hour >= 21 && hour <= 23) {
+                    await markMissionComplete(dek, _userId, 'evening_meditation', {
+                        signal: `saveMeditationDoc:evening(${hour})`,
+                    });
+                }
+
+                // 5) streak 자동 자리잡기 — 3·7·14일 자리에서 미션 자리잡힘
+                try {
+                    const { updateStreakMissions } = await import('../data/meditationStreak.js');
+                    await updateStreakMissions(dek, _userId);
+                } catch (e) {
+                    console.warn('[saveMeditationDoc] streak update failed:', e?.message || e);
+                }
             } catch (e) {
                 console.warn('[saveMeditationDoc] mission trigger failed:', e?.message || e);
             }

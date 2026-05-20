@@ -38,20 +38,14 @@
             window.lucide.createIcons();
         }
 
-        // 2-b) 추천 코드(?ref=...) 처리
-        //   - sessionStorage 에 저장해 로그인 후 본 앱에서 selfCard.referredBy 로 이어주기
-        //   - 추천인 안내 줄 노출 (코드만 보여줌; 닉네임은 본 앱 진입 후 결합)
+        // 2-b) 추천 코드(?ref=...) 캡처
+        //   - sessionStorage 에 저장 → CTA 클릭 시 loginUrl 에 자동 첨부 → 본 앱 captureRefFromUrl 정상 동작
+        //   - 닉네임 결합 안내는 온보딩 마침 카드 자리(별도 트랙). 랜딩 화면엔 안내 X
         try {
             var params = new URLSearchParams(location.search);
             var ref = params.get('ref');
             if (ref && /^[A-Za-z0-9_-]{2,32}$/.test(ref)) {
                 sessionStorage.setItem('sanctum.referralCode', ref);
-                var refEl = document.getElementById('landing-referral');
-                var refText = document.getElementById('landing-referral-text');
-                if (refEl && refText) {
-                    refText.textContent = '추천 코드 ' + ref + ' 로 초대받으셨어요';
-                    refEl.classList.remove('hidden');
-                }
             }
         } catch (_) { /* sessionStorage 차단 환경 → 그냥 패스 */ }
 
