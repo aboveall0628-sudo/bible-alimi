@@ -10475,6 +10475,42 @@ html[data-tier="slim"] .qr-tx-section {
     text-align: center;
 }
 
+/* (2026-05-20 v93) 미확인 피드백 빨간 동그라미 — 3 자리 (사이드바·운영자 nav·피드백 관리 열기) 동일 톤 */
+.feedback-unread-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    box-sizing: border-box;
+}
+.feedback-unread-badge.hidden { display: none; }
+/* 사이드바 [설정] 자리 — 텍스트 옆 자리 */
+.sidebar-item .feedback-unread-badge.sidebar-badge {
+    margin-left: 6px;
+    vertical-align: middle;
+}
+/* 운영자 nav 자리 — 텍스트 옆 자리 */
+.sidebar-settings-item .feedback-unread-badge.nav-badge {
+    margin-left: auto;
+}
+/* 피드백 관리 열기 버튼 — 우측 상단 자리 */
+.admin-flow-btn-with-badge {
+    position: relative;
+}
+.admin-flow-btn .feedback-unread-badge.admin-flow-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
 /* (2026-05-20 Phase 1) 피드백 도착 알림 카드 — 운영자 페이지 */
 .admin-push-status {
     margin: 8px 0 12px;

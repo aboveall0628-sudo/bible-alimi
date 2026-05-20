@@ -32,15 +32,23 @@ function _detectiOSStandalone() {
 
 export function renderAdminView(container) {
     if (!container) return;
+    // (2026-05-20 v93) 사용자 명시 — 피드백 관리 카드 최상단 + 사전/사후/전체 가입 3 버튼 시연 카드로 옮김.
+    //   미확인 뱃지 자리 3 자리(사이드바 [설정]·운영자 nav·피드백 관리 열기) 자연 자리잡혀요.
     container.innerHTML = `
         <header class="page-header">
             <h1>🛠 운영자</h1>
         </header>
 
         <section class="card-section admin-card">
-            <h3 class="section-title"><i class="section-icon" data-lucide="layers"></i> 모드 전환</h3>
-            <p class="section-desc">슬림(베타 6 화면)과 메인(전체 모듈) 사이를 자유롭게 오갈 수 있어요. 사용자에게 어떤 모드로 보일지 직접 확인하실 수 있어요.</p>
-            <div id="admin-tier-row" class="settings-tier-row"></div>
+            <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리</h3>
+            <p class="section-desc">사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
+            <div class="admin-flow-grid">
+                <button type="button" id="admin-open-feedback-btn" class="admin-flow-btn admin-flow-btn-with-badge">
+                    <span class="admin-flow-emoji">📥</span>
+                    <span class="admin-flow-label">피드백 관리 열기</span>
+                    <span class="feedback-unread-badge admin-flow-badge hidden" aria-label="미확인 피드백"></span>
+                </button>
+            </div>
         </section>
 
         <section class="card-section admin-card" id="admin-push-card">
@@ -61,26 +69,9 @@ export function renderAdminView(container) {
         </section>
 
         <section class="card-section admin-card">
-            <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리</h3>
-            <p class="section-desc">사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
-            <div class="admin-flow-grid">
-                <button type="button" id="admin-open-feedback-btn" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">📥</span>
-                    <span class="admin-flow-label">피드백 관리 열기</span>
-                </button>
-                <button type="button" id="admin-start-presurvey-btn" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">📋</span>
-                    <span class="admin-flow-label">사전 설문 단독 테스트</span>
-                </button>
-                <button type="button" id="admin-start-postsurvey-btn" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">📝</span>
-                    <span class="admin-flow-label">사후 설문 단독 테스트</span>
-                </button>
-                <button type="button" id="admin-start-fullsignup-btn" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">🚀</span>
-                    <span class="admin-flow-label">전체 가입 흐름 (동의·온보딩·설문)</span>
-                </button>
-            </div>
+            <h3 class="section-title"><i class="section-icon" data-lucide="layers"></i> 모드 전환</h3>
+            <p class="section-desc">슬림(베타 6 화면)과 메인(전체 모듈) 사이를 자유롭게 오갈 수 있어요. 사용자에게 어떤 모드로 보일지 직접 확인하실 수 있어요.</p>
+            <div id="admin-tier-row" class="settings-tier-row"></div>
         </section>
 
         <section class="card-section admin-card">
@@ -99,10 +90,21 @@ export function renderAdminView(container) {
                     <span class="admin-flow-emoji">📄</span>
                     <span class="admin-flow-label">24단어 복구 코드</span>
                 </button>
-                <!-- (2026-05-19 후속) 사용자 명시 "샘플 목표 자리 제거" — 시연 버튼도 같이 자리 빠짐 -->
                 <button type="button" id="admin-flow-onboarding" class="admin-flow-btn">
                     <span class="admin-flow-emoji">🦢</span>
                     <span class="admin-flow-label">온보딩 11 step</span>
+                </button>
+                <button type="button" id="admin-start-presurvey-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">📋</span>
+                    <span class="admin-flow-label">사전 설문 단독 테스트</span>
+                </button>
+                <button type="button" id="admin-start-postsurvey-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">📝</span>
+                    <span class="admin-flow-label">사후 설문 단독 테스트</span>
+                </button>
+                <button type="button" id="admin-start-fullsignup-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">🚀</span>
+                    <span class="admin-flow-label">전체 가입 흐름 (동의·온보딩·설문)</span>
                 </button>
                 <button type="button" id="admin-flow-landing" class="admin-flow-btn">
                     <span class="admin-flow-emoji">🌐</span>

@@ -917,12 +917,18 @@ export function stopFeedbackUnreadBadgeWatch() {
 }
 
 function _updateBadge(count) {
-    const badge = document.getElementById('feedback-unread-badge');
-    if (!badge) return;
-    if (count > 0) {
-        badge.textContent = count > 99 ? '99+' : String(count);
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
-    }
+    // (2026-05-20 v93) 사용자 명시 — 사이드바 [설정] · 운영자 nav · 피드백 관리 열기 3 자리 동시 갱신.
+    //   id 자리 자리잡지 X · class .feedback-unread-badge 자리잡혀 자리.
+    const badges = document.querySelectorAll('.feedback-unread-badge');
+    if (!badges || badges.length === 0) return;
+    const text = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
+    badges.forEach(badge => {
+        if (count > 0) {
+            badge.textContent = text;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+            badge.textContent = '';
+        }
+    });
 }
