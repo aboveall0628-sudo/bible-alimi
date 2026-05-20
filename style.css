@@ -1269,14 +1269,20 @@ html[data-note-font="system"] .note-editor h3 {
 .utl-inline-panel { min-height: 36px; }
 
 /* ═══ Quick review modal ═══ */
-/* (2026-05-20 v94 fix) 사용자 점검 "실제 모달 왜 좌하단으로 쏠리니? 중앙에 뜨게" — 강제 center 자리잡기 */
+/* (2026-05-20 v94 fix) 사용자 점검 "실제 모달 왜 좌하단으로 쏠리니? 중앙에 뜨게" — 강제 center */
+/* (2026-05-20 v98 fix) 사용자 점검 "닫기 작동 X · 시작부터 모달 자리잡힘" —
+ *   v94 !important 자리잡혀 .hidden 자리 자리잡지 못함. !important 자리 자리잡지 X.
+ *   .hidden 자리 display: none !important 자리잡기. */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 1000;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 16px;
+}
+.modal-overlay.hidden {
+    display: none !important;
 }
 .modal-content {
     background: var(--bg-card); border-radius: var(--radius-lg);
@@ -7781,6 +7787,20 @@ button.mission-progress-block:hover {
     font-size: 11.5px;
     line-height: 1.5;
     margin-bottom: 6px;
+}
+/* streak 미션 진행도 라벨 — N/M일 자리. accent-soft 톤. */
+.mission-rc-progress {
+    display: inline-block;
+    margin-top: 2px;
+    margin-bottom: 6px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    background: var(--accent-soft, rgba(95, 111, 74, 0.08));
+    color: var(--accent, #5F6F4A);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    align-self: flex-start;
 }
 .mission-rc-cta {
     margin-top: auto;

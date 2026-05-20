@@ -2008,6 +2008,23 @@ function bindSystemFontSettings() {
     });
 }
 
+// (2026-05-20 v95) theme_change 미션 트리거 헬퍼 — 테마/강조색/노트 폰트 셋 중 하나만 갈아끼면 자리잡힘.
+//   _userId 가 settings 모듈 자리에서 직접 닿지 않으므로 window.currentUserId + getDEK() 결로 가져옴.
+//   markMissionComplete 자체가 idempotent — 두 번 호출돼도 안전.
+async function _markThemeChangeMission(signal) {
+    try {
+        const uid = window.currentUserId;
+        if (!uid) return;
+        const { getDEK } = await import('./lockScreen.js');
+        const dek = getDEK();
+        if (!dek) return;
+        const { markMissionComplete } = await import('../data/personRepo.js');
+        await markMissionComplete(dek, uid, 'theme_change', { signal });
+    } catch (e) {
+        console.warn('[mission] theme_change 자리잡지 실패:', e?.message || e);
+    }
+}
+
 /**
  * (디자인 시스템 v1 2026-05-15) 강조 색 카드 — 3색 사용자 선택.
  *   시스템 폰트 카드와 같은 패턴 (chip-row + selected 토글).
@@ -2032,6 +2049,8 @@ function bindAccentColorSettings() {
             row.querySelectorAll('.settings-font-chip').forEach(b => {
                 b.classList.toggle('selected', b === btn);
             });
+            // (2026-05-20 v95) theme_change 미션 트리거 — 강조색 변경 = 결 갈아끼움 1회
+            _markThemeChangeMission('accentColor:' + id);
         });
     });
 }
@@ -2060,6 +2079,8 @@ function bindNoteFontSettings() {
             row.querySelectorAll('.settings-font-chip').forEach(b => {
                 b.classList.toggle('selected', b === btn);
             });
+            // (2026-05-20 v95) theme_change 미션 트리거 — 노트 폰트 변경도 결 갈아끼움
+            _markThemeChangeMission('noteFont:' + id);
         });
     });
 }

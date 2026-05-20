@@ -37,7 +37,8 @@ import { FAQ_FALLBACK_HINT_CHAT, findFaqById, getVisibleFaqs } from '../config/f
 const COPY = {
     // 일반 피드백 (kind='feedback')
     feedback: {
-        openingTurn:    '안녕하세요. 오늘 어떤 부분을 알려주고 싶으세요?',
+        // (2026-05-20 v95) 사용자 명시 — SWAN 시작 멘트 갈아끼움 "안녕하세요, 무엇을 도와드릴까요?"
+        openingTurn:    '안녕하세요, 무엇을 도와드릴까요?',
         closeFarewell:  '알려주셔서 고마워요. 잘 정리해 둘게요.',
         turnLimitNote:  '여기까지 알려주신 걸 정리해서 보낼게요.',
         title:          'SWAN',

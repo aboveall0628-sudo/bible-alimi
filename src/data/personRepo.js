@@ -17,10 +17,10 @@
 
 import { db, doc, deleteDoc, query, where, orderBy } from './firebase.js';
 import { saveRecord, getRecord, queryRecords, subPath, colRef } from './baseRepo.js';
-// (2026-05-18 v75) 추천 링크 회로 — 신규 가입 시 referralCode 자동 생성 + ?ref 박힘
+// (2026-05-18 v75) 추천 링크 회로 — 신규 가입 시 referralCode 자동 생성 + ?ref 자리잡힘
 import {
     generateUniqueReferralCode, registerReferralCode, getReferralCode,
-    incrementReferralCount, getCapturedRef, clearCapturedRef,
+    incrementReferralCount, getReferralCountByCode, getCapturedRef, clearCapturedRef,
 } from './referralRepo.js';
 
 const SUB = 'persons';
@@ -295,6 +295,22 @@ export async function ensureSelfCard(dek, userId) {
     }
 
     await savePerson(dek, userId, data);
+
+    // (2026-05-20 v95) invite_first_friend 미션 트리거 — 자기 referralCode 카운트 1+ 면 자리잡힘.
+    //   ensureSelfCard 가 부팅·각 진입 자리에서 호출돼 매번 체크. markMissionComplete idempotent.
+    if (data.referralCode) {
+        try {
+            const cnt = await getReferralCountByCode(data.referralCode);
+            if (cnt >= 1) {
+                await markMissionComplete(dek, userId, 'invite_first_friend', {
+                    signal: `referralCount:${cnt}`,
+                });
+            }
+        } catch (e) {
+            console.warn('[ensureSelfCard] invite_first_friend 트리거 실패 (무시):', e?.message || e);
+        }
+    }
+
     return data;
 }
 

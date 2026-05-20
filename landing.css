@@ -124,6 +124,25 @@ html, body {
     .landing-title { font-size: 40px; }
 }
 
+/* 베타 배지 — 제목 옆 작은 accent-soft 필 (v95) */
+.landing-beta-badge {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 10px;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+    /* 제목 폰트 크기 분기 시에도 배지는 작게 유지 */
+}
+@media (min-width: 768px) {
+    .landing-beta-badge { font-size: 13px; padding: 4px 12px; }
+}
+
 /* ── 3. 부제목 ──────────────────────────────────────────────── */
 .landing-subtitle {
     margin-top: var(--sp-4);          /* 제목 → 부제목 16px */

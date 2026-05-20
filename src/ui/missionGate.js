@@ -509,14 +509,38 @@ export async function renderMissionRecommendCards(containerId, dek, userId) {
         return;
     }
 
-    const cardsHtml = recs.map(r => `
-      <button type="button" class="mission-rc-card" data-mission-id="${escapeHtml(r.missionId)}" aria-label="${escapeHtml(r.mission.title)} 시작">
-        <span class="mission-rc-icon" aria-hidden="true">${escapeHtml(r.mission.icon)}</span>
-        <span class="mission-rc-title">${escapeHtml(r.mission.title)}</span>
-        <span class="mission-rc-hint">${escapeHtml(r.mission.hint)}</span>
+    // (2026-05-20 v95) streak 미션 진행도 시각 — progressFn='meditationStreak' + progressTarget 자리.
+    //   현재 streak 일수 1회 가져와서 활성 미션 카드에 N/M 라벨 자리잡기.
+    //   meditationStreak.js 의존 import 가 실패해도 카드 자체는 노출(폴백 = 라벨 없음).
+    let currentStreak = null;
+    try {
+        const hasStreak = recs.some(r => r.mission.progressFn === 'meditationStreak');
+        if (hasStreak) {
+            const { getMeditationStreak } = await import('../data/meditationStreak.js');
+            currentStreak = await getMeditationStreak(dek, userId);
+        }
+    } catch (e) {
+        console.warn('[missionGate] meditationStreak 자리잡지 실패:', e?.message || e);
+    }
+
+    const cardsHtml = recs.map(r => {
+        const m = r.mission;
+        // streak 미션이면 진행도 라벨 자리잡기. 그 외 미션은 hint 그대로.
+        let progressLabel = '';
+        if (m.progressFn === 'meditationStreak' && m.progressTarget && currentStreak != null) {
+            const cur = Math.min(currentStreak, m.progressTarget);
+            progressLabel = `<span class="mission-rc-progress">진행도 ${cur}/${m.progressTarget}일</span>`;
+        }
+        return `
+      <button type="button" class="mission-rc-card" data-mission-id="${escapeHtml(r.missionId)}" aria-label="${escapeHtml(m.title)} 시작">
+        <span class="mission-rc-icon" aria-hidden="true">${escapeHtml(m.icon)}</span>
+        <span class="mission-rc-title">${escapeHtml(m.title)}</span>
+        <span class="mission-rc-hint">${escapeHtml(m.hint)}</span>
+        ${progressLabel}
         <span class="mission-rc-cta">시작</span>
       </button>
-    `).join('');
+    `;
+    }).join('');
 
     container.innerHTML = `
       <div class="mission-recommend-wrap">

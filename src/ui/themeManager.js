@@ -36,6 +36,22 @@ export function initThemeManager() {
 
     input.checked = initial === 'dark';
     input.addEventListener('change', () => {
-        applyTheme(input.checked ? 'dark' : 'light');
+        const next = input.checked ? 'dark' : 'light';
+        applyTheme(next);
+        // (2026-05-20 v95) theme_change 미션 트리거 — 다크/라이트 토글 1회.
+        //   markMissionComplete idempotent 자리라 중복 호출 안전. dynamic import 결로 의존 분리.
+        (async () => {
+            try {
+                const uid = window.currentUserId;
+                if (!uid) return;
+                const { getDEK } = await import('./lockScreen.js');
+                const dek = getDEK();
+                if (!dek) return;
+                const { markMissionComplete } = await import('../data/personRepo.js');
+                await markMissionComplete(dek, uid, 'theme_change', { signal: 'theme:' + next });
+            } catch (e) {
+                console.warn('[mission] theme_change(theme) 자리잡지 실패:', e?.message || e);
+            }
+        })();
     });
 }
