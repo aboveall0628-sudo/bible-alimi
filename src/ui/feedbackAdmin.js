@@ -868,20 +868,22 @@ export function startFeedbackUnreadBadgeWatch(userId) {
                 if (data.status === 'unread') {
                     unread++;
 
-                    // 이 편지가 배달 요정이 깨어난 뒤에 새로 온 편지인지 확인해요
-                    let createdMs = 0;
-                    if (data.createdAt) {
-                        if (data.createdAt.toDate) {
-                            createdMs = data.createdAt.toDate().getTime();
-                        } else if (data.createdAt.seconds) {
-                            createdMs = data.createdAt.seconds * 1000;
+                    // (2026-05-20 v96) 사용자 명시 "대화 종료 자리에 알림 — 시작 자리는 너무 일러".
+                    //   createdAt(첫 인사 도착 자리) → endedAt(사용자가 [보내기] 누른 자리) 기준으로 갈음.
+                    //   endedAt 안 자리잡힌 대화(진행 중)는 알림 X.
+                    let endedMs = 0;
+                    if (data.endedAt) {
+                        if (data.endedAt.toDate) {
+                            endedMs = data.endedAt.toDate().getTime();
+                        } else if (data.endedAt.seconds) {
+                            endedMs = data.endedAt.seconds * 1000;
                         } else {
-                            createdMs = new Date(data.createdAt).getTime();
+                            endedMs = new Date(data.endedAt).getTime();
                         }
                     }
 
-                    // 새로 왔고, 아직 소리 내어 알려준 적이 없는 편지라면 띵동!
-                    if (createdMs > sessionStart) {
+                    // 종료 자리잡힌 자리만 알림. 아직 대화 중이면 패스.
+                    if (endedMs > 0 && endedMs > sessionStart) {
                         const firedKey = `sanctum.feedback.fired.${d.id}`;
                         if (!localStorage.getItem(firedKey)) {
                             localStorage.setItem(firedKey, 'true');
