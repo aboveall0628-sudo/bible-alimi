@@ -1213,7 +1213,6 @@ async function saveMeditationDoc() {
                 import('./analytics.js').then(({ trackEvent, EVENTS }) => {
                     trackEvent(EVENTS.MEDITATION_SAVED, {
                         has_prayer: !!sensitive.prayer,
-                        has_commitment: !!sensitive.commitment,
                         content_length: (sensitive.content || '').length,
                     });
                 }).catch(() => {});

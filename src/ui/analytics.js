@@ -171,6 +171,10 @@ export const EVENTS = {
     DECISION_GATE_ENTERED: 'decision_gate_entered',
     PRECEDENT_SAVED: 'precedent_saved',
 
+    // 목표 (행동 전환 신호 — 2026-05-20 신설)
+    GOAL_CREATED: 'goal_created',       // params: { category, from_meditation }
+    GOAL_SCHEDULED: 'goal_scheduled',   // params: { category, slot_hour }
+
     // 튜토리얼 미션
     MISSION_CLEAR: 'mission_clear',  // ⭐ 전환 — params: { mission_id }
     MISSION_LOCKED_MODAL_OPENED: 'mission_locked_modal_opened',

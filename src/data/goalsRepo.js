@@ -70,7 +70,7 @@ export async function saveGoal(dek, goalData, opts = {}) {
 
     const result = await saveRecord(dek, 'goals', goalData, goalData.id);
 
-    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 목표 박기 미션 트리거.
+    // (본인 프로필 재기획 트랙 2026-05-14 S-B) 첫 목표 미션 트리거.
     //   신규 목표일 때만 (currentVersion === 1). 시드·마이그레이션 경로(skipVersioning)는
     //   currentVersion 이 undefined 일 수 있어 자연스럽게 제외됨.
     if (goalData.currentVersion === 1) {
@@ -80,6 +80,16 @@ export async function saveGoal(dek, goalData, opts = {}) {
         } catch (e) {
             console.warn('[saveGoal] mission trigger failed:', e?.message || e);
         }
+
+        // (GA4 2026-05-20) 행동 전환 신호 — 새 목표 등록.
+        //   from_meditation = opts.fromMeditation (묵상 흐름 안에서 시작된 자리)
+        try {
+            const { trackEvent, EVENTS } = await import('../ui/analytics.js');
+            trackEvent(EVENTS.GOAL_CREATED, {
+                category: goalData.category || goalData.period || 'unknown',
+                from_meditation: !!opts.fromMeditation,
+            });
+        } catch (_) { /* GA4 실패해도 흐름 영향 X */ }
     }
     return result;
 }
@@ -149,14 +159,29 @@ function goalBelongsToDate(goal, date) {
 }
 
 /**
- * 목표를 시간 슬롯에 박기 (daily 목표 → 시간표 plan 레인).
+ * 목표를 시간 슬롯에 자리 잡기 (daily 목표 → 시간표 plan 레인).
  * 기존 decisionsRepo.placeDecision 의 goal 버전.
  */
 export async function placeGoal(dek, goal, timeSlot, durationSlots = 4) {
     goal.timeSlot = timeSlot;
     goal.durationSlots = durationSlots;
     goal.placedAt = Date.now();
-    return await saveGoal(dek, goal);
+    const result = await saveGoal(dek, goal);
+
+    // (GA4 2026-05-20) 행동 전환 신호 — 시간표 슬롯 자리 잡힘.
+    //   slot_hour = 0~23 (timeSlot이 'HH:MM' 형태일 때 시각 추출)
+    try {
+        const slotHour = typeof timeSlot === 'string'
+            ? parseInt(timeSlot.split(':')[0], 10)
+            : (typeof timeSlot === 'number' ? Math.floor(timeSlot / 60) : null);
+        const { trackEvent, EVENTS } = await import('../ui/analytics.js');
+        trackEvent(EVENTS.GOAL_SCHEDULED, {
+            category: goal.category || goal.period || 'unknown',
+            slot_hour: Number.isFinite(slotHour) ? slotHour : -1,
+        });
+    } catch (_) { /* GA4 실패해도 흐름 영향 X */ }
+
+    return result;
 }
 
 /**
