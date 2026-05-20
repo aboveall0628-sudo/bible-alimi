@@ -48,10 +48,10 @@ let _gcalEvents = [];  // plan 레인의 외부 일정
 let _onChange = null;  // 데이터 갱신 시 외부에 알리기 (todayView가 결단 패널 다시 그릴 수 있게)
 
 // 모바일 변수
-// (2026-05-20) 사용자 결정 — 핀치 줌은 viewport 자체 줌과 충돌 우려로 제외.
-// 가변 폰트는 rem 단위 + 시스템 폰트 설정으로 자연 자리잡혀요. (디자인 시스템 v1 §접근성 정합)
-let _mobileTab = 'plan'; // 'plan' | 'actual'
-const _tabScrollPos = { plan: 0, actual: 0 }; // 탭별 스크롤 위치 보존
+// (2026-05-20 v108 1.1차) 모바일 시간축 그리드 결 — 데스크탑 결을 모바일에 자연 가져옴.
+// 탭(plan/actual) 자리 폐기 — 한 시간축에 계획 띠 + 실제 카드 레이어드 자리잡힙.
+// 평가 마찰 해소가 시스템 전체 가치(루핑)의 병목이라는 사용자 통찰 정합.
+let _mobileScrollPos = 0; // 시간축 스크롤 자리 보존 (재렌더 시 자연 복원)
 
 /**
  * 타임라인 마운트 (앱 시작 시 1회)
@@ -207,268 +207,195 @@ function renderDesktop() {
     bindCellEvents(actualCol, 'actual');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// (v108 1.1차 2026-05-20) 모바일 시간축 그리드 결 — Guided Actual UX
+// 평가 마찰 해소가 시스템 루핑의 병목이라는 사용자 통찰 정합.
+// 데스크탑 결(axisCol + planCol + actualCol)을 한 컬럼 그리드로 자연 가져옴:
+//   - 시간 라벨 (좌측 56px) + 그리드 본문 (24h × 16px/15min = 1536px)
+//   - 계획 = 옅은 띠 (z-index 1, opacity 0.6)
+//   - 실제 = 카드 (z-index 2, 만족도 색 좌측 라인)
+//   - 빈 자리 톡 = quickReview 모달 (1.2차에 미배치 목표 드롭다운으로 자리잡힙)
+//   - 카드 톡 = 재평가 / 길게 누름 = 삭제 확인
+//   - + 추가 FAB 우하단 floating
+// ═══════════════════════════════════════════════════════════════
 function renderMobile() {
     const list = document.getElementById('utl-mobile-list');
     if (!list) return;
 
-    // Fix 5: 탭 전환 직전 스크롤 위치 보존 (탭별 자리 자연 복원)
-    _tabScrollPos[_mobileTab] = list.scrollTop;
+    // 렌더 직전 스크롤 자리 보존 (재렌더 후 requestAnimationFrame 에서 자연 복원)
+    _mobileScrollPos = list.scrollTop;
 
-    // A. planSlots (계획 탭 카드들) — TDS 카피 안 이모지 X (📅 접두사 제거)
+    // ── 데이터 가공 — 모바일·데스크탑 통일 모델 ─────────────
     const planSlots = _decisions.filter(d => d.timeSlot != null).map(d => ({
         slot: d.timeSlot,
-        duration: d.durationSlots || 4,
+        duration: Math.max(1, d.durationSlots || 4),
         label: d.title ?? d.text ?? '(이름 없음)',
-        kind: 'decision',
-        id: d.id
-    })).sort((a, b) => a.slot - b.slot);
+        id: d.id,
+        gcal: !!d.gcalEventId,
+    }));
 
-    // B. guideSlots (실제 탭 상단의 스마트 가이드용 미기록 계획들)
-    const guideSlots = _decisions.filter(d => d.timeSlot != null && d.id).filter(d => {
-        const hasDot = _dots.some(dot => 
-            dot.linkedGoalId === d.id || 
-            dot.timeSlot === d.timeSlot
-        );
-        return !hasDot;
-    }).map(d => ({
+    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => ({
         slot: d.timeSlot,
-        label: d.title ?? d.text ?? '(이름 없음)',
-        id: d.id
-    })).sort((a, b) => a.slot - b.slot);
+        duration: Math.max(1, d.durationSlots || 1),
+        label: d.actualTask || d.plannedTask || '(아직 비어있어요)',
+        dotClass: dotColorClass(d),
+        fromWorkflow: !!d.linkedWorkflowStepId,
+        id: d.id,
+    }));
 
-    // C. actualSlots (실제 탭 본문 피드용 기록들)
-    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => {
-        const linkedPlan = _decisions.find(dec =>
-            dec.id === d.linkedGoalId || dec.timeSlot === d.timeSlot
-        );
-        return {
-            slot: d.timeSlot,
-            duration: d.durationSlots || 1,
-            label: d.actualTask || d.plannedTask || '(내용 없음)',
-            dotClass: dotColorClass(d),
-            fromWorkflow: !!d.linkedWorkflowStepId,
-            kind: 'dot',
-            id: d.id,
-            linkedPlanTitle: linkedPlan ? (linkedPlan.title ?? linkedPlan.text) : null
-        };
-    }).sort((a, b) => a.slot - b.slot);
+    const totalHeight = SLOTS_PER_DAY * ROW_HEIGHT; // 96 × 16 = 1536px
 
-    const planEmpty = planSlots.length === 0;
-    const actualEmpty = actualSlots.length === 0;
-
-    // D. 렌더링 HTML 명세
-    const tabsHtml = `
-        <div class="utl-mobile-tabs" role="tablist">
-            <button class="utl-mobile-tab ${_mobileTab === 'plan' ? 'active' : ''}"
-                    data-tab="plan" role="tab" aria-selected="${_mobileTab === 'plan'}">
-                계획 ${planSlots.length ? `(${planSlots.length})` : ''}
-            </button>
-            <button class="utl-mobile-tab ${_mobileTab === 'actual' ? 'active' : ''}"
-                    data-tab="actual" role="tab" aria-selected="${_mobileTab === 'actual'}">
-                실제 ${actualSlots.length ? `(${actualSlots.length})` : ''}
-            </button>
-        </div>
-    `;
-
-    // 스마트 가이드 캐러셀 렌더링
-    let guideCarouselHtml = '';
-    if (_mobileTab === 'actual' && guideSlots.length > 0) {
-        const cardsHtml = guideSlots.map(item => `
-            <div class="utl-mobile-guide-card" data-decision-id="${item.id}" data-slot="${item.slot}" data-label="${escapeHtml(item.label)}">
-                <span class="utl-mobile-guide-card-time">${slotToTime(item.slot)}</span>
-                <div class="utl-mobile-guide-card-label">${escapeHtml(item.label)}</div>
-                <div class="utl-mobile-guide-card-cta">어땠나요?</div>
-            </div>
-        `).join('');
-
-        // (TDS 정합) 카피 안 이모지 X · "평가" 단어 우회 — 인과·관찰 결로 표현
-        guideCarouselHtml = `
-            <div class="utl-mobile-guide-container">
-                <div class="utl-mobile-guide-title">오늘 이런 계획이 있었어요</div>
-                <div class="utl-mobile-guide-sub">실제로는 어땠나요?</div>
-                <div class="utl-mobile-guide-carousel">
-                    ${cardsHtml}
-                </div>
-            </div>
-        `;
+    // ── 시간 라벨 (1시간마다) ────────────────────────────
+    let timeAxisHtml = '';
+    for (let h = 0; h < 24; h++) {
+        const top = h * 4 * ROW_HEIGHT;
+        const period = h < 12 ? '오전' : '오후';
+        const displayH = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+        timeAxisHtml += `<div class="utl-mg-time" style="top:${top}px">${period} ${displayH}시</div>`;
     }
 
-    const renderRow = (item) => {
-        const endSlot = item.slot + (item.duration || 1);
-        const timeLabel = (item.duration || 1) > 1
-            ? `${slotToTime(item.slot)}~${slotToTime(endSlot)}`
-            : slotToTime(item.slot);
+    // ── 격자선 (1시간마다) ──────────────────────────────
+    let gridLinesHtml = '';
+    for (let h = 0; h <= 24; h++) {
+        const top = h * 4 * ROW_HEIGHT;
+        gridLinesHtml += `<div class="utl-mg-line" style="top:${top}px"></div>`;
+    }
 
-        if (_mobileTab === 'plan') {
-            const cls = [
-                'utl-mobile-card',
-                'dot-gray'
-            ].join(' ').trim();
-            return `
-                <div class="${cls}" data-slot="${item.slot}">
-                    <span class="utl-mobile-time">${timeLabel}</span>
-                    <div class="utl-mobile-body">
-                        <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
-                    </div>
-                </div>
-            `;
-        } else {
-            const cls = [
-                'utl-mobile-card',
-                item.dotClass || 'dot-gray',
-                item.fromWorkflow ? 'from-workflow' : ''
-            ].join(' ').trim();
-            const dotAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
-            return `
-                <div class="${cls}" ${dotAttr} data-slot="${item.slot}">
-                    <span class="utl-mobile-time">${timeLabel}</span>
-                    <div class="utl-mobile-body">
-                        <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
-                        ${item.linkedPlanTitle ? `
-                            <div class="utl-mobile-plan-origin">계획 출처: ${escapeHtml(item.linkedPlanTitle)}</div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }
-    };
+    // ── 현재 시간 라인 ──────────────────────────────────
+    let nowLineHtml = '';
+    if (isToday(_date)) {
+        const now = new Date();
+        const nowTop = (now.getHours() * 4 + now.getMinutes() / 15) * ROW_HEIGHT;
+        nowLineHtml = `<div class="utl-mg-now" style="top:${nowTop}px"></div>`;
+    }
 
-    const emptyHtml = (msg) => `
-        <div class="utl-empty-card" style="border:none">
-            <p>${escapeHtml(msg)}</p>
+    // ── 계획 슬롯 — 옅은 띠 (z-index 1, 배경 자리) ─────────
+    const planSlotsHtml = planSlots.map(p => {
+        const top = p.slot * ROW_HEIGHT;
+        const height = Math.max(ROW_HEIGHT, p.duration * ROW_HEIGHT - 2);
+        const decisionAttr = p.id ? `data-decision-id="${escapeHtml(p.id)}"` : '';
+        const gcalCls = p.gcal ? ' gcal-source' : '';
+        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls}" style="top:${top}px; height:${height}px" ${decisionAttr}>
+            <span class="utl-mg-slot-label">${escapeHtml(p.label)}</span>
+        </div>`;
+    }).join('');
+
+    // ── 실제 슬롯 — 만족도 색 카드 (z-index 2, 계획 위) ─────
+    const actualSlotsHtml = actualSlots.map(a => {
+        const top = a.slot * ROW_HEIGHT;
+        const height = Math.max(ROW_HEIGHT, a.duration * ROW_HEIGHT - 2);
+        const fromWf = a.fromWorkflow ? ' from-workflow' : '';
+        return `<div class="utl-mg-slot utl-mg-slot-actual ${a.dotClass || 'dot-gray'}${fromWf}" style="top:${top}px; height:${height}px" data-dot-id="${escapeHtml(a.id)}">
+            <span class="utl-mg-slot-label">${escapeHtml(a.label)}</span>
+        </div>`;
+    }).join('');
+
+    // ── + 추가 FAB (우하단 floating) ────────────────────
+    const fabHtml = `<button type="button" class="utl-mg-fab" id="utl-mobile-add" aria-label="새 기록 추가">+</button>`;
+
+    list.innerHTML = `
+        <div class="utl-mg-container" style="height:${totalHeight}px">
+            ${timeAxisHtml}
+            ${gridLinesHtml}
+            ${nowLineHtml}
+            ${planSlotsHtml}
+            ${actualSlotsHtml}
         </div>
+        ${fabHtml}
     `;
 
-    // (TDS) "박" 어간·"평가" 단어 우회 + 명령형 → 해요체
-    // 계획 빈 자리 — 다음 자리로 자연 안내하는 카드 (명세 정합)
-    const planEmptyHtml = `
-        <div class="utl-empty-card utl-mobile-plan-empty" style="text-align:center;">
-            <p>아직 계획이 없어요.<br>오늘의 목표를 추가하고 시간표로 옮겨 보세요.</p>
-            <button type="button" class="utl-mobile-plan-empty-link"
-                style="margin-top:var(--sp-3); padding:var(--sp-2) var(--sp-4); border-radius:var(--radius); background:var(--accent-soft); color:var(--accent); border:none; font-weight:600; cursor:pointer;"
-                onclick="document.getElementById('section-decisions')?.scrollIntoView({behavior:'smooth'})">
-                오늘의 목표로 이동
-            </button>
-        </div>
-    `;
-    const bodyHtml = _mobileTab === 'plan'
-        ? (planEmpty
-            ? planEmptyHtml
-            : planSlots.map(renderRow).join(''))
-        : (actualEmpty
-            ? emptyHtml('아직 비어있어요. 위 안내 카드를 톡 누르거나, 아래 [+ 추가]로 자유롭게 적어 보세요.')
-            : actualSlots.map(renderRow).join(''));
-
-    const addBtnHtml = _mobileTab === 'actual'
-        ? `<button type="button" class="utl-mobile-add-btn" id="utl-mobile-add">+ 추가</button>`
-        : '';
-
-    list.innerHTML = `${tabsHtml}${guideCarouselHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>${addBtnHtml}`;
-
-    // 탭 클릭
-    list.querySelectorAll('.utl-mobile-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            _mobileTab = btn.dataset.tab;
-            renderMobile();
-        });
-    });
-
-    // 스마트 가이드 캐러셀 카드 클릭 이벤트 바인딩
-    list.querySelectorAll('.utl-mobile-guide-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const slot = parseInt(card.dataset.slot ?? '', 10);
-            const label = card.dataset.label ?? '';
-            const decisionId = card.dataset.decisionId ?? '';
-            openQuickReview({
-                timeSlot: slot,
-                cells: [],
-                userId: _userId,
-                date: _date,
-                plannedTask: label,
-                decisionId: decisionId,
-                existingDot: null
-            });
-        });
-    });
-
-    // 카드 탭/롱프레스 바인딩
-    list.querySelectorAll('.utl-mobile-card').forEach(card => {
+    // ── 실제 슬롯 — 톡 = 재평가, 롱프레스 (500ms) = 삭제 ─────
+    list.querySelectorAll('.utl-mg-slot-actual').forEach(card => {
         let pressTimer = null;
-        let preventClick = false;
+        let didLongPress = false;
 
-        card.addEventListener('touchstart', (e) => {
-            preventClick = false;
+        card.addEventListener('touchstart', () => {
+            didLongPress = false;
             pressTimer = setTimeout(async () => {
-                preventClick = true;
+                didLongPress = true;
                 const dotId = card.dataset.dotId;
-                if (dotId && _mobileTab === 'actual') {
-                    if (confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) {
-                        const dek = getDEK();
-                        if (dek) {
-                            try {
-                                // dotsRepo.deleteDot 시그니처는 (id) 한 인자.
-                                await deleteDot(dotId);
-                                showToast('기록을 지웠어요');
-                                if (_onChange) _onChange();
-                                await refreshTimeline({ userId: _userId, date: _date });
-                            } catch (e) {
-                                showToast('지우는 중에 잠깐 멈췄어요. 다시 시도해 보세요.');
-                            }
+                if (dotId && confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) {
+                    const dek = getDEK();
+                    if (dek) {
+                        try {
+                            await deleteDot(dotId);
+                            showToast('기록을 지웠어요');
+                            if (_onChange) _onChange();
+                            await refreshTimeline({ userId: _userId, date: _date });
+                        } catch (e) {
+                            showToast('지우는 중에 잠깐 멈췄어요. 다시 시도해 보세요.');
                         }
                     }
                 }
             }, 500);
         }, { passive: true });
+        card.addEventListener('touchend', () => clearTimeout(pressTimer));
+        card.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+        card.addEventListener('touchmove', () => clearTimeout(pressTimer));
 
-        card.addEventListener('touchend', () => {
-            if (pressTimer) clearTimeout(pressTimer);
-        }, { passive: true });
-
-        card.addEventListener('touchmove', () => {
-            if (pressTimer) clearTimeout(pressTimer);
-        }, { passive: true });
-
-        card.addEventListener('click', () => {
-            if (preventClick) return;
-
-            if (_mobileTab === 'plan') {
-                // 계획 탭 카드 클릭 시 — 의도 선언 자리. 돌아봄은 실제 탭에서 (TDS "평가" 우회)
-                showToast('실제 탭에서 함께 돌아봐요. 계획 자리는 오늘 시간표에 넣은 의도예요.');
-                return;
-            }
-
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (didLongPress) return;
             const dotId = card.dataset.dotId;
-            const slot = parseInt(card.dataset.slot ?? '', 10);
-            if (dotId) {
-                const dot = _dots.find(d => d.id === dotId);
-                if (!dot) return;
-                openQuickReview({
-                    timeSlot: dot.timeSlot,
-                    cells: [],
-                    userId: _userId,
-                    date: _date,
-                    plannedTask: dot.plannedTask || '',
-                    existingDot: dot,
-                });
-            } else if (!Number.isNaN(slot)) {
-                const existing = _dots.find(d => d.timeSlot === slot);
-                const decision = _decisions.find(d => d.timeSlot === slot);
-                openQuickReview({
-                    timeSlot: slot,
-                    cells: [],
-                    userId: _userId,
-                    date: _date,
-                    plannedTask: existing?.plannedTask || decision?.title || decision?.text || '',
-                    existingDot: existing || null,
-                });
-            }
+            const dot = _dots.find(d => d.id === dotId);
+            if (!dot) return;
+            openQuickReview({
+                timeSlot: dot.timeSlot,
+                cells: [],
+                userId: _userId,
+                date: _date,
+                plannedTask: dot.plannedTask || '',
+                existingDot: dot,
+            });
         });
     });
 
-    // "+ 추가" 버튼
+    // ── 계획 슬롯 — 톡 = 그 시간 자리 평가 (실제 자리잡혀 있으면 재평가) ─────
+    list.querySelectorAll('.utl-mg-slot-plan').forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const decisionId = card.dataset.decisionId;
+            const decision = _decisions.find(d => d.id === decisionId);
+            if (!decision) return;
+            const existing = _dots.find(d => d.timeSlot === decision.timeSlot);
+            openQuickReview({
+                timeSlot: decision.timeSlot,
+                cells: [],
+                userId: _userId,
+                date: _date,
+                plannedTask: existing?.plannedTask || decision.title || decision.text || '',
+                decisionId: decision.id,
+                existingDot: existing || null,
+            });
+        });
+    });
+
+    // ── 빈 자리 톡 = 평가 모달 (1.2차에서 미배치 목표 드롭다운으로 자리잡힙) ─────
+    // 컨테이너 click — 슬롯 자리 톡은 stopPropagation 으로 자연 차단
+    const container = list.querySelector('.utl-mg-container');
+    if (container) {
+        container.addEventListener('click', (e) => {
+            if (e.target.closest('.utl-mg-slot')) return;
+            const rect = container.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const slot = Math.max(0, Math.min(SLOTS_PER_DAY - 1, Math.floor(y / ROW_HEIGHT)));
+            // 15분 슬롯 정확도 자연 — quickReview 안에서 길이 자리잡힙
+            openQuickReview({
+                timeSlot: slot,
+                cells: [],
+                userId: _userId,
+                date: _date,
+                plannedTask: '',
+                existingDot: null,
+            });
+        });
+    }
+
+    // ── + 추가 FAB — 시간 자리 모달 (사용자 직접 입력) ─────
     const addBtn = list.querySelector('#utl-mobile-add');
     if (addBtn) {
-        addBtn.addEventListener('click', () => {
+        addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             openQuickReview({
                 timeSlot: null,
                 cells: [],
@@ -480,36 +407,21 @@ function renderMobile() {
         });
     }
 
-    // 좌우 스와이프 (세로 우선 + 80px 임계값 — Fix 4)
-    bindMobileSwipe(list);
-
-    // Fix 5: 스크롤 위치 복원 — 탭 전환 후 사용자가 보던 자리 자연 자리잡힘
+    // ── 스크롤 자리 복원 ─────────────────────────────────
+    // 첫 렌더 시 (_mobileScrollPos === 0) 이면 현재 시간 자리로 자연 이동.
+    // 재렌더 시 사용자가 보던 자리 그대로 자리잡힙.
     requestAnimationFrame(() => {
-        list.scrollTop = _tabScrollPos[_mobileTab] || 0;
-    });
-}
-
-let _swipeStartX = null;
-let _swipeStartY = null;
-function bindMobileSwipe(el) {
-    el.addEventListener('touchstart', (e) => {
-        _swipeStartX = e.touches[0]?.clientX ?? null;
-        _swipeStartY = e.touches[0]?.clientY ?? null;
-    }, { passive: true });
-    el.addEventListener('touchend', (e) => {
-        if (_swipeStartX == null || _swipeStartY == null) return;
-        const endX = e.changedTouches[0]?.clientX ?? _swipeStartX;
-        const endY = e.changedTouches[0]?.clientY ?? _swipeStartY;
-        const dx = endX - _swipeStartX;
-        const dy = endY - _swipeStartY;
-        _swipeStartX = null;
-        _swipeStartY = null;
-        // 세로 움직임이 우세하면 = 스크롤 의도. 탭 전환 X (간섭 차단)
-        if (Math.abs(dy) > Math.abs(dx)) return;
-        // 가로 80px 이상에서만 탭 전환 (실수 슬라이드 방지)
-        if (Math.abs(dx) < 80) return;
-        if (dx < 0 && _mobileTab === 'plan')  { _mobileTab = 'actual'; renderMobile(); }
-        if (dx > 0 && _mobileTab === 'actual') { _mobileTab = 'plan';   renderMobile(); }
+        if (_mobileScrollPos > 0) {
+            list.scrollTop = _mobileScrollPos;
+        } else if (isToday(_date)) {
+            const now = new Date();
+            const nowSlot = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+            // 현재 시간 자리가 화면 상단 1/4 자리에 자연 자리잡힙 (위 1시간 보임)
+            list.scrollTop = Math.max(0, (nowSlot - 4) * ROW_HEIGHT);
+        } else {
+            // 다른 날짜 = 09:00 자리 자연
+            list.scrollTop = Math.max(0, 9 * 4 * ROW_HEIGHT);
+        }
     });
 }
 
