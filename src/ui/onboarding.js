@@ -33,6 +33,7 @@ import { AGE_TONES, ageFromBirthday, toneIdFromAge } from '../config/ageTones.js
 import { DEFAULT_TRACK_BY_LEVEL } from '../config/devotionalTracks.js';
 import {
     BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION,
+    BIBLE_SOURCES, DEFAULT_BIBLE_SOURCE,
     RECOMMENDED_PRINCIPLE, firstMeditationForLevel,
     RECOMMENDED_TRACKS_BY_LEVEL, ONE_BOOK_QUICK_PICKS, firstMeditationForTrack, BIBLE_BOOKS_66,
     // (베타 슬림 v1 A 묶음 2026-05-18) 도시·타임존
@@ -204,6 +205,8 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
             timezone: card.timezone || detectBrowserTimezone(),
             devotionalLevel: card.devotionalLevel || null,
             bibleVersion: card.bibleVersion || DEFAULT_BIBLE_VERSION,
+            // (2026-05-20 v103) 성경 본문 가져오는 결 — 결 B 사용자 입력 디폴트
+            bibleSource: card.bibleSource || DEFAULT_BIBLE_SOURCE,
             systemFont: initialSystemFont,
             scriptureFont: initialScriptureFont,
             // (의사결정 제거 후속 2026-05-18) 원칙 — 사용자 명시 "미션으로 해도 될 것 같음".
@@ -624,23 +627,30 @@ function renderCutiStep(body) {
 }
 
 // ─── Step 7: 성경 번역본 ──────────────────────────────────
+// (2026-05-20 v103) 결 B 자리잡힘 — 사용자 명시 "번역본 선택 자체 X · 자기 결로 가져오기 · 나중 커스텀 자리 열어두기".
+//   기존 BIBLE_VERSIONS 자리 자리잡지 X (미래 확장 자리잡혀 살림).
+//   BIBLE_SOURCES 3종 = user_input (디폴트, 활성) · api_auto (준비 중) · custom (준비 중).
 function renderBibleVersionStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
-        ${swanBubbleHTML('어떤 성경으로 묵상을 하고 싶으신가요?')}
-        <div class="onboarding-bible-list" role="radiogroup" aria-label="성경 번역본">
-          ${BIBLE_VERSIONS.map(v => `
+        ${swanBubbleHTML('성경 본문은 어디서 가져오시나요?')}
+        <p class="onboarding-help" style="font-size:13px; color:var(--ink-secondary); line-height:1.6; margin: 4px 0 12px;">
+          이 앱은 사용자가 자기 결로 본문을 가져오는 방식이에요.<br>
+          매일성경 앱·종이성경·인터넷 어디든 자유롭게 가져와서 묵상해요.
+        </p>
+        <div class="onboarding-bible-list" role="radiogroup" aria-label="성경 본문 가져오는 결">
+          ${BIBLE_SOURCES.map(s => `
             <button type="button"
-                    class="onboarding-bible-card${_state.draft.bibleVersion === v.id ? ' selected' : ''}${v.preparing ? ' disabled' : ''}"
-                    data-version="${escapeAttr(v.id)}"
+                    class="onboarding-bible-card${_state.draft.bibleSource === s.id ? ' selected' : ''}${s.preparing ? ' disabled' : ''}"
+                    data-source="${escapeAttr(s.id)}"
                     role="radio"
-                    aria-checked="${_state.draft.bibleVersion === v.id}"
-                    ${v.preparing ? 'aria-disabled="true"' : ''}>
+                    aria-checked="${_state.draft.bibleSource === s.id}"
+                    ${s.preparing ? 'aria-disabled="true"' : ''}>
               <span class="onboarding-bible-name">
-                ${escapeHtml(v.label)}
-                ${v.preparing ? '<span class="onboarding-chip">준비 중</span>' : ''}
+                ${escapeHtml(s.label)}
+                ${s.preparing ? '<span class="onboarding-chip">준비 중</span>' : ''}
               </span>
-              <span class="onboarding-bible-desc">${escapeHtml(v.desc)}</span>
+              <span class="onboarding-bible-desc">${escapeHtml(s.desc)}</span>
             </button>
           `).join('')}
         </div>
@@ -652,17 +662,17 @@ function renderBibleVersionStep(body) {
     `;
     document.querySelectorAll('.onboarding-bible-card').forEach(btn => {
         btn.addEventListener('click', () => {
-            const id = btn.dataset.version;
-            const opt = BIBLE_VERSIONS.find(v => v.id === id);
+            const id = btn.dataset.source;
+            const opt = BIBLE_SOURCES.find(s => s.id === id);
             if (!opt || opt.preparing) return;
-            _state.draft.bibleVersion = id;
+            _state.draft.bibleSource = id;
             document.querySelectorAll('.onboarding-bible-card').forEach(b => {
                 b.classList.toggle('selected', b === btn);
                 b.setAttribute('aria-checked', b === btn);
             });
         });
     });
-    // (베타 슬림 v1 A 묶음) bible: back=6(cuti) · next=8(track)
+    // (v102) step 시프트 — bible source: back=7(cuti) · next=9(track)
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(7));
     document.getElementById('onboarding-next').addEventListener('click', () => renderStep(9));
 }
@@ -1294,6 +1304,8 @@ async function persistAll() {
         timezone: draft.timezone || cardSnapshot.timezone || 'Asia/Seoul',
         devotionalLevel: draft.devotionalLevel || cardSnapshot.devotionalLevel || null,
         bibleVersion: draft.bibleVersion || DEFAULT_BIBLE_VERSION,
+        // (2026-05-20 v103) 성경 본문 가져오는 결 (결 B 자리잡힘)
+        bibleSource: draft.bibleSource || DEFAULT_BIBLE_SOURCE,
         // (2단계 2026-05-18) 묵상 결단·실천 시간 — selfCard 에 자리잡기. goals 실제 저장은 3단계.
         firstCommitment: draft.firstCommitment || '',
         firstCommitmentTime: draft.firstCommitmentTime || '',

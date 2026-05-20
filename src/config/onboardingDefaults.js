@@ -42,6 +42,34 @@ export const BIBLE_VERSIONS = [
 export const DEFAULT_BIBLE_VERSION = 'krv';
 
 /**
+ * (2026-05-20 v103) 성경 본문 가져오는 결 — 결 B(사용자 입력 디폴트).
+ *   온보딩 step 8 에서 사용자가 자기 결로 자리를 선택.
+ *   현재 베타엔 'user_input' 한 결만 활성. 나머지는 미래 확장.
+ */
+export const BIBLE_SOURCES = [
+    {
+        id: 'user_input',
+        label: '직접 가져와요',
+        desc: '매일 묵상할 본문을 매일성경·종이성경·인터넷에서 자유롭게 가져와 직접 적어요.',
+        preparing: false,
+    },
+    {
+        id: 'api_auto',
+        label: '자동으로 불러와요 (준비 중)',
+        desc: '곧 개역개정·새번역·NIV 본문을 시스템이 자동으로 가져올 거예요.',
+        preparing: true,
+    },
+    {
+        id: 'custom',
+        label: '내 번역본 카탈로그 (준비 중)',
+        desc: '자주 쓰는 번역본을 골라 두면 매일 자동으로 그 번역본으로 보여줘요.',
+        preparing: true,
+    },
+];
+
+export const DEFAULT_BIBLE_SOURCE = 'user_input';
+
+/**
  * 추천 기본 원칙 — 사용자가 직접 보내준 자리(2026-05-15) 그대로.
  *   첫 진입 사용자가 "어떻게 쓰는지" 한 눈에 보도록 디폴트 채워서 보여줌.
  *   사용자가 수정·교체 가능. 그대로 저장도 가능.

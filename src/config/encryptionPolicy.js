@@ -290,6 +290,11 @@ export const POLICY = {
             //   현재 본문 데이터는 'krv'(개역개정) 단일. 다른 옵션은 자리만(preparing=true).
             //   기기 동기화용 — 폰·PC 어디서 들어와도 같은 번역본. 평문이라 사이드바·헤더 표기에 빠르게 사용.
             'bibleVersion',
+            // (2026-05-20 v103) 성경 본문 가져오는 결 — 결 B(사용자 입력 디폴트).
+            //   'user_input' = 사용자가 매일 본문 직접 입력 (베타 디폴트)
+            //   'api_krv'·'api_new_korean'·'api_niv' = 향후 외부 API 연결 (미래 확장)
+            //   'custom' = 사용자 자기 본문 카탈로그 (미래 확장)
+            'bibleSource',
             // ─── (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 만렙 시스템 ───
             // (R1) 히든 미션 자리 잠금해제 상태 — 베타 코호트 + missionStatus 전 7 모듈 'completed' + 사후 설문 완료 시 true.
             //   조건 만족 시 hiddenMissionsRepo.checkUnlock 가 자동 갱신. 설정 화면 ✨ 카드 노출 가드용.
