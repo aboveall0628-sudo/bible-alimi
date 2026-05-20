@@ -212,7 +212,7 @@ export const onFeedbackFinalized = onDocumentUpdated(
     {
         document: 'users/{userId}/feedbacks/{feedbackId}',
         secrets: [GMAIL_USER, GMAIL_APP_PASSWORD],
-        region: 'us-central1',
+        region: 'asia-northeast3',
     },
     async (event) => {
         const before = event.data?.before.data();

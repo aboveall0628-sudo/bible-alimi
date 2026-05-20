@@ -18,7 +18,7 @@
 import { showToast } from './quickReview.js';
 import { callSwanPostSurveyQuestions } from './aiClient.js';
 import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
-// (2026-05-20) 사후 설문 저장 박기 — 그동안 시안만이라 Firestore 저장이 안 되고 있었음.
+// (2026-05-20) 사후 설문 저장 자리잡기 — 그동안 시안만이라 Firestore 저장이 안 되고 있었어요.
 //   답변을 turns 배열로 변환해 kind='postSurvey' 로 startFeedback 호출 → finalize 로 마침.
 import { startFeedback, finalizeFeedback, addTurn } from '../data/feedbacksRepo.js';
 import { auth } from '../data/firebase.js';
@@ -468,14 +468,19 @@ let _escHandler = null;
 let _onComplete = null;
 
 // ─── 진입점 ─────────────────────────────────────────────────
-export async function openPostSurveyForm({ userContext = {}, onComplete = null } = {}) {
+export async function openPostSurveyForm({ userContext = {}, userId = null, nickname = '', onComplete = null } = {}) {
     if (_backdropEl) return;
+
+    // (2026-05-20 Phase 2) userId fallback — 호출자가 자리잡지 못해도 window.currentUserId 자리
+    const effectiveUserId = userId || (typeof window !== 'undefined' ? window.currentUserId : null) || null;
 
     _state = {
         currentIdx: 0,
         responses: {},
         aiQuestions: null,  // Phase 2-1: 일괄 호출 결과 { Q1: '...', ..., Q12: '...' }
         aborted: false,
+        userId: effectiveUserId,
+        nickname: nickname || '',
     };
     _onComplete = onComplete;
 
@@ -720,8 +725,8 @@ function renderFinishCard(body) {
     body.querySelector('.presurvey-btn-finish').addEventListener('click', async (e) => {
         if (_state) console.log('[postSurveyForm] 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
 
-        // (2026-05-20) Firestore 저장 — kind='postSurvey'. 답변을 turns 로 변환해 한 번에 박음.
-        // 저장 실패해도 사용자 흐름은 막지 않고 토스트만 노출. 다음 자리에서 자연 이어.
+        // (2026-05-20) Firestore 저장 — kind='postSurvey'. 답변을 turns 로 변환해 한 번에 자리잡기.
+        // 저장 실패해도 사용자 흐름은 자리잡지 않고 토스트만 노출. 다음 자리에서 자연 이어.
         const btn = e.currentTarget;
         btn.disabled = true;
         const orig = btn.textContent;

@@ -18,6 +18,8 @@
 import { showToast } from './quickReview.js';
 import { callSwanPreSurveyQuestions } from './aiClient.js';
 import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
+// (2026-05-20 Phase 2) Firestore 저장 — 피드백 관리 페이지에서 일반 CS 결로 노출
+import { persistSurveyResponses, buildSurveyContext } from './surveyPersist.js';
 
 const MIN_LOADING_MS = 0;
 const TYPING_DELAY_MS = 38;
@@ -219,14 +221,19 @@ let _escHandler = null;
 let _onComplete = null;
 
 // ─── 진입점 ─────────────────────────────────────────────────
-export async function openPreSurveyForm({ userContext = {}, onComplete = null } = {}) {
+export async function openPreSurveyForm({ userContext = {}, userId = null, nickname = '', onComplete = null } = {}) {
     if (_backdropEl) return;
+
+    // (2026-05-20 Phase 2) userId fallback — 호출자가 자리잡지 못해도 window.currentUserId 자리
+    const effectiveUserId = userId || (typeof window !== 'undefined' ? window.currentUserId : null) || null;
 
     _state = {
         currentIdx: 0,
         responses: {},
         aiQuestions: null,  // Phase 2-1: 일괄 호출 결과 { Q1: '...', ..., Q12: '...' }
         aborted: false,
+        userId: effectiveUserId,
+        nickname: nickname || '',
     };
     _onComplete = onComplete;
 
@@ -468,8 +475,34 @@ function renderFinishCard(body) {
         _state.currentIdx -= 1;
         renderCurrentCard();
     });
-    body.querySelector('.presurvey-btn-finish').addEventListener('click', () => {
-        if (_state) console.log('[preSurveyForm] 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
+    body.querySelector('.presurvey-btn-finish').addEventListener('click', async () => {
+        const finishBtn = body.querySelector('.presurvey-btn-finish');
+        if (!finishBtn) return;
+        finishBtn.disabled = true;
+        finishBtn.textContent = '저장 중...';
+
+        try {
+            if (_state && _state.userId) {
+                await persistSurveyResponses({
+                    userId: _state.userId,
+                    nickname: _state.nickname || '',
+                    kind: 'preSurvey',
+                    questions: QUESTIONS,
+                    responses: _state.responses,
+                    aiQuestions: _state.aiQuestions || null,
+                    context: buildSurveyContext('preSurvey'),
+                });
+                console.log('[preSurveyForm] Firestore 자리잡힘');
+            } else {
+                console.warn('[preSurveyForm] userId 자리 X → 저장 건너뜀, 콘솔로만 자리잡힘');
+                console.log('[preSurveyForm] 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
+            }
+        } catch (e) {
+            console.error('[preSurveyForm] 저장 실패:', e);
+            // 사용자 흐름 자리잡지 않게 자연 통과 — 답변은 콘솔로 자리잡힘
+            console.log('[preSurveyForm] 전체 답변(저장 실패):', JSON.parse(JSON.stringify(_state.responses)));
+        }
+
         closeForm();  // onComplete 자연 호출 → onboarding step 10 자연 이어
     });
 }
