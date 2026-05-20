@@ -1349,12 +1349,38 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 .qr-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
 
 /* ── Buttons ── */
+/* (2026-05-20 v91 fix) 사용자 점검 "모바일 자리에서 안 보임" — 배경·테두리 자리잡혀 자연 자리. */
 .text-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--accent); font-size: 14px;
-    padding: var(--sp-2) var(--sp-3); border-radius: var(--radius);
+    background: var(--surface-elev, rgba(0,0,0,0.04));
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 160ms, border-color 160ms;
 }
-.text-btn:hover { background: var(--hover); }
+.text-btn:hover {
+    background: var(--accent-soft, rgba(124,139,111,0.10));
+    border-color: var(--accent);
+}
+.text-btn .btn-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+/* 모바일 자리 자리잡혀 더 자연 자리 */
+@media (max-width: 640px) {
+    .text-btn {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 36px;
+    }
+}
 .primary-btn {
     background: var(--accent); color: white; border: none;
     padding: var(--sp-2) var(--sp-4); border-radius: var(--radius);

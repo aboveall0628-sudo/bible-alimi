@@ -177,6 +177,13 @@ async function startSession({ kind = 'feedback' } = {}) {
     document.body.appendChild(overlay);
     if (window.lucide?.createIcons) window.lucide.createIcons({ icons: window.lucide.icons });
 
+    // (2026-05-20 v90 fix) 모바일 키보드 자리 자리잡기
+    //   - body[data-swan-open] 자리 자리잡기 (CSS overflow hidden)
+    //   - visualViewport API 자리잡혀 키보드 자리 자리잡혔을 때 .swan-modal 자리 자리잡기
+    //   - input focus 자리·새 메시지 자리잡힐 때 listEl 자동 자리잡기
+    try { document.body.setAttribute('data-swan-open', 'true'); } catch (_) {}
+    _installSwanViewportFix(overlay, listEl, inputEl);
+
     // (v74) 첫 인사도 typing breath 적용 — 모달 진입 직후 자연 흐름
     //   fire-and-forget — 사용자 즉시 입력 시작 가능. 두 흐름 자연 stacking.
     if (openingTurn) {
@@ -242,6 +249,87 @@ function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, ch => ({
         '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
     }[ch]));
+}
+
+// (2026-05-20 v90 fix) 모바일 키보드 자리 자리잡기 — visualViewport API + 자동 스크롤
+//   카톡 결로 자리잡혀 자리 — 메시지는 입력 칸 바로 위에 자연 자리, 키보드 자리 자연 자리.
+let _vvHandler = null;
+let _vvOverlay = null;
+let _vvListEl = null;
+let _vvInputEl = null;
+
+function _installSwanViewportFix(overlay, listEl, inputEl) {
+    _vvOverlay = overlay;
+    _vvListEl  = listEl;
+    _vvInputEl = inputEl;
+
+    const vv = window.visualViewport;
+    if (!vv) {
+        // visualViewport API 자리잡혀 있지 않으면 단순 결 — input focus 자리 자동 스크롤만
+        const onFocus = () => {
+            setTimeout(() => {
+                try { listEl.scrollTop = listEl.scrollHeight; } catch (_) {}
+                try { inputEl.scrollIntoView({ block: 'end', behavior: 'smooth' }); } catch (_) {}
+            }, 300);
+        };
+        inputEl.addEventListener('focus', onFocus);
+        _vvHandler = { onFocus };
+        return;
+    }
+
+    const modal = overlay.querySelector('.swan-modal');
+    if (!modal) return;
+
+    const applyViewport = () => {
+        try {
+            // 키보드 자리 자리잡힌 자리 = vv.height 자리 자리잡혀 작아짐
+            //   modal 자리 자리잡힌 자리에 dynamic height 자리잡기
+            const h = Math.round(vv.height);
+            modal.style.height = `${h}px`;
+            modal.style.maxHeight = `${h}px`;
+            // 메시지 자리 자동 자리잡기 — 가장 최근 메시지 자연 보임
+            listEl.scrollTop = listEl.scrollHeight;
+        } catch (_) {}
+    };
+
+    const onFocus = () => {
+        // focus 자리 자리잡힌 직후 키보드 자리 올라옴 — 300ms 자리 자리잡고 자리 자리잡기
+        setTimeout(() => {
+            applyViewport();
+            try { listEl.scrollTop = listEl.scrollHeight; } catch (_) {}
+        }, 300);
+    };
+
+    _vvHandler = { applyViewport, onFocus };
+    vv.addEventListener('resize', applyViewport);
+    vv.addEventListener('scroll', applyViewport);
+    inputEl.addEventListener('focus', onFocus);
+
+    // 초기 자리 1회
+    applyViewport();
+}
+
+function _uninstallSwanViewportFix() {
+    const vv = window.visualViewport;
+    if (vv && _vvHandler?.applyViewport) {
+        try { vv.removeEventListener('resize', _vvHandler.applyViewport); } catch (_) {}
+        try { vv.removeEventListener('scroll', _vvHandler.applyViewport); } catch (_) {}
+    }
+    if (_vvInputEl && _vvHandler?.onFocus) {
+        try { _vvInputEl.removeEventListener('focus', _vvHandler.onFocus); } catch (_) {}
+    }
+    // modal 자리 자리잡힌 자리 style 정리
+    if (_vvOverlay) {
+        const modal = _vvOverlay.querySelector('.swan-modal');
+        if (modal) {
+            modal.style.height = '';
+            modal.style.maxHeight = '';
+        }
+    }
+    _vvHandler = null;
+    _vvOverlay = null;
+    _vvListEl = null;
+    _vvInputEl = null;
 }
 
 function renderModal(title = 'SWAN', kind = 'feedback') {
@@ -677,6 +765,10 @@ function handleModalClose() {
     const wasFinalized = _session.finalized;
     const sess = _session;
     _session = null;
+
+    // (2026-05-20 v90 fix) 모바일 키보드 자리 정리
+    try { document.body.removeAttribute('data-swan-open'); } catch (_) {}
+    _uninstallSwanViewportFix();
 
     // overlay DOM 정리
     try { sess.modalHandle?.overlay?.remove(); } catch (_) {}

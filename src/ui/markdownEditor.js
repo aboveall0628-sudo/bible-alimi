@@ -104,14 +104,22 @@ function handleKeydown(e, editor, onChange) {
     // (2026-05-19 후속 롤백) 내가 자리잡은 Backspace·Heading Enter 자리 모두 *기본 동작 차단* 의심.
     //   "본문으로 안 내려와 / 폰트 안 바뀜" 보고 — 자리 원복하고 다음 라운드에 더 신중 진단.
 
-    // (2026-05-20) `/` 단축키 — 노션 동일. 아무 곳에서나 / 누르면 즉시 메뉴 + / 글자 자동 제거.
-    //   조합키(Ctrl·Alt·Meta·Shift) 같이 누른 / 는 통과.
+    // (2026-05-20 v89) `/` 단축키 결 갈아끼움.
+    //   사용자 점검 "/ 누르면 메뉴 뜨면서 / 자체는 없어지는데, 이거 쓰고 싶은 사람은 이거 못쓰게 됨".
+    //   새 결 = / 글자 자연 입력 + 메뉴 자연 자리잡음. 그 다음 키가:
+    //     · 스페이스 / 다른 글자 / 백스페이스 / 화살표 → 메뉴 닫음 (글자 자연 진행)
+    //     · 메뉴 항목 클릭 → 직전 / 한 글자 자동 제거 (단축키 결)
+    //     · ESC → 메뉴만 닫음 + stopPropagation (에디터 모달 자리 보존)
+    //   조합키(Ctrl·Alt·Meta·Shift) 같이 누른 / 는 통과 — 기본 동작.
     if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        e.preventDefault();
-        const rect = getCaretRect(editor);
-        const x = rect ? rect.left : window.innerWidth / 2;
-        const y = rect ? rect.bottom + 4 : window.innerHeight / 2;
-        openFormatMenu(x, y, editor, onChange);
+        // preventDefault X — / 글자 자연 입력.
+        // setTimeout 0 으로 입력 끝난 다음 캐럿 위치 측정.
+        setTimeout(() => {
+            const rect = getCaretRect(editor);
+            const x = rect ? rect.left : window.innerWidth / 2;
+            const y = rect ? rect.bottom + 4 : window.innerHeight / 2;
+            openFormatMenu(x, y, editor, onChange, { typedSlash: true });
+        }, 0);
         return;
     }
 
@@ -122,6 +130,21 @@ function handleKeydown(e, editor, onChange) {
             return;
         }
         if (handleListEnter(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
+        // (2026-05-20 v89) 빈 H1/H2/H3 자리에서 Enter → 일반 div 자연 해제.
+        //   v83 후속 롤백에서 호출 자리만 빠져 있던 자리. 다시 살림.
+        //   사용자 보고 "전부 H3로 작성되고 있는데" — H3 빠져나올 자리 자연 자리잡힘.
+        if (handleEmptyHeadingEnter(editor, onChange)) {
+            e.preventDefault();
+            return;
+        }
+    }
+
+    // (2026-05-20 v89) Backspace — 빈 H1/H2/H3 또는 빈 LI 시작 자리에서 일반 div 자연 해제.
+    if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (handleEmptyBlockBackspace(editor, onChange)) {
             e.preventDefault();
             return;
         }
@@ -682,6 +705,8 @@ function findBlockAncestor(node, editor) {
 // ═══════════════════════════════════════════════════════════════════════
 
 let _activeMenu = null;
+// (2026-05-20 v89) `/` 단축키로 메뉴 띄운 자리인지 — 메뉴 항목 클릭 시 직전 / 자동 제거.
+let _menuTypedSlash = false;
 
 function handleContextMenu(e, editor, onChange) {
     e.preventDefault();
@@ -689,8 +714,10 @@ function handleContextMenu(e, editor, onChange) {
 }
 
 // (2026-05-20) 메뉴 열기 자리 — 우클릭 / 모바일 long-press / `/` 단축키 공용.
-function openFormatMenu(clientX, clientY, editor, onChange) {
+//   opts.typedSlash = true 면 메뉴 항목 클릭 시 직전 / 한 글자 자동 제거.
+function openFormatMenu(clientX, clientY, editor, onChange, opts = {}) {
     closeContextMenu();
+    _menuTypedSlash = !!opts.typedSlash;
     const menu = document.createElement('div');
     menu.className = 'md-context-menu';
     menu.innerHTML = `
@@ -726,22 +753,48 @@ function openFormatMenu(clientX, clientY, editor, onChange) {
         btn.addEventListener('mousedown', (ev) => {
             ev.preventDefault(); // 포커스 이동 차단 — selection 유지
         });
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             const cmd = btn.dataset.cmd;
             const block = btn.dataset.block;
             const list = btn.dataset.list;
             const action = btn.dataset.action;
             const clip = btn.dataset.clipboard;
             editor.focus();
+            // (2026-05-20 v89) `/` 단축키로 메뉴 띄운 자리면 직전 / 한 글자 자동 제거.
+            //   본문 액션 실행 전에 먼저 자리 정리해야 selection 결 정합.
+            if (_menuTypedSlash) removeTypedSlashBefore(editor);
             if (clip) {
-                // (2026-05-20) execCommand 그대로 — iOS Safari·일부 모바일 paste 제약 안내.
+                // (2026-05-20 v89) 붙여넣기는 Clipboard API 우선 + execCommand 폴백.
+                //   사용자 보고 "붙여넣기가 클릭으로 안 됨" — execCommand('paste') 데스크탑 Chrome 도 막힌 자리.
                 try {
-                    const ok = document.execCommand(clip);
-                    if (!ok && clip === 'paste') {
-                        showCopyHint('붙여넣기는 길게 누른 캐럿 메뉴에서 한 번 더 시도해 주세요.');
+                    if (clip === 'paste') {
+                        if (navigator.clipboard && navigator.clipboard.readText) {
+                            const text = await navigator.clipboard.readText();
+                            document.execCommand('insertText', false, text);
+                        } else {
+                            const ok = document.execCommand('paste');
+                            if (!ok) showCopyHint('이 브라우저는 메뉴에서 붙여넣기를 막아 두었어요. Ctrl+V 또는 캐럿 메뉴로 붙여 주세요.');
+                        }
+                    } else if (clip === 'copy' || clip === 'cut') {
+                        const sel = window.getSelection();
+                        const selText = sel ? sel.toString() : '';
+                        if (navigator.clipboard && navigator.clipboard.writeText && selText) {
+                            await navigator.clipboard.writeText(selText);
+                            if (clip === 'cut' && sel.rangeCount) sel.getRangeAt(0).deleteContents();
+                        } else {
+                            document.execCommand(clip);
+                        }
                     }
                 } catch {
-                    if (clip === 'paste') showCopyHint('이 브라우저는 메뉴에서 붙여넣기를 막아 두었어요. 캐럿 메뉴로 붙여 주세요.');
+                    // 폴백 — Clipboard API 권한 거부·미지원 자리.
+                    try {
+                        const ok = document.execCommand(clip);
+                        if (!ok && clip === 'paste') {
+                            showCopyHint('붙여넣기 권한이 막혀 있어요. Ctrl+V 로 시도해 주세요.');
+                        }
+                    } catch {
+                        if (clip === 'paste') showCopyHint('붙여넣기가 안 돼요. Ctrl+V 로 시도해 주세요.');
+                    }
                 }
             }
             if (cmd)   document.execCommand(cmd);
@@ -790,15 +843,52 @@ function getCaretRect(editor) {
 function closeOnOutside(e) {
     if (_activeMenu && !_activeMenu.contains(e.target)) closeContextMenu();
 }
+// (2026-05-20 v89) 메뉴 활성 중 키 처리 — ESC·스페이스·다른 글자·백스페이스로 자연 자리잡힘.
+//   사용자 보고 "ESC 누르면 에디터 자체가 꺼지는데, 메뉴만 나가게" — capture 단계에서 잡고 stopPropagation.
 function closeOnEsc(e) {
-    if (e.key === 'Escape') closeContextMenu();
+    if (!_activeMenu) return;
+    if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        closeContextMenu();
+        return;
+    }
+    // modifier 단독 키는 무시 — 메뉴 유지.
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
+    // 그 외 모든 키 — 메뉴 닫음. preventDefault 안 함 → 글자·스페이스·백스페이스 자연 진행.
+    //   사용자 결 "/ 누르고 스페이스 누르면 / 쓸 수 있게" 자연 자리잡힘.
+    closeContextMenu();
 }
 function closeContextMenu() {
     if (_activeMenu) {
         _activeMenu.remove();
         _activeMenu = null;
+        _menuTypedSlash = false;
         document.removeEventListener('mousedown', closeOnOutside, true);
         document.removeEventListener('keydown', closeOnEsc, true);
+    }
+}
+
+// (2026-05-20 v89) `/` 단축키로 메뉴 띄운 자리에서 항목 선택 시 직전 / 한 글자 제거.
+function removeTypedSlashBefore(editor) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+    const node = range.startContainer;
+    const offset = range.startOffset;
+    if (node.nodeType === 3 && offset > 0) {
+        const text = node.textContent || '';
+        if (text[offset - 1] === '/') {
+            node.textContent = text.slice(0, offset - 1) + text.slice(offset);
+            try {
+                const r = document.createRange();
+                r.setStart(node, offset - 1);
+                r.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r);
+            } catch {}
+        }
     }
 }
 
