@@ -32,8 +32,11 @@
     <script>
         (function () {
             try {
+                // v101: 'light' | 'dark' | 'system' (또는 옛 결로 없음) 3 결로 자리잡힘
                 var t = localStorage.getItem('sanctum-theme');
-                if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+                if (!t || t === 'system') {
+                    t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
                 if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
             } catch (_) {}
         })();

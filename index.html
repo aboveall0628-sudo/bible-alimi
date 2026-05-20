@@ -35,8 +35,11 @@
     <script>
         (function () {
             try {
+                // v101: 'light' | 'dark' | 'system' (또는 옛 결로 없음) 3 결로 자리잡힘
                 var t = localStorage.getItem('sanctum-theme');
-                if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+                if (!t || t === 'system') {
+                    t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
                 if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
             } catch (_) {}
         })();
@@ -95,6 +98,10 @@
 
         <!-- 사이드바 -->
         <aside class="sidebar" id="sidebar">
+            <!-- 모바일용 닫기 버튼 추가 -->
+            <button id="sidebar-close-btn" class="sidebar-close-btn" aria-label="메뉴 닫기">
+                <i class="icon" data-lucide="x"></i>
+            </button>
             <div class="sidebar-header">
                 <div class="logo" aria-label="Sanctum OS — 베타 단계">
                     <svg viewBox="0 0 105 110" class="logo-mark" aria-hidden="true">
@@ -570,19 +577,11 @@
                         <div class="settings-group-body" id="settings-group-body-appearance">
                             <!-- (settings.js append) 베타 슬림 모드 / 시스템 글자 크기 / 강조 색 -->
 
-                            <!-- 화면 모드 -->
+                            <!-- 화면 모드 — 라이트·다크·시스템 따라가기 3 옵션 (v101) -->
                             <div class="card-section">
-                                <div class="settings-row">
-                                    <div class="settings-row-text">
-                                        <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
-                                        <p class="section-desc">어두운 곳에서는 다크모드가 눈에 편해요. 한 번 정하면 다음에도 그대로예요.</p>
-                                    </div>
-                                    <label class="switch" for="theme-setting-toggle">
-                                        <input type="checkbox" id="theme-setting-toggle">
-                                        <span class="switch-slider"></span>
-                                    </label>
-                                </div>
-                                <p class="section-desc" style="margin-top:8px">켜짐 = 다크모드 · 꺼짐 = 라이트모드</p>
+                                <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
+                                <p class="section-desc">라이트·다크·시스템 결 셋 중 하나로 자리잡아요. 시스템 결은 윈도우·맥 자체 결을 자연 따라가요.</p>
+                                <div id="theme-mode-row" class="settings-font-chip-row" style="margin-top: 12px;"></div>
                             </div>
 
                             <!-- 화면 가리기 (민감 정보 마스킹) -->
