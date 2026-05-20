@@ -1027,7 +1027,22 @@ function renderCategoryChips() {
 
 async function handleSave() {
     const dek = getDEK();
-    if (!dek) return;
+    if (!dek) {
+        showToast('잠금 해제 후 다시 자리잡아 주세요');
+        return;
+    }
+
+    // (2026-05-20 v97 fix) userId 자리 자리잡혀 있는지 확인 — 자리잡지 X 자리잡혀 있으면 window.currentUserId 자리 자리.
+    //   v96 자리 잠금 해제 후 _currentUserId 자리 자리잡혀 자리잡지 못한 자리 자리잡혀 있을 자리 — Firestore rules
+    //   create 자리 자리잡혀 request.resource.data.userId == auth.uid 자리잡지 못해 "Missing permissions" 자리.
+    if (!_currentUserId) {
+        _currentUserId = window.currentUserId || null;
+    }
+    if (!_currentUserId || _currentUserId === 'anonymous') {
+        console.error('[quickReview] _currentUserId 자리잡혀 있지 X — handleSave 중단');
+        showToast('로그인 자리 자리잡지 못함 — 새로고침 자리잡아 주세요');
+        return;
+    }
 
     // 빈 시간 모드(+ 추가 흐름)에서 진입했다면 사용자가 고른 시간을 슬롯으로 변환.
     // 시간 미입력 시 토스트로 안내하고 멈춤.
@@ -1140,9 +1155,16 @@ async function handleSave() {
         if (_onSaved) _onSaved({ decisionId: _currentDecisionId });
     } catch (e) {
         console.error('Save dot error:', e);
+        console.error('  userId:', _currentUserId, 'date:', _currentDate, 'timeSlot:', _currentSlot);
         btn.textContent = '저장하기';
         btn.disabled = false;
-        showToast('저장이 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
+        // (2026-05-20 v97) 에러 자리 더 자세히 자리잡기 — Firebase rules 자리 자리잡으면 "권한 자리 자리잡지 못함" 토스트.
+        const msg = (e?.message || '').toLowerCase();
+        if (msg.includes('permission') || msg.includes('insufficient')) {
+            showToast('권한 자리 자리잡지 못함 — 로그인 자리 확인 후 새로고침 자리잡아 주세요');
+        } else {
+            showToast('저장이 잠깐 막혔어요. 한 번만 더 자리잡아 주실래요?');
+        }
     }
 }
 
