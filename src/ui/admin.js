@@ -104,11 +104,7 @@ export function renderAdminView(container) {
                 </button>
                 <button type="button" id="admin-start-fullsignup-btn" class="admin-flow-btn">
                     <span class="admin-flow-emoji">🚀</span>
-                    <span class="admin-flow-label">전체 가입 흐름 (동의·온보딩·설문)</span>
-                </button>
-                <button type="button" id="admin-flow-landing" class="admin-flow-btn">
-                    <span class="admin-flow-emoji">🌐</span>
-                    <span class="admin-flow-label">랜딩페이지 (준비 중)</span>
+                    <span class="admin-flow-label">전체 가입 흐름 (랜딩→동의→온보딩→설문)</span>
                 </button>
             </div>
         </section>
@@ -163,40 +159,19 @@ export function renderAdminView(container) {
             window.__sanctumOpenPostSurveyForm();
         }
     });
+    // (2026-05-20 v104) 전체 가입 흐름 = 랜딩페이지부터 시작.
+    //   사용자 명시 "전체 가입흐름 저거는 랜딩페이지에서 시작하는걸로".
+    //   새 탭에서 landing.html 자리잡혀 사용자가 [Google로 시작하기] 자리잡혀 실제 흐름.
+    //   시뮬 결로 자기 자리 확인하고 싶으면 ?demo=1 쿼리 자리잡혀 자리 자리.
     container.querySelector('#admin-start-fullsignup-btn')?.addEventListener('click', async () => {
         const { showToast } = await import('./quickReview.js');
-        const userId = window.currentUserId;
-        if (!userId || userId === 'anonymous') {
-            showToast('로그인 자리 확인이 안 돼요');
-            return;
-        }
-        const { getDEK } = await import('./lockScreen.js');
-        const dek = getDEK();
-        if (!dek) {
-            showToast('잠금 해제 후 다시 시도해 주세요');
-            return;
-        }
+        showToast('🌐 랜딩페이지부터 한 바퀴 — 새 탭에서 열어요');
         try {
-            const { showConsentModal } = await import('./consentModal.js');
-            const result = await showConsentModal({ userId });
-            if (!result.agreed) {
-                showToast('동의 안 함 결로 흐름 마침');
-                return;
-            }
-            const { showOnboardingModal } = await import('./onboarding.js');
-            await showOnboardingModal({
-                userId, dek,
-                onComplete: () => {
-                    setTimeout(() => {
-                        if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
-                            window.__sanctumOpenPreSurveyForm();
-                        }
-                    }, 600);
-                },
-            });
+            window.open('landing.html?demo=1', '_blank');
         } catch (e) {
-            console.error('[admin] full signup flow failed:', e);
-            showToast('전체 가입 흐름 시연 자리에서 막혔어요');
+            console.warn('[admin] landing open failed:', e);
+            // 폴백 — 같은 탭
+            location.href = 'landing.html?demo=1';
         }
     });
 
@@ -405,9 +380,8 @@ function bindFlowDemo(container) {
         }
     });
 
-    onClick('admin-flow-landing', () => {
-        showDemoToast('🌐 랜딩페이지 자리 — 아직 자리잡혀 있지 않아요. 베타 시작 전 신규 트랙 (project_beta_v1_track.md)');
-    });
+    // (2026-05-20 v104) admin-flow-landing 자리 자체 자리잡지 X — 사용자 명시 "랜딩페이지 (준비 중) 이거는 지워줘".
+    //   전체 가입 흐름 자리에서 자연 랜딩 자리 자리잡혀 자리.
 }
 
 function showDemoToast(msg) {
