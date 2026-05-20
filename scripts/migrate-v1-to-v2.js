@@ -10,9 +10,9 @@
  * 원본은 _legacy_<col>로 한 번 더 백업 (이미 _legacy_*인 경우는 백업 생략).
  */
 
-import { db, doc, setDoc } from '../data/firebase.js';
-import { encryptPayload } from '../crypto/cryptoService.js';
-import { POLICY } from '../config/encryptionPolicy.js';
+import { db, doc, setDoc } from '../src/data/firebase.js';
+import { encryptPayload } from '../src/crypto/cryptoService.js';
+import { POLICY } from '../src/config/encryptionPolicy.js';
 
 /**
  * 원본 컬렉션명 → v2 타겟 컬렉션 + 사용할 정책 매핑

@@ -13,7 +13,7 @@
  * 백업(_legacy_*)은 _originalUserId로 원래 식별자 추적.
  */
 
-import { db, getDocs, collection } from '../data/firebase.js';
+import { db, getDocs, collection } from '../src/data/firebase.js';
 
 const V1_COLLECTIONS = [
     'dots', 'meditations', 'memos', 'principles', 'goals',
