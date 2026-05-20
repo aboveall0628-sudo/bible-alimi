@@ -7557,18 +7557,22 @@ body.dg-open { overflow: hidden; }
 .mission-progress-block {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;                /* (2026-05-20 fix) 15 미션 자리 한 줄 자리잡지 못함 → 자연 줄바꿈 */
+    gap: 10px 12px;                 /* row-gap·column-gap 자리 */
     padding: 10px 14px;
     margin: 0 0 14px;
     background: var(--surface-elev, #f4f1ea);
     border-radius: 10px;
     font-size: 13px;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     border: 1px solid transparent;
     text-align: left;
     font-family: inherit;
     cursor: default;
     transition: border-color 160ms, background 160ms;
+    overflow: hidden;               /* 자리 자리잡힌 결 안전 자리 */
 }
 button.mission-progress-block {
     cursor: pointer;
@@ -7592,20 +7596,35 @@ button.mission-progress-block:hover {
     color: var(--ink-secondary, #6f7068);
     font-weight: 500;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 .mission-progress-dots {
-    display: inline-flex;
-    gap: 6px;
+    display: flex;
+    flex-wrap: wrap;                /* (2026-05-20 fix) 15 도트 자리 자연 줄바꿈 */
+    gap: 5px;
     align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;                   /* flex 자리 자리잡혀 안 잘림 */
 }
 .mission-dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     background: transparent;
     border: 1.5px solid var(--ink-tertiary, #a8a8a3);
     transition: background 180ms, border-color 180ms, transform 120ms;
+    flex-shrink: 0;                 /* 도트 자리 안 줄어듦 */
+}
+/* 모바일 자리에서 도트 약간 더 작게 */
+@media (max-width: 640px) {
+    .mission-dot {
+        width: 8px;
+        height: 8px;
+    }
+    .mission-progress-dots {
+        gap: 4px;
+    }
 }
 .mission-dot:hover {
     transform: scale(1.18);

@@ -243,24 +243,9 @@ html, body {
     opacity: 0.78;
 }
 
-/* ── 6. 스크린샷 — 오늘 화면 미리보기 ───────────────────────
-   사진 비율(1270x911)을 그대로 유지해 전체가 잘리지 않고 보이도록.
-   img의 width/height 속성과 height:auto 가 함께 작동해 CLS도 방지. */
-.landing-screenshot {
-    margin-top: var(--sp-7);          /* 안내 → 스크린샷 64px */
-    width: 100%;
-    max-width: 720px;
-    height: auto;                     /* 자연 비율 유지 */
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    display: block;
-}
-
 /* ── 7. 푸터 ───────────────────────────────────────────────── */
 .landing-footer {
-    margin-top: var(--sp-7);          /* 스크린샷 → 푸터 64px */
+    margin-top: var(--sp-7);          /* 기능 카드 → 푸터 64px */
     font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.8;
