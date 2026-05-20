@@ -19,9 +19,8 @@
 const KEY = 'sanctum.noteFont.v1';
 
 export const NOTE_FONTS = {
-    pretendard: { label: '프리텐다드', desc: '읽기 편한 산세리프. 일상 생산성 톤.' },
+    pretendard: { label: '프리텐다드', desc: '읽기 편한 산세리프. OS 기본 폰트.' },
     serif:      { label: '노토 세리프', desc: '묵상 결 깊어지는 영적 톤.' },
-    system:     { label: '시스템',     desc: 'OS 기본 폰트. 가장 가벼운 톤.' },
 };
 
 const DEFAULT = 'pretendard';

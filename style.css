@@ -964,8 +964,9 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
     outline: none; transition: border-color var(--ease);
     background: var(--bg-elev); color: var(--text-primary);
 }
-/* (2026-05-20 v93) 사용자 노트 폰트 선택 — html[data-note-font="serif|system"] 분기.
-   디폴트(pretendard)는 위 .note-editor 자리 그대로. */
+/* (2026-05-20 v93) 사용자 노트 폰트 선택 — html[data-note-font="serif"] 분기.
+   디폴트(pretendard)는 위 .note-editor 자리 그대로.
+   (v99) system 옵션 자리 폐기 — 사용자 점검 "어차피 프리텐다드인데". */
 html[data-note-font="serif"] .note-editor {
     font-family: var(--font-serif);
 }
@@ -973,12 +974,6 @@ html[data-note-font="serif"] .note-editor h1,
 html[data-note-font="serif"] .note-editor h2,
 html[data-note-font="serif"] .note-editor h3 {
     font-family: var(--font-serif);
-}
-html[data-note-font="system"] .note-editor,
-html[data-note-font="system"] .note-editor h1,
-html[data-note-font="system"] .note-editor h2,
-html[data-note-font="system"] .note-editor h3 {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 /* (2026-05-20 v94) 노트 폰트 칩 라벨 자체를 그 폰트로 노출 — 사용자 점검
    "노토 세리프라고 써있으니까 좀 이상함". 직접 그 폰트로 보여야 어떤 결인지 가늠 가능. */
@@ -989,10 +984,6 @@ html[data-note-font="system"] .note-editor h3 {
 .settings-font-chip[data-note-font="serif"] .settings-font-chip-label,
 .settings-font-chip[data-note-font="serif"] .settings-font-chip-desc {
     font-family: var(--font-serif);
-}
-.settings-font-chip[data-note-font="system"] .settings-font-chip-label,
-.settings-font-chip[data-note-font="system"] .settings-font-chip-desc {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .note-editor:focus { border-color: var(--accent); background: var(--bg-card); }
 .note-editor:empty::before {
