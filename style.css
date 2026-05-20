@@ -7169,11 +7169,36 @@ body.dg-open { overflow: hidden; }
     border: 1px solid var(--border, #d8d3c8);
     border-radius: 10px;
     padding: 6px;
-    min-width: 200px;
+    min-width: 220px;
+    /* (2026-05-20) 한 번에 4~5개 항목 + 다음 줄 끄트머리 보임. 나머지는 자체 스크롤. */
+    max-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     font-size: 13px;
     color: var(--ink-primary, var(--text-primary, #1a1814));
     user-select: none;
+}
+/* (2026-05-20) 붙여넣기 권한 막힘 안내 토스트 — 메뉴 닫힌 자리에 살짝. */
+.md-copy-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 10000;
+    padding: 10px 16px;
+    background: var(--ink-primary, #1a1814);
+    color: var(--bg-card, #faf7f2);
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    animation: mdCopyHintIn 160ms ease-out;
+    pointer-events: none;
+    max-width: calc(100vw - 32px);
+}
+@keyframes mdCopyHintIn {
+    from { opacity: 0; transform: translate(-50%, 6px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
 }
 .md-context-menu button {
     display: flex;

@@ -53,6 +53,29 @@ export function bindMarkdownEditor(editor, opts = {}) {
     });
     // 우클릭 메뉴
     editor.addEventListener('contextmenu', (e) => handleContextMenu(e, editor, onChange));
+    // (2026-05-20) 모바일 long-press — touchstart 후 500ms 유지 시 메뉴.
+    //   touchmove 가 임계값 이상이면 스크롤로 보고 취소.
+    let _lpTimer = null, _lpX = 0, _lpY = 0;
+    const LP_MS = 500, LP_TOLERANCE = 10;
+    editor.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        _lpX = t.clientX; _lpY = t.clientY;
+        if (_lpTimer) clearTimeout(_lpTimer);
+        _lpTimer = setTimeout(() => {
+            _lpTimer = null;
+            openFormatMenu(_lpX, _lpY, editor, onChange);
+        }, LP_MS);
+    }, { passive: true });
+    editor.addEventListener('touchmove', (e) => {
+        if (!_lpTimer || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - _lpX) > LP_TOLERANCE || Math.abs(t.clientY - _lpY) > LP_TOLERANCE) {
+            clearTimeout(_lpTimer); _lpTimer = null;
+        }
+    }, { passive: true });
+    editor.addEventListener('touchend',    () => { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } });
+    editor.addEventListener('touchcancel', () => { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } });
     // paste 는 todayView 에서 별도 처리 — 여기선 안 건드림
 }
 
@@ -80,6 +103,17 @@ export function setMarkdown(editor, md) {
 function handleKeydown(e, editor, onChange) {
     // (2026-05-19 후속 롤백) 내가 자리잡은 Backspace·Heading Enter 자리 모두 *기본 동작 차단* 의심.
     //   "본문으로 안 내려와 / 폰트 안 바뀜" 보고 — 자리 원복하고 다음 라운드에 더 신중 진단.
+
+    // (2026-05-20) `/` 단축키 — 노션 동일. 아무 곳에서나 / 누르면 즉시 메뉴 + / 글자 자동 제거.
+    //   조합키(Ctrl·Alt·Meta·Shift) 같이 누른 / 는 통과.
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        const rect = getCaretRect(editor);
+        const x = rect ? rect.left : window.innerWidth / 2;
+        const y = rect ? rect.bottom + 4 : window.innerHeight / 2;
+        openFormatMenu(x, y, editor, onChange);
+        return;
+    }
 
     // (2026-05-14 #23 2차) Enter 자동 이어쓰기 — 리스트·토글 안에서 Enter
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -651,10 +685,19 @@ let _activeMenu = null;
 
 function handleContextMenu(e, editor, onChange) {
     e.preventDefault();
+    openFormatMenu(e.clientX, e.clientY, editor, onChange);
+}
+
+// (2026-05-20) 메뉴 열기 자리 — 우클릭 / 모바일 long-press / `/` 단축키 공용.
+function openFormatMenu(clientX, clientY, editor, onChange) {
     closeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'md-context-menu';
     menu.innerHTML = `
+        <button type="button" data-clipboard="cut">     <span class="md-mi-icon">✂</span>잘라내기    <kbd>Ctrl+X</kbd></button>
+        <button type="button" data-clipboard="copy">    <span class="md-mi-icon">⧉</span>복사하기    <kbd>Ctrl+C</kbd></button>
+        <button type="button" data-clipboard="paste">   <span class="md-mi-icon">↪</span>붙여넣기    <kbd>Ctrl+V</kbd></button>
+        <div class="md-menu-sep"></div>
         <button type="button" data-cmd="bold">          <span class="md-mi-icon"><b>B</b></span>볼드        <kbd>Ctrl+B</kbd></button>
         <button type="button" data-cmd="italic">        <span class="md-mi-icon"><i>I</i></span>기울임      <kbd>Ctrl+I</kbd></button>
         <button type="button" data-cmd="strikeThrough"> <span class="md-mi-icon"><s>S</s></span>취소선      <kbd>Ctrl+Shift+S</kbd></button>
@@ -671,11 +714,11 @@ function handleContextMenu(e, editor, onChange) {
         <button type="button" data-action="hr">         <span class="md-mi-icon">─</span>가로줄 넣기</button>
     `;
     document.body.appendChild(menu);
-    // 위치 보정 — 뷰포트 안으로
-    const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 8);
-    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
-    menu.style.left = x + 'px';
-    menu.style.top  = y + 'px';
+    // 위치 보정 — 뷰포트 안으로. max-height 가 박혀 있어서 offsetHeight 가 안정적.
+    const x = Math.min(clientX, window.innerWidth  - menu.offsetWidth  - 8);
+    const y = Math.min(clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = Math.max(8, x) + 'px';
+    menu.style.top  = Math.max(8, y) + 'px';
     _activeMenu = menu;
 
     // 버튼 클릭 핸들러 — mousedown 으로 selection 잃기 전에 처리
@@ -688,7 +731,19 @@ function handleContextMenu(e, editor, onChange) {
             const block = btn.dataset.block;
             const list = btn.dataset.list;
             const action = btn.dataset.action;
+            const clip = btn.dataset.clipboard;
             editor.focus();
+            if (clip) {
+                // (2026-05-20) execCommand 그대로 — iOS Safari·일부 모바일 paste 제약 안내.
+                try {
+                    const ok = document.execCommand(clip);
+                    if (!ok && clip === 'paste') {
+                        showCopyHint('붙여넣기는 길게 누른 캐럿 메뉴에서 한 번 더 시도해 주세요.');
+                    }
+                } catch {
+                    if (clip === 'paste') showCopyHint('이 브라우저는 메뉴에서 붙여넣기를 막아 두었어요. 캐럿 메뉴로 붙여 주세요.');
+                }
+            }
             if (cmd)   document.execCommand(cmd);
             if (block) setBlockTag(editor, block);
             if (list)  toggleList(editor, list);
@@ -706,6 +761,32 @@ function handleContextMenu(e, editor, onChange) {
     }, 0);
 }
 
+// (2026-05-20) 현재 캐럿 위치의 화면 좌표 — `/` 단축키로 메뉴 띄울 때 사용.
+//   collapsed range 는 getBoundingClientRect 가 0,0 일 수 있어 dummy span 폴백.
+function getCaretRect(editor) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0).cloneRange();
+    let rect = range.getBoundingClientRect();
+    if (rect && (rect.width || rect.height || rect.left || rect.top)) return rect;
+    // 폴백 — 임시 span 박아 좌표 측정 후 즉시 제거.
+    try {
+        const span = document.createElement('span');
+        span.textContent = '​';
+        range.insertNode(span);
+        rect = span.getBoundingClientRect();
+        const parent = span.parentNode;
+        if (parent) parent.removeChild(span);
+        // selection 복구
+        const r = document.createRange();
+        r.setStart(range.startContainer, range.startOffset);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+    } catch {}
+    return rect || null;
+}
+
 function closeOnOutside(e) {
     if (_activeMenu && !_activeMenu.contains(e.target)) closeContextMenu();
 }
@@ -719,6 +800,23 @@ function closeContextMenu() {
         document.removeEventListener('mousedown', closeOnOutside, true);
         document.removeEventListener('keydown', closeOnEsc, true);
     }
+}
+
+// (2026-05-20) 붙여넣기 권한 막힘 안내 — 2초 자리잡힘.
+let _copyHintEl = null;
+let _copyHintTimer = null;
+function showCopyHint(text) {
+    if (_copyHintEl) _copyHintEl.remove();
+    if (_copyHintTimer) clearTimeout(_copyHintTimer);
+    const el = document.createElement('div');
+    el.className = 'md-copy-hint';
+    el.textContent = text;
+    document.body.appendChild(el);
+    _copyHintEl = el;
+    _copyHintTimer = setTimeout(() => {
+        el.remove();
+        if (_copyHintEl === el) _copyHintEl = null;
+    }, 2400);
 }
 
 // (2026-05-14 #23 2차) 토글 블록 삽입 — <details><summary>제목</summary><div>본문</div></details>
