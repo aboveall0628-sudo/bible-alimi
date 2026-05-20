@@ -9,7 +9,7 @@ import { diagnoseV1Data } from '../../scripts/diagnose-v1-data.js';
 import { migrateCollection, downloadJsonSnapshot } from '../../scripts/migrate-v1-to-v2.js';
 import { exportAllData } from '../security/exportBackup.js';
 import { getDEK } from './lockScreen.js';
-import { changePassword, unlockVault } from '../crypto/keyManager.js';
+import { changePassword, unlockVault, rotateRecoveryWords } from '../crypto/keyManager.js';
 import { db, doc, setDoc, getDoc, serverTimestamp } from '../data/firebase.js';
 import { logAuditAction } from '../security/auditLog.js';
 import { validatePassword, firstError, bindPolicyHint, POLICY_VERSION } from '../crypto/passwordPolicy.js';
@@ -704,6 +704,31 @@ function injectExtraSections() {
         </div>
     `;
     appendToGroup('settings-group-body-security', pwCard, container);
+
+    // (2026-05-20 v111) 24단어 새로 만들기 카드 — 옵션 B 결.
+    //   비밀번호 검증 → 새 24단어 + 새 wrappedDEK_recovery → 모달 노출 + 이미지 다운로드.
+    //   옛 24단어는 새 wrap 자리에서 자연 못 풀어 자동 무효화.
+    const recoveryRotateCard = document.createElement('div');
+    recoveryRotateCard.id = 'settings-recovery-rotate-card';
+    recoveryRotateCard.className = 'card-section';
+    recoveryRotateCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="rotate-ccw-key"></i> 24단어 새로 만들기</h3>
+        <p class="section-desc">
+            가입할 때 받은 24단어 복구 코드를 새로 한 번 더 만들 수 있어요.
+            <strong>새로 만들면 옛 24단어는 그 자리에서 못 써요</strong> — 종이에 적어두셨던 옛 단어는 폐기하고 새 단어를 안전한 곳에 보관해 주세요.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:360px;">
+            <input id="rotate-pw" type="password" placeholder="지금 쓰는 비밀번호" autocomplete="current-password"
+                   style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-primary);" />
+            <div id="rotate-error" style="color:var(--dot-red);font-size:12px;min-height:16px;"></div>
+            <button id="btn-rotate-recovery" class="primary-btn" style="align-self:flex-start;">새 24단어 만들기</button>
+        </div>
+        <p class="section-desc" style="margin-top:8px;font-size:11px;color:var(--ink-secondary)">
+            ※ 데이터 자체는 그대로예요. 새 단어는 가입 화면처럼 한 번만 보여드려요 — 적어두거나 이미지로 받아두는 자리예요.
+            이메일 복구는 영향 없이 그대로 작동해요.
+        </p>
+    `;
+    appendToGroup('settings-group-body-security', recoveryRotateCard, container);
 
     // 이메일 복구 카드 (트랙 2 / Phase 2) — Phase 3 (서버측 인증) 도입 후 활성화
     const emailRecoveryCard = document.createElement('div');
@@ -1634,6 +1659,71 @@ function bindEvents() {
         }
     };
 
+    // ─── (2026-05-20 v111) 24단어 새로 만들기 핸들러 ───
+    const btnRotate = document.getElementById('btn-rotate-recovery');
+    if (btnRotate) btnRotate.onclick = async () => {
+        const pw = document.getElementById('rotate-pw').value;
+        const err = document.getElementById('rotate-error');
+        err.style.color = 'var(--dot-red)';
+        err.textContent = '';
+
+        if (!pw) { err.textContent = '지금 쓰는 비밀번호를 적어주세요.'; return; }
+
+        const dek = getDEK();
+        if (!dek) { err.textContent = '먼저 잠금을 풀어주세요.'; return; }
+
+        if (!confirm(
+            '새 24단어를 만들면 종이에 적어둔 옛 24단어는 그 자리에서 못 써요.\n' +
+            '데이터는 그대로 남아요. 계속할까요?'
+        )) return;
+
+        btnRotate.disabled = true;
+        btnRotate.textContent = '새로 만드는 중...';
+
+        try {
+            // 1) 비밀번호 검증 — wrappedDEK_master unwrap 시도
+            const userSnap = await getDoc(doc(db, 'users', _userId));
+            if (!userSnap.exists()) throw new Error('NO_VAULT');
+            const v = userSnap.data();
+            await unlockVault(pw, v.masterKeySalt, v.wrappedDEK_master, v.wrappedDEK_master_iv, v.kdfParams || null);
+
+            // 2) 새 24단어 + 새 wrappedDEK_recovery 만들기
+            const r = await rotateRecoveryWords(dek);
+
+            // 3) Firestore 갱신 (wrappedDEK_recovery 두 필드만)
+            await setDoc(doc(db, 'users', _userId), {
+                wrappedDEK_recovery: r.wrappedDEK_recovery,
+                wrappedDEK_recovery_iv: r.wrappedDEK_recovery_iv,
+                kdfParams: r.kdfParams,
+                recoveryRotatedAt: serverTimestamp(),
+            }, { merge: true });
+
+            await logAuditAction(_userId, 'rotate_recovery_code');
+
+            // 4) 모달 노출 (가입 화면 결 그대로)
+            _showRecoveryRotateModal(r.recoveryWords);
+
+            // 5) 미션 트리거
+            try {
+                const { markMissionComplete } = await import('../data/personRepo.js');
+                await markMissionComplete(dek, _userId, 'recovery_code_view', { signal: 'rotateRecovery' });
+            } catch (mErr) {
+                console.warn('[mission] recovery_code_view 자리잡지 실패:', mErr?.message || mErr);
+            }
+
+            // 입력 자리 비움
+            document.getElementById('rotate-pw').value = '';
+        } catch (e) {
+            console.error(e);
+            if (e.message === 'WRONG_PASSWORD') err.textContent = '지금 비밀번호가 다른 것 같아요.';
+            else if (e.message === 'NO_VAULT') err.textContent = '계정 정보를 찾을 수 없어요.';
+            else err.textContent = '잠깐 문제가 있었어요. 다시 한 번 해볼까요?';
+        } finally {
+            btnRotate.disabled = false;
+            btnRotate.textContent = '새 24단어 만들기';
+        }
+    };
+
     // ─── Phase B-3: 예전 결단 정리 ───
     const cleanupStatus = document.getElementById('decisions-cleanup-status');
     const btnScan = document.getElementById('btn-decisions-scan');
@@ -2051,6 +2141,148 @@ function bindSystemFontSettings() {
             });
         });
     });
+}
+
+// (2026-05-20 v111) 24단어 새로 만들기 — 노출 모달.
+//   가입 화면 결 그대로 (lock-screen-overlay + recovery-words-grid + word-chip 재활용).
+//   [이미지로 받기] 버튼 + [안전한 곳에 적어뒀어요] 체크박스 + 체크 후에만 [닫기] 활성.
+function _showRecoveryRotateModal(words) {
+    // 이미 떠 있으면 중복 자리 방지
+    document.getElementById('rotate-recovery-modal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'rotate-recovery-modal';
+    overlay.className = 'lock-screen-overlay';
+    overlay.innerHTML = `
+        <div class="lock-screen-box" style="max-width: 420px;">
+            <div class="lock-icon">📄</div>
+            <h2>새 24단어 복구 코드</h2>
+            <p class="lock-subtitle" style="text-align:left; font-size:13px;">
+                옛 24단어는 그 자리에서 못 써요. 새 단어를 종이에 적거나 이미지로 받아 안전한 곳에 보관해 주세요.<br>
+                <strong>창을 닫으면 다시 볼 수 없어요.</strong>
+            </p>
+            <div id="rotate-words-box" class="recovery-words-grid"></div>
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <button id="rotate-download-btn" class="text-btn" style="flex:1;">📥 이미지로 받기</button>
+            </div>
+            <label class="confirm-checkbox">
+                <input type="checkbox" id="rotate-confirm-chk" />
+                <span>네, 안전한 곳에 적어뒀어요</span>
+            </label>
+            <p style="font-size:11px; color:var(--text-secondary); margin: -8px 0 12px; text-align:left; line-height:1.5;">
+                ※ 이미지로 받으실 때 자동 클라우드 백업되는 사진 폴더(구글 포토·iCloud)는 피하시는 결을 권해요 — 외부에 24단어가 옮겨갈 수 있어요.
+            </p>
+            <button id="rotate-close-btn" class="primary-btn" style="width:100%" disabled>닫기</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 단어 자리잡기
+    const wordsBox = overlay.querySelector('#rotate-words-box');
+    wordsBox.innerHTML = words.map((w, i) =>
+        `<div class="word-chip"><span class="w-num">${i + 1}.</span> ${escapeText(w)}</div>`
+    ).join('');
+
+    // 진입 애니메이션 (lock-screen-overlay 톤 동일)
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+    // 체크박스 결로 [닫기] 활성
+    const chk = overlay.querySelector('#rotate-confirm-chk');
+    const closeBtn = overlay.querySelector('#rotate-close-btn');
+    chk.onchange = () => { closeBtn.disabled = !chk.checked; };
+
+    // 닫기
+    closeBtn.onclick = () => {
+        overlay.classList.remove('is-visible');
+        setTimeout(() => overlay.remove(), 240);
+    };
+
+    // 이미지 다운로드
+    overlay.querySelector('#rotate-download-btn').onclick = () => {
+        _downloadRecoveryWordsImage(words);
+    };
+}
+
+// (2026-05-20 v111) 24단어 PNG 이미지 다운로드.
+//   Canvas 2D 로 흰 배경 + 제목 + 4×6 단어 그리드 + 안내 푸터 자리잡힌 PNG 생성.
+function _downloadRecoveryWordsImage(words) {
+    const W = 880, H = 1100;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // 배경
+    ctx.fillStyle = '#FAF7F0';
+    ctx.fillRect(0, 0, W, H);
+
+    // 테두리 결 단정한 자리
+    ctx.strokeStyle = '#C8BFA8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+
+    // 제목
+    ctx.fillStyle = '#3D3A2E';
+    ctx.font = 'bold 36px "Noto Serif KR", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sanctum OS — 24단어 복구 코드', W / 2, 90);
+
+    // 날짜
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    ctx.fillStyle = '#6B6859';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`발급일 ${dateStr}`, W / 2, 130);
+
+    // 단어 그리드 (4 col × 6 row)
+    const gridLeft = 80, gridTop = 200;
+    const cellW = (W - 160) / 4;
+    const cellH = 90;
+    ctx.textAlign = 'left';
+    for (let i = 0; i < 24; i++) {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const x = gridLeft + col * cellW;
+        const y = gridTop + row * cellH;
+
+        // 셀 배경
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(x + 6, y + 6, cellW - 12, cellH - 12);
+        ctx.strokeStyle = '#D7CFB8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 6, y + 6, cellW - 12, cellH - 12);
+
+        // 번호
+        ctx.fillStyle = '#9E9580';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`${i + 1}.`, x + 18, y + 32);
+
+        // 단어
+        ctx.fillStyle = '#3D3A2E';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(words[i], x + 18, y + 64);
+    }
+
+    // 푸터 안내
+    ctx.fillStyle = '#6B6859';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    const footer1 = '이 24단어는 데이터 복구의 유일한 열쇠예요. 안전한 곳에 보관해 주세요.';
+    const footer2 = '클라우드 자동 백업 폴더는 피하시는 결을 권해요. 분실 시 데이터 복구 불가.';
+    ctx.fillText(footer1, W / 2, H - 120);
+    ctx.fillText(footer2, W / 2, H - 90);
+
+    // PNG 다운로드 트리거
+    canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sanctum-os-recovery-${dateStr}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 'image/png');
 }
 
 // (2026-05-20 v95) theme_change 미션 트리거 헬퍼 — 테마/강조색/노트 폰트 셋 중 하나만 갈아끼면 자리잡힘.

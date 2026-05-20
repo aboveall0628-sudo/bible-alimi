@@ -307,6 +307,25 @@ export async function changePassword(dek, newPassword) {
 }
 
 /**
+ * 24단어 복구 코드 새로 만들기: 새 24단어 → 새 recoveryKey → 기존 DEK 다시 wrap
+ *   DEK 자체는 변경 없음 → 데이터 재암호화 불필요.
+ *   옛 24단어는 새 wrap에서 자연 풀 수 없어 자동 무효화.
+ * @returns {{ recoveryWords, wrappedDEK_recovery, wrappedDEK_recovery_iv, kdfParams }}
+ */
+export async function rotateRecoveryWords(dek) {
+    const recoveryWords = generateRecoveryWords();
+    const recoveryPassword = recoveryWords.join(' ');
+    const recoveryKey = await deriveKey(recoveryPassword, RECOVERY_SALT);
+    const wrap = await wrapDEK(recoveryKey, dek);
+    return {
+        recoveryWords,
+        wrappedDEK_recovery: wrap.wrappedDEK,
+        wrappedDEK_recovery_iv: wrap.iv,
+        kdfParams: { ...KDF_PARAMS },
+    };
+}
+
+/**
  * DEK를 메모리에서 안전하게 폐기 (참조 제거)
  * 주의: JS에서 CryptoKey는 GC 의존, 명시적 zeroing 불가
  */
