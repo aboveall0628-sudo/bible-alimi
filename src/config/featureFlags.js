@@ -92,6 +92,24 @@ export function isSlimMode() {
 }
 
 /**
+ * (2026-05-20 v100) 일반 유저 = 강제 슬림. 운영자만 자유 자리.
+ *   사용자 명시 "일반 유저들은 베타버전 화면만 보여야 해. 모든 일반 유저는 베타버전만".
+ *   로그인 끝나고 currentUserId 자리잡힌 직후 호출.
+ *
+ * @param {boolean} isAdmin - isSwanAdmin(uid) 결과
+ */
+export function enforceTierForUser(isAdmin) {
+    if (isAdmin) {
+        // 운영자 — localStorage 자리 그대로 (full/slim 자유 자리잡힘)
+        applyTierFromStorage();
+        return;
+    }
+    // 일반 유저 — 강제 slim. localStorage 값 무시.
+    //   설정에서 토글 안 보임 (settings.js tierCard 는 이미 isSwanAdmin 가드 자리).
+    applyTierToHtml('slim');
+}
+
+/**
  * 내부 — <html data-tier="..."> 토글.
  *   디폴트 'full' 일 때는 속성 제거(현재 모든 메뉴 자연 노출).
  *   'slim' 일 때만 data-tier 자리잡힘.

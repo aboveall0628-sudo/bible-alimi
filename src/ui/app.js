@@ -1337,6 +1337,17 @@ async function loadUserProfile() {
             currentUserId = userCred.user.uid;
             window.currentUserId = currentUserId; // auth.js의 recovery flow fallback에서 참조
 
+            // (2026-05-20 v100) 사용자 명시 "일반 유저는 베타버전만 보이게".
+            //   currentUserId 자리잡힌 직후 = isSwanAdmin 검사 후 tier 강제.
+            //   운영자 = localStorage 자유 / 일반 유저 = 강제 slim.
+            try {
+                const { isSwanAdmin } = await import('../config/adminConfig.js');
+                const { enforceTierForUser } = await import('../config/featureFlags.js');
+                enforceTierForUser(isSwanAdmin(currentUserId));
+            } catch (e) {
+                console.warn('[tier-enforce] 실패 (무시):', e?.message || e);
+            }
+
             // 1회 마이그레이션: 이전에 이메일을 키로 만든 vault doc이 있으면 UID 키로 이전
             await migrateVaultKeyIfNeeded(currentUserEmail, currentUserId);
         } catch (authErr) {
