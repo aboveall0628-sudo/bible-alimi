@@ -1,6 +1,6 @@
 
 $path = "bible.json"
-$out = "bibleData.js"
+$out = "src/bibleData.js"
 
 # Read as UTF8 since view_file showed it correctly
 $content = [System.IO.File]::ReadAllText((Get-Item $path).FullName, [System.Text.Encoding]::UTF8)

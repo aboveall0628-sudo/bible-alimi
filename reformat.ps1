@@ -1,6 +1,6 @@
 
 $inputPath = "bible.json"
-$outputPath = "bibleData.js"
+$outputPath = "src/bibleData.js"
 
 # Read bible.json with Default (CP949) encoding
 $content = Get-Content -Path $inputPath -Encoding Default -Raw

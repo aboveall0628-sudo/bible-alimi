@@ -27,3 +27,4 @@ export {
     emailRecoveryRedeemSeed,
     emailRecoveryRotateSeed,
 } from "./emailRecovery";
+export { onFeedbackFinalized } from "./feedbackNotify";

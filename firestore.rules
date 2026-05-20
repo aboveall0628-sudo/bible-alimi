@@ -63,6 +63,20 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────
+    //  (2026-05-20 Phase 1) adminTokens 컬렉션 — FCM 푸시 토큰
+    //
+    //  도큐먼트: adminTokens/{adminUid}/tokens/{tokenId}
+    //  { token, userAgent, platform, createdAt, lastSeenAt }
+    //
+    //  - 본인 자기 토큰만 자리잡기·삭제 가능 (auth.uid == adminUid)
+    //  - Cloud Function 은 Admin SDK 로 우회 (rules 안 거침)
+    //  - 일반 사용자는 접근 불가 (피드백 알림은 Swan 한 명만 받음)
+    // ─────────────────────────────────────────────────────────────
+    match /adminTokens/{adminUid}/tokens/{tokenId} {
+      allow read, write: if request.auth != null && request.auth.uid == adminUid;
+    }
+
+    // ─────────────────────────────────────────────────────────────
     //  (2026-05-18 v75) referralCodes 컬렉션 — 1차 베타 추천 링크 회로
     //
     //  도큐먼트: { code, ownerUserId, count, createdAt }

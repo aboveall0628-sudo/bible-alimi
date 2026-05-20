@@ -1,5 +1,5 @@
 $inputPath = "bible.json"
-$outputPath = "bibleData.js"
+$outputPath = "src/bibleData.js"
 
 $bytes = [System.IO.File]::ReadAllBytes($inputPath)
 $base64 = [System.Convert]::ToBase64String($bytes)

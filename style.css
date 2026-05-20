@@ -10326,6 +10326,66 @@ html[data-tier="slim"] .qr-tx-section {
     text-align: center;
 }
 
+/* (2026-05-20 Phase 1) 피드백 도착 알림 카드 — 운영자 페이지 */
+.admin-push-status {
+    margin: 8px 0 12px;
+    min-height: 28px;
+}
+.push-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    font-weight: 500;
+}
+.push-badge-ok {
+    background: rgba(124, 139, 111, 0.14);
+    color: var(--accent, #7c8b6f);
+    border: 1px solid rgba(124, 139, 111, 0.3);
+}
+.push-badge-warn {
+    background: rgba(200, 110, 80, 0.10);
+    color: #c45a3a;
+    border: 1px solid rgba(196, 90, 58, 0.25);
+}
+.push-badge-info {
+    background: rgba(120, 120, 120, 0.08);
+    color: var(--ink-secondary, #666);
+    border: 1px solid rgba(120, 120, 120, 0.2);
+}
+.admin-push-ios-hint {
+    margin-top: 14px;
+}
+.ios-hint-inner {
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: rgba(124, 139, 111, 0.06);
+    border: 1px solid rgba(124, 139, 111, 0.18);
+    font-size: 13px;
+    line-height: 1.7;
+}
+.ios-hint-ok {
+    background: rgba(124, 139, 111, 0.10);
+    color: var(--accent, #7c8b6f);
+}
+.ios-hint-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--ink, #2a2a2a);
+}
+.ios-hint-steps {
+    margin: 0;
+    padding-left: 22px;
+    color: var(--ink-secondary, #555);
+}
+.ios-hint-steps li {
+    margin: 4px 0;
+}
+.ios-hint-steps b {
+    color: var(--ink, #2a2a2a);
+}
+
 /* (2026-05-18 후속) step 8 책 picker — 추천 5권 ↔ 66권 전체 토글 */
 .onboarding-book-picker-head-row {
     display: flex;
@@ -11470,4 +11530,13 @@ html[data-mode="settings"] .sidebar-legal-footer {
     .consent-row {
         transition: none;
     }
+}
+
+/* ── [hidden] 속성 강제 숨김 ──
+ * .sidebar-settings-item { display: flex } 같은 클래스 스타일이
+ * HTML 기본 hidden 속성(display: none)보다 명시도(specificity)가 높아
+ * 숨겨야 할 요소가 화면에 노출되는 버그를 방지합니다.
+ * !important 로 어떤 클래스 스타일보다도 우선하여 숨김 처리합니다. */
+[hidden] {
+    display: none !important;
 }
