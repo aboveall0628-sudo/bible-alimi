@@ -91,8 +91,14 @@ function _ensureOsListener() {
 }
 
 /**
- * 설정 카드 안 드롭다운 렌더 (v102 후속) — 사용자 명시 "옆에 이거 드롭다운으로 선택할 수 있게".
- *   강조색·노트 폰트는 칩 결, 화면 모드는 select 결로 차별화. settings-row 안 label + select 자리.
+ * 설정 카드 안 커스텀 드롭다운 (v105) — 사용자 명시:
+ *   "문구 다 빼고 라이트·다크·시스템만 / 강조 표시·네모 박스 디자인 시스템 정합 / 부드러운 애니메이션"
+ *
+ * 기본 <select> 펼친 자리는 OS 결로 잡혀서 색 갈음 어려움 → 커스텀 결.
+ *   - 트리거 버튼: 현재 모드 라벨 + ▾
+ *   - 옵션 패널: 3 옵션, hidden 디폴트. open 자리에서 fade + slide 애니메이션.
+ *   - 옵션 클릭 → setThemeMode + 패널 닫음.
+ *   - ESC / 외부 클릭 → 닫음.
  */
 function renderThemeChips() {
     const row = document.getElementById('theme-mode-row');
@@ -103,17 +109,56 @@ function renderThemeChips() {
     }
     const current = getThemeMode();
     row.innerHTML = `
-        <select id="theme-mode-select" class="settings-select" aria-label="화면 모드 선택">
-            ${Object.entries(THEME_MODES).map(([id, cfg]) => `
-                <option value="${id}" ${current === id ? 'selected' : ''}>${cfg.label} — ${cfg.desc}</option>
-            `).join('')}
-        </select>
+        <div class="theme-dropdown" data-open="false">
+            <button type="button" class="theme-dropdown-trigger" id="theme-dropdown-trigger"
+                    aria-haspopup="listbox" aria-expanded="false">
+                <span class="theme-dropdown-label" id="theme-dropdown-label">${THEME_MODES[current]?.label || '시스템'}</span>
+                <svg class="theme-dropdown-caret" viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <ul class="theme-dropdown-panel" role="listbox" aria-label="화면 모드">
+                ${Object.entries(THEME_MODES).map(([id, cfg]) => `
+                    <li class="theme-dropdown-option${current === id ? ' selected' : ''}"
+                        role="option" data-theme-mode="${id}"
+                        aria-selected="${current === id ? 'true' : 'false'}">
+                        ${cfg.label}
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
     `;
-    const select = row.querySelector('#theme-mode-select');
-    select?.addEventListener('change', () => {
-        const id = select.value;
+
+    const dropdown = row.querySelector('.theme-dropdown');
+    const trigger = row.querySelector('#theme-dropdown-trigger');
+    const panel = row.querySelector('.theme-dropdown-panel');
+    const label = row.querySelector('#theme-dropdown-label');
+
+    const setOpen = (open) => {
+        dropdown.dataset.open = open ? 'true' : 'false';
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(dropdown.dataset.open !== 'true');
+    });
+
+    panel.addEventListener('click', (e) => {
+        const opt = e.target.closest('.theme-dropdown-option');
+        if (!opt) return;
+        const id = opt.dataset.themeMode;
         if (!THEME_MODES[id]) return;
+
         setThemeMode(id);
+        label.textContent = THEME_MODES[id].label;
+        panel.querySelectorAll('.theme-dropdown-option').forEach(o => {
+            const isSel = o.dataset.themeMode === id;
+            o.classList.toggle('selected', isSel);
+            o.setAttribute('aria-selected', isSel ? 'true' : 'false');
+        });
+        setOpen(false);
+
         // (2026-05-20 v95) theme_change 미션 트리거 — 화면 모드 갈음 1회.
         (async () => {
             try {
@@ -124,11 +169,22 @@ function renderThemeChips() {
                 if (!dek) return;
                 const { markMissionComplete } = await import('../data/personRepo.js');
                 await markMissionComplete(dek, uid, 'theme_change', { signal: 'mode:' + id });
-            } catch (e) {
-                console.warn('[mission] theme_change(mode) 자리잡지 실패:', e?.message || e);
+            } catch (err) {
+                console.warn('[mission] theme_change(mode) 자리잡지 실패:', err?.message || err);
             }
         })();
     });
+
+    // 외부 클릭 닫음
+    const onOutside = (e) => {
+        if (!dropdown.contains(e.target)) setOpen(false);
+    };
+    // ESC 닫음
+    const onKey = (e) => {
+        if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('click', onOutside);
+    document.addEventListener('keydown', onKey);
 }
 
 export function initThemeManager() {
