@@ -78,6 +78,33 @@ const STORE_NAME = 'bibleData';
 const REMOTE_URL = 'https://raw.githubusercontent.com/aboveall0628-sudo/bible-data/refs/heads/main/bible.json';
 
 let _bibleData = null;
+let _bibleIndex = null;
+
+function buildBibleIndex(data) {
+    if (!data) return;
+    const index = {};
+    Object.keys(data).forEach(key => {
+        const m = key.match(/^(.+?)(\d+):(\d+)$/);
+        if (m) {
+            const book = m[1];
+            const chapter = parseInt(m[2], 10);
+            const verse = parseInt(m[3], 10);
+            if (!index[book]) {
+                index[book] = {};
+            }
+            if (!index[book][chapter]) {
+                index[book][chapter] = [];
+            }
+            index[book][chapter].push({ num: verse, text: data[key].trim() });
+        }
+    });
+    Object.keys(index).forEach(book => {
+        Object.keys(index[book]).forEach(chapter => {
+            index[book][chapter].sort((a, b) => a.num - b.num);
+        });
+    });
+    _bibleIndex = index;
+}
 
 /**
  * 성경 데이터 로드: window.BIBLE_DATA(번들) → IndexedDB 캐시 → 원격 fetch
@@ -88,13 +115,18 @@ export async function loadBibleData() {
     // 1순위: bibleData.js가 노출한 전역
     if (typeof window.BIBLE_DATA === 'object' && window.BIBLE_DATA !== null) {
         _bibleData = window.BIBLE_DATA;
+        buildBibleIndex(_bibleData);
         return _bibleData;
     }
 
     // 2순위: IndexedDB 캐시
     try {
         const cached = await loadFromIndexedDB();
-        if (cached) { _bibleData = cached; return _bibleData; }
+        if (cached) {
+            _bibleData = cached;
+            buildBibleIndex(_bibleData);
+            return _bibleData;
+        }
     } catch { /* continue */ }
 
     // 3순위: 원격
@@ -102,6 +134,7 @@ export async function loadBibleData() {
         const res = await fetch(REMOTE_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         _bibleData = await res.json();
+        buildBibleIndex(_bibleData);
         saveToIndexedDB(_bibleData).catch(() => {});
         return _bibleData;
     } catch (e) {
@@ -267,6 +300,9 @@ function computeCalendarIndex(part, date, override, partChapters, total) {
 }
 
 function getVersesForChapter(abbr, chapter) {
+    if (_bibleIndex) {
+        return _bibleIndex[abbr]?.[chapter] || [];
+    }
     if (!_bibleData) return [];
     const prefix = `${abbr}${chapter}:`;
     const verses = [];

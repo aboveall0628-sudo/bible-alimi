@@ -657,6 +657,7 @@ async function refreshTodayEconomyCard() {
     if (!list || !currentUserId) return;
     try {
         const { list: txs } = await getTodaysTxSummary(currentUserId, currentDate);
+        list.__txs = txs; // 위임 리스너에서 활용하도록 참조 바인딩
         if (!txs || txs.length === 0) {
             list.innerHTML = `<p style="color:var(--ink-secondary); font-size:13px">
                 오늘 적은 거래가 여기에 모여요. 위 [거래 한 건] 으로 빠르게 적을 수 있어요.
@@ -671,7 +672,7 @@ async function refreshTodayEconomyCard() {
                 : '';
             const cat = t.category || '';
             const desc = t.description || '';
-            return `<div class="today-tx-row ${dirClass}" data-tx-id="${t.id}">
+            return `<div class="today-tx-row ${dirClass}" data-tx-id="${t.id}" style="cursor: pointer;">
                 <span class="today-tx-bucket econ-bucket-${t.amountBucket}">${economyBucketLabel(t.amountBucket) || ''}</span>
                 <span class="today-tx-cat">${economyCategoryLabel(cat) || ''}</span>
                 <span class="today-tx-desc">${desc}</span>
@@ -680,40 +681,52 @@ async function refreshTodayEconomyCard() {
             </div>`;
         }).join('');
 
-        // 삭제 핸들러
-        list.querySelectorAll('.today-tx-del-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const txId = btn.dataset.id;
-                if (!confirm('이 거래를 지울까요? 되돌릴 수 없어요.')) return;
-                try {
-                    const repo = await import('../data/economyRepo.js');
-                    await repo.deleteTransaction(currentUserId, txId);
-                    showToast('거래를 지웠어요');
-                    window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'delete', id: txId }}));
-                } catch (err) {
-                    console.error('[economy] today delete failed:', err);
-                    showToast('지우는 중에 잠깐 막혔어요.');
+        // 이벤트 위임 센서 최초 1회만 등록 (메모리 누수 원천 방지)
+        if (!list.dataset.delegated) {
+            list.dataset.delegated = 'true';
+            list.addEventListener('click', async (e) => {
+                // 1. 삭제 버튼 클릭 핸들링
+                const delBtn = e.target.closest('.today-tx-del-btn');
+                if (delBtn) {
+                    e.stopPropagation();
+                    const txId = delBtn.dataset.id;
+                    if (!confirm('이 거래를 지울까요? 되돌릴 수 없어요.')) return;
+                    
+                    // [낙관적 업데이트] 즉시 숨겨 0ms 체감 속도 제공
+                    const row = delBtn.closest('.today-tx-row');
+                    if (row) row.style.display = 'none';
+                    
+                    try {
+                        const repo = await import('../data/economyRepo.js');
+                        await repo.deleteTransaction(currentUserId, txId);
+                        showToast('거래를 지웠어요');
+                        window.dispatchEvent(new CustomEvent('sanctum:economy-changed', { detail: { type: 'delete', id: txId }}));
+                    } catch (err) {
+                        console.error('[economy] today delete failed:', err);
+                        showToast('동기화에 실패하여 삭제된 거래를 복구합니다.');
+                        // [에러 롤백] 실패 시 DB 데이터대로 롤백 복원
+                        refreshTodayEconomyCard().catch(() => {});
+                    }
+                    return;
+                }
+
+                // 2. 행 클릭 핸들링 (수정 모달)
+                const row = e.target.closest('.today-tx-row');
+                if (row && list.contains(row)) {
+                    const txId = row.dataset.txId;
+                    if (!txId) return;
+                    const cachedTxs = list.__txs || [];
+                    const tx = cachedTxs.find(t => t.id === txId);
+                    if (!tx) return;
+                    openEconomyQuickAdd({
+                        userId: currentUserId,
+                        date: currentDate,
+                        editingTx: tx,
+                        onSaved: () => refreshTodayEconomyCard(),
+                    });
                 }
             });
-        });
-
-        // 행 클릭 → 수정 모달 (X 버튼은 stopPropagation 으로 막힘)
-        list.querySelectorAll('.today-tx-row').forEach(row => {
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', () => {
-                const txId = row.dataset.txId;
-                if (!txId) return;
-                const tx = txs.find(t => t.id === txId);
-                if (!tx) return;
-                openEconomyQuickAdd({
-                    userId: currentUserId,
-                    date: currentDate,
-                    editingTx: tx,
-                    onSaved: () => refreshTodayEconomyCard(),
-                });
-            });
-        });
+        }
     } catch (e) {
         console.warn('[economy] today card refresh failed:', e);
     }

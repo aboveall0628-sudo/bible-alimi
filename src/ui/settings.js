@@ -2436,14 +2436,35 @@ function openNewPlanModal() {
     const countEl = overlay.querySelector('#newplan-count');
     const createBtn = overlay.querySelector('#newplan-create-btn');
 
+    // (2026-05-20 v108) 사용자 점검 "선택했는데 안 만들어져" — 이름 자리 자기 결로 자기 자기 결로 자기 결로 비어 있어서 disabled 자리잡힘.
+    //   자리잡기: 책 1권 이상이면 자기 결로 만들기 enabled · 이름 비어 있으면 선택한 책 자기 결로 자기 자기 결로 자동 자리.
     const refreshState = () => {
         const checked = overlay.querySelectorAll('input[name="newplan-book"]:checked');
         countEl.textContent = `${checked.length}권 선택`;
-        const ready = checked.length > 0 && nameInp.value.trim().length > 0;
-        createBtn.disabled = !ready;
+        createBtn.disabled = checked.length === 0;
+    };
+    // 이름 자기 결로 자기 자기 결로 자기 결로 자기 결로 자기 결로 — 선택한 책 자기 결로 자기 자리잡혀 자기 결로
+    const autoFillName = (checkedBooks) => {
+        if (nameInp.value.trim().length > 0) return; // 사용자 자기 결로 자기 자기 결로 자기 결로
+        if (checkedBooks.length === 0) {
+            nameInp.placeholder = '예: 시편만 1년, 복음서 묵상, 욥기·전도서…';
+            return;
+        }
+        const titles = checkedBooks.map(c => c.dataset.full || c.value);
+        if (titles.length === 1) {
+            nameInp.placeholder = `예: ${titles[0]} 묵상`;
+        } else if (titles.length <= 3) {
+            nameInp.placeholder = `예: ${titles.join('·')} 묵상`;
+        } else {
+            nameInp.placeholder = `예: ${titles[0]} 외 ${titles.length - 1}권 묵상`;
+        }
     };
     overlay.addEventListener('change', (e) => {
-        if (e.target?.name === 'newplan-book') refreshState();
+        if (e.target?.name === 'newplan-book') {
+            refreshState();
+            const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
+            autoFillName(checked);
+        }
     });
     nameInp.addEventListener('input', refreshState);
 
@@ -2454,6 +2475,7 @@ function openNewPlanModal() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
     // (2026-05-20 v107) 만들기 — 체크된 책들을 성경 순서(BIBLE_BOOK_GROUPS) 자기 결로 자기 자리.
+    // (2026-05-20 v108) 이름 자기 결로 자기 자기 결로 자기 결로 자기 결로 자기 결로 placeholder 결로 자기 자리.
     createBtn.addEventListener('click', () => {
         const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
         if (checked.length === 0) return;
@@ -2466,7 +2488,15 @@ function openNewPlanModal() {
                 });
             });
         });
-        const plan = addUserPlan({ name: nameInp.value, books });
+        // 이름 자리 자기 결로 자기 자기 결로 자리잡힌 자리 = placeholder 자기 결로 자기 자리
+        let planName = nameInp.value.trim();
+        if (!planName) {
+            const titles = books.map(b => b[1]);
+            if (titles.length === 1) planName = `${titles[0]} 묵상`;
+            else if (titles.length <= 3) planName = `${titles.join('·')} 묵상`;
+            else planName = `${titles[0]} 외 ${titles.length - 1}권 묵상`;
+        }
+        const plan = addUserPlan({ name: planName, books });
         close();
         if (plan) refreshScriptureCard();
     });
