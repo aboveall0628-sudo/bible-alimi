@@ -933,10 +933,11 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 
 /* ── Meditation note ── */
 .note-editor {
-    /* (디자인 시스템 v1 2026-05-16) 묵상·기도 본문 = 영적 자리 → serif */
+    /* (2026-05-20 v92) 본문 = Pretendard(--font-sans), 헤딩만 Noto Serif.
+       사용자 합의 — 일상 생산성 톤 + 헤딩만 영적 자리. v62 디자인 시스템 v1 Phase A 결 갈아끼움. */
     min-height: 100px; padding: var(--sp-4);
     border: 1px solid var(--border); border-radius: var(--radius);
-    font-family: var(--font-serif); font-size: var(--fs-body); line-height: var(--leading-relaxed);
+    font-family: var(--font-sans); font-size: var(--fs-body); line-height: var(--leading-relaxed);
     outline: none; transition: border-color var(--ease);
     background: var(--bg-elev); color: var(--text-primary);
 }
@@ -7215,8 +7216,9 @@ body.dg-open { overflow: hidden; }
     border-radius: 10px;
     padding: 6px;
     min-width: 220px;
-    /* (2026-05-20) 한 번에 4~5개 항목 + 다음 줄 끄트머리 보임. 나머지는 자체 스크롤. */
-    max-height: 180px;
+    /* (2026-05-20 v92) 사용자 보고 "/ 메뉴 7~8개는 보여야" — 180 → 280px.
+       한 항목 ~32px 결로 7~8 항목 + 다음 줄 끄트머리. 나머지는 자체 스크롤. */
+    max-height: 280px;
     overflow-y: auto;
     overscroll-behavior: contain;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
