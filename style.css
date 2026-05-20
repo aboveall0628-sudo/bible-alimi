@@ -1251,15 +1251,20 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 .utl-inline-panel { min-height: 36px; }
 
 /* ═══ Quick review modal ═══ */
+/* (2026-05-20 v94 fix) 사용자 점검 "실제 모달 왜 좌하단으로 쏠리니? 중앙에 뜨게" — 강제 center 자리잡기 */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 1000;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px;
 }
 .modal-content {
     background: var(--bg-card); border-radius: var(--radius-lg);
     padding: var(--sp-5); max-width: 460px; width: 90%;
     box-shadow: var(--shadow-lg);
+    margin: auto;     /* 강제 center 안전 자리 */
     color: var(--text-primary);
     /* 모달이 화면보다 길 때 — 모달 자체가 스크롤되도록.
        overlay는 flex로 정렬되어 있어 이 max-height + overflow-y가 작동함. */
@@ -3254,9 +3259,22 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
     .utl-mobile-card.dot-orange { border-left-color: var(--dot-orange); }
     .utl-mobile-card.dot-red { border-left-color: var(--dot-red); }
     .utl-mobile-card.dot-purple { border-left-color: var(--dot-purple); }
+    /* (2026-05-20 v94) 사용자 명시 "모바일에서도 타임박싱 딱 보이도록" — 시간 자리 자리잡혀 자리 */
     .utl-mobile-time {
-        font-size: 12px; color: var(--text-secondary);
-        font-variant-numeric: tabular-nums; min-width: 64px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent, var(--text-primary));
+        font-variant-numeric: tabular-nums;
+        min-width: 72px;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+    }
+    /* 시간 자리잡힌 자리 자리 자리잡혀 자연 강조 — workflow-발 카드 자리잡힌 자리 */
+    .utl-mobile-card.from-workflow .utl-mobile-time {
+        background: var(--accent-soft, rgba(124,139,111,0.10));
+        padding: 4px 8px;
+        border-radius: 6px;
+        min-width: 0;
     }
     .utl-mobile-body { flex: 1; min-width: 0; }
     .utl-mobile-plan { font-size: 13px; font-weight: 500; }

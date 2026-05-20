@@ -271,6 +271,10 @@ function renderTodayReportButton(body, dek) {
         <div style="text-align:center">
             <button id="today-make-report-btn" class="primary-btn">오늘 리포트 만들기 →</button>
         </div>
+        <p style="color:var(--text-secondary); font-size:12.5px; line-height:1.6; margin-top:14px; text-align:center; padding:12px 14px; background:var(--bg-elev, rgba(0,0,0,0.03)); border-radius:8px;">
+            오늘 계획한 자리와 실제 자리잡힌 자리를 토대로 리포트가 자리잡혀요.<br>
+            한 줄씩 평가해 주시면, 한 주·한 달 결도 자연스럽게 자리잡혀요.
+        </p>
     `;
     document.getElementById('today-make-report-btn')?.addEventListener('click', async () => {
         const btn = document.getElementById('today-make-report-btn');
