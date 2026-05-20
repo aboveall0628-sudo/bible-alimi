@@ -762,7 +762,7 @@ function openFormatMenu(clientX, clientY, editor, onChange, opts = {}) {
             editor.focus();
             // (2026-05-20 v89) `/` 단축키로 메뉴 띄운 자리면 직전 / 한 글자 자동 제거.
             //   본문 액션 실행 전에 먼저 자리 정리해야 selection 결 정합.
-            if (_menuTypedSlash) removeTypedSlashBefore(editor);
+            if (_menuTypedSlash) removeTypedSlashBefore();
             if (clip) {
                 // (2026-05-20 v89) 붙여넣기는 Clipboard API 우선 + execCommand 폴백.
                 //   사용자 보고 "붙여넣기가 클릭으로 안 됨" — execCommand('paste') 데스크탑 Chrome 도 막힌 자리.
@@ -870,7 +870,7 @@ function closeContextMenu() {
 }
 
 // (2026-05-20 v89) `/` 단축키로 메뉴 띄운 자리에서 항목 선택 시 직전 / 한 글자 제거.
-function removeTypedSlashBefore(editor) {
+function removeTypedSlashBefore() {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
     const range = sel.getRangeAt(0);
