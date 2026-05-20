@@ -1681,6 +1681,27 @@ html[data-note-font="serif"] .note-editor h3 {
     opacity: 0; transition: all var(--ease); z-index: 3000;
 }
 .sanctum-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* (v109 #7) action 옵션이 있을 때 — 인라인 CTA 버튼 자리 */
+.sanctum-toast.with-action {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: 10px 14px 10px 18px;
+}
+.sanctum-toast-msg { flex: 1; }
+.sanctum-toast-action {
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: inherit;
+    padding: 5px 12px;
+    font-size: 13px; font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--ease), border-color var(--ease);
+}
+.sanctum-toast-action:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
 
 /* ═══ Evening loop — 스크롤 방식 ═══ */
 
@@ -3219,6 +3240,8 @@ html[data-note-font="serif"] .note-editor h3 {
 .newplan-group { margin-bottom: var(--sp-3); }
 .newplan-group:last-child { margin-bottom: 0; }
 .newplan-group-title {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--sp-2);
     font-size: 11px; font-weight: 600; color: var(--accent);
     text-transform: uppercase; letter-spacing: 0.04em;
     padding: 4px 8px;
@@ -3229,6 +3252,23 @@ html[data-note-font="serif"] .note-editor h3 {
     font-size: 11px; font-weight: 400; color: var(--text-secondary);
     text-transform: none; letter-spacing: 0;
     margin-left: 6px;
+}
+/* (v109 결 C #3) 그룹 단위 전체 선택 토글 */
+.newplan-group-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px; font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-transform: none; letter-spacing: 0;
+    transition: border-color var(--ease), color var(--ease), background var(--ease);
+}
+.newplan-group-toggle:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
 }
 .newplan-group-books {
     display: grid;
@@ -3250,10 +3290,72 @@ html[data-note-font="serif"] .note-editor h3 {
     background: var(--accent-soft); color: var(--accent); font-weight: 600;
 }
 
+/* (v109 결 C #5·#6) 시작일·진행 속도 — 한 줄 인라인 */
+.newplan-options-row {
+    display: flex;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+    flex-wrap: wrap;
+}
+.newplan-field-inline {
+    flex: 1 1 160px;
+    min-width: 0;
+    margin-bottom: 0;
+}
+.newplan-field-inline input[type="date"],
+.newplan-field-inline select {
+    padding: 10px 12px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text-primary);
+    width: 100%;
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+.newplan-field-inline input[type="date"]:focus,
+.newplan-field-inline select:focus {
+    outline: none; border-color: var(--accent);
+}
+.newplan-field-inline select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+/* (v109 결 C #1·#2) 하단 요약 — 선택 권수 + 총 분량 + 선택한 책 목록 */
 .newplan-summary {
     margin-top: var(--sp-2);
+    padding: var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
     font-size: 12px; color: var(--text-secondary);
-    text-align: right;
+}
+.newplan-summary-row {
+    display: flex; align-items: baseline;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+.newplan-summary-row > #newplan-count {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.newplan-summary-sub {
+    font-size: 12px; color: var(--text-secondary);
+    font-weight: 400;
+}
+.newplan-selected-list {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    line-height: 1.55;
+    word-break: keep-all;
+}
+.newplan-selected-list:empty { display: none; }
+.newplan-selected-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: 4px;
 }
 
 /* 매일성경 인라인 링크 행 (Phase E-8/C) — 통독 본문 카드 맨 아래 */

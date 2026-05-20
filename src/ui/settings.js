@@ -2565,9 +2565,31 @@ function openNewPlanModal() {
         close();
         if (plan) {
             refreshScriptureCard();
-            // (v109 ⑦) 만들기 후 흐름 — 토스트 + 첫 본문 자기 결로 자기 자리
+            // (v109 ⑦) 만들기 후 흐름 — 토스트 + 첫 본문 보러 가기 CTA
+            //   시작일이 오늘이면 "첫 본문 보러 갈까요?", 미래면 안내만.
+            const startsToday = !startDate || startDate === todayISO;
+            const startMsg = startsToday
+                ? `"${plan.name}" 자리잡혔어요. 오늘부터 시작해요.`
+                : `"${plan.name}" 자리잡혔어요. ${startDate}부터 시작해요.`;
             import('./quickReview.js').then(({ showToast }) => {
-                showToast(`✅ "${plan.name}" 자리잡혔어요. ${startDate === todayISO || !startDate ? '오늘부터 시작해요.' : `${startDate}부터 시작해요.`}`);
+                if (startsToday && typeof window.__sanctumSwitchView === 'function') {
+                    showToast(startMsg + ' 첫 본문 보러 갈까요?', {
+                        action: {
+                            label: '네 →',
+                            onClick: () => {
+                                window.__sanctumSwitchView('today');
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => {
+                                        document.getElementById('section-scripture')
+                                            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    });
+                                });
+                            },
+                        },
+                    });
+                } else {
+                    showToast(startMsg);
+                }
             }).catch(() => {});
         }
     });

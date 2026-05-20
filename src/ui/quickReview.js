@@ -1243,21 +1243,48 @@ function _installQrBackHandler() {
     window.addEventListener('popstate', _qrBackHandler);
 }
 
-function showToast(msg) {
+function showToast(msg, opts = {}) {
     const toast = document.createElement('div');
     toast.className = 'sanctum-toast';
     // (2026-05-13 #24) 토스트 시작의 이모지·아이콘 제거 — 문구만 노출.
     // 호출처가 많아 한 자리에서 정리. extended_pictographic + 자주 쓰는 prefix 기호 모두.
-    toast.textContent = String(msg ?? '')
+    const cleaned = String(msg ?? '')
         .replace(/^(?:[\p{Extended_Pictographic}✀-➿☀-⛿✓×…]\s*)+/u, '')
         .trim();
+
+    // (2026-05-20 v109 #7) action 옵션 — { label, onClick } 받으면 인라인 CTA 버튼 자리잡혀 자기 결로.
+    //   CTA 누르면 onClick 실행 + 토스트 즉시 닫힘. 노출 시간도 7s로 길게 잡아 놓침 방지.
+    const action = opts && opts.action && typeof opts.action.onClick === 'function'
+        ? opts.action : null;
+    if (action) {
+        toast.classList.add('with-action');
+        const msgEl = document.createElement('span');
+        msgEl.className = 'sanctum-toast-msg';
+        msgEl.textContent = cleaned;
+        toast.appendChild(msgEl);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sanctum-toast-action';
+        btn.textContent = action.label || '바로가기';
+        btn.addEventListener('click', () => {
+            try { action.onClick(); } finally {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 200);
+            }
+        });
+        toast.appendChild(btn);
+    } else {
+        toast.textContent = cleaned;
+    }
     document.body.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 10);
     // (2026-05-18 후속) 사용자 명시 "엄청 빨리 사라지네" — 1000 → 3500ms
+    // (v109 #7) action 있으면 사용자 결정 시간 더 길게 — 7000ms.
+    const dur = action ? 7000 : 3500;
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    }, dur);
 }
 
 export { showToast };
