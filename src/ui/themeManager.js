@@ -91,40 +91,39 @@ function _ensureOsListener() {
 }
 
 /**
- * 설정 카드 안 칩 렌더 — 강조색·노트 폰트 카드 같은 결.
+ * 설정 카드 안 드롭다운 렌더 (v102 후속) — 사용자 명시 "옆에 이거 드롭다운으로 선택할 수 있게".
+ *   강조색·노트 폰트는 칩 결, 화면 모드는 select 결로 차별화. settings-row 안 label + select 자리.
  */
 function renderThemeChips() {
     const row = document.getElementById('theme-mode-row');
     if (!row) return;
     const current = getThemeMode();
-    row.innerHTML = Object.entries(THEME_MODES).map(([id, cfg]) => `
-        <button type="button"
-                class="settings-font-chip${current === id ? ' selected' : ''}"
-                data-theme-mode="${id}">
-            <span class="settings-font-chip-label">${cfg.label}</span>
-            <span class="settings-font-chip-desc">${cfg.desc}</span>
-        </button>
-    `).join('');
-    row.querySelectorAll('.settings-font-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.themeMode;
-            if (!THEME_MODES[id]) return;
-            setThemeMode(id);
-            // (2026-05-20 v95) theme_change 미션 트리거 — 화면 모드 갈음 1회.
-            (async () => {
-                try {
-                    const uid = window.currentUserId;
-                    if (!uid) return;
-                    const { getDEK } = await import('./lockScreen.js');
-                    const dek = getDEK();
-                    if (!dek) return;
-                    const { markMissionComplete } = await import('../data/personRepo.js');
-                    await markMissionComplete(dek, uid, 'theme_change', { signal: 'mode:' + id });
-                } catch (e) {
-                    console.warn('[mission] theme_change(mode) 자리잡지 실패:', e?.message || e);
-                }
-            })();
-        });
+    row.innerHTML = `
+        <select id="theme-mode-select" class="settings-select" aria-label="화면 모드 선택">
+            ${Object.entries(THEME_MODES).map(([id, cfg]) => `
+                <option value="${id}" ${current === id ? 'selected' : ''}>${cfg.label} — ${cfg.desc}</option>
+            `).join('')}
+        </select>
+    `;
+    const select = row.querySelector('#theme-mode-select');
+    select?.addEventListener('change', () => {
+        const id = select.value;
+        if (!THEME_MODES[id]) return;
+        setThemeMode(id);
+        // (2026-05-20 v95) theme_change 미션 트리거 — 화면 모드 갈음 1회.
+        (async () => {
+            try {
+                const uid = window.currentUserId;
+                if (!uid) return;
+                const { getDEK } = await import('./lockScreen.js');
+                const dek = getDEK();
+                if (!dek) return;
+                const { markMissionComplete } = await import('../data/personRepo.js');
+                await markMissionComplete(dek, uid, 'theme_change', { signal: 'mode:' + id });
+            } catch (e) {
+                console.warn('[mission] theme_change(mode) 자리잡지 실패:', e?.message || e);
+            }
+        })();
     });
 }
 

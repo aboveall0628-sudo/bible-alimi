@@ -1422,6 +1422,22 @@ html[data-note-font="serif"] .note-editor h3 {
 .qr-text-input:focus { outline: none; border-color: var(--accent); }
 .qr-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
 
+/* (2026-05-20 v102) 설정 카드 안 드롭다운 — 화면 모드 등에서 사용. settings-row 결 정합. */
+.settings-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elev);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    min-width: 200px;
+    max-width: 100%;
+}
+.settings-select:focus { outline: none; border-color: var(--accent); }
+.settings-select:hover { border-color: var(--accent); }
+
 /* ── Buttons ── */
 /* (2026-05-20 v91 fix) 사용자 점검 "모바일 자리에서 안 보임" — 배경·테두리 자리잡혀 자연 자리. */
 .text-btn {

@@ -577,11 +577,15 @@
                         <div class="settings-group-body" id="settings-group-body-appearance">
                             <!-- (settings.js append) 베타 슬림 모드 / 시스템 글자 크기 / 강조 색 -->
 
-                            <!-- 화면 모드 — 라이트·다크·시스템 따라가기 3 옵션 (v101) -->
+                            <!-- 화면 모드 — 라이트·다크·시스템 3 옵션 드롭다운 (v102 사용자 명시 "드롭다운으로") -->
                             <div class="card-section">
-                                <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
-                                <p class="section-desc">라이트·다크·시스템 결 셋 중 하나로 자리잡아요. 시스템 결은 윈도우·맥 자체 결을 자연 따라가요.</p>
-                                <div id="theme-mode-row" class="settings-font-chip-row" style="margin-top: 12px;"></div>
+                                <div class="settings-row">
+                                    <div class="settings-row-text">
+                                        <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
+                                        <p class="section-desc">시스템 결은 윈도우·맥 자체 결을 자연 따라가요.</p>
+                                    </div>
+                                    <div id="theme-mode-row"></div>
+                                </div>
                             </div>
 
                             <!-- 화면 가리기 (민감 정보 마스킹) -->
