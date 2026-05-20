@@ -1102,7 +1102,9 @@ async function handleSave() {
             labelIds: labels,
             // 미래 슬롯 예약(STEP 0/1 단계에선 빈 배열로 두기)
             linkedScriptureId: _currentExistingDot?.linkedScriptureId || null,
-            linkedGoalId: _currentExistingDot?.linkedGoalId || null,
+            // (2026-05-20) 모바일 가이드 캐러셀에서 신규 도트 생성 시, 모달 진입 시 받은
+            // _currentDecisionId 가 있으면 계획↔실제 정합을 위해 linkedGoalId 로 자연 자리잡힘.
+            linkedGoalId: _currentExistingDot?.linkedGoalId || _currentDecisionId || null,
             linkedPersonIds: _selectedPersonIds.slice(),
             linkedOrgIds: _selectedOrgIds.slice(),
             personRatings: { ..._personRatings },
@@ -1152,7 +1154,7 @@ async function handleSave() {
         // 토스트
         showToast('🔐 안전하게 보관됐어요');
         closeModal();
-        if (_onSaved) _onSaved({ decisionId: _currentDecisionId });
+        if (_onSaved) _onSaved({ decisionId: _currentDecisionId, fromSave: true });
     } catch (e) {
         console.error('Save dot error:', e);
         console.error('  userId:', _currentUserId, 'date:', _currentDate, 'timeSlot:', _currentSlot);

@@ -643,9 +643,10 @@ function onVaultLocked() {
 }
 
 // 평가 모달 저장 후 호출되는 콜백 — 타임라인+결단 패널 동시 갱신
-async function refreshTodayData() {
+async function refreshTodayData(opts) {
     if (!currentUserId || !currentDate) return;
-    await refreshTimeline({ userId: currentUserId, date: currentDate });
+    const fromSave = opts?.fromSave ?? false;
+    await refreshTimeline({ userId: currentUserId, date: currentDate, fromSave });
     await refreshTodayView({ userId: currentUserId, date: currentDate });
     await refreshTodayEconomyCard();
 }
@@ -782,6 +783,14 @@ function setupNavigation() {
         menuToggle.addEventListener('click', () => {
             const open = sidebar.classList.toggle('open');
             document.body.classList.toggle('sidebar-open', open);
+        });
+    }
+    // 모바일 메뉴 닫기 버튼
+    const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+    if (sidebarCloseBtn && sidebar) {
+        sidebarCloseBtn.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            document.body.classList.remove('sidebar-open');
         });
     }
     // 백드롭(body 가짜 요소) 클릭 시 닫기 — body 클릭 영역 중 사이드바 외 영역

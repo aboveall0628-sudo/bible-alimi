@@ -60,7 +60,10 @@ import { typeText, shouldReduceMotion, setTextInstant } from './aiThinking.js';
 //   6=큐티 수준 · 7=성경 번역본 · 8=묵상 트랙 · 9=폰트 · 10=첫 묵상
 //   11=묵상 결단(목표) · 12=어느 시간(타임박싱) · 13=매일 묵상 알람 시간
 //   후속(3단계): 14=평가 안내 · 15=평가+SWAN 리포트 · 16=비번+24단어 · 17=약관 동의
-const TOTAL_STEPS = 14;
+// (2026-05-20 v105) 사용자 명시 "성경 본문 자리·묵상 트랙 자리 없애기" — 두 step 자기 결로 자리잡지 X.
+//   step 8 (성경 본문 source) · step 9 (묵상 트랙) → renderStep dispatch 자기 결로 자리잡혀 자동 통과.
+//   dot stepper 자기 결로 12개로 자리잡힘 (14 → 12).
+const TOTAL_STEPS = 12;
 
 const CUTI_LEVELS = [
     {
@@ -326,22 +329,21 @@ function renderStep(step) {
     if (!body) return;
 
     // (베타 슬림 v1 A 묶음 / 후속 의사결정 제거 2026-05-18) 재번호 dispatch.
-    // (2026-05-20 v102) 사용자 명시 "SWAN 인사하면서 바로 이름 자리 어색" — step 2 안내 카드 신규 자리잡힘.
-    //   모든 기존 step +1 시프트.
+    // (2026-05-20 v102) step 2 안내 카드 신규.
+    // (2026-05-20 v105) 사용자 명시 "성경 본문·묵상 트랙 없애기" — 옛 step 8·9 자리잡지 X 자리잡혀 자동 통과.
+    //   재번호: step 8 (옛 폰트) · step 9 (옛 첫 묵상) · step 10 (옛 결단) · step 11 (옛 타임박싱) · step 12 (옛 매일 알람)
     if (step === 1) renderSwanIntroStep(body);        // SWAN 첫 인사
-    else if (step === 2) renderSwanIntroSetupCard(body); // 신규 — 기본 세팅 안내
+    else if (step === 2) renderSwanIntroSetupCard(body); // 기본 세팅 안내
     else if (step === 3) renderNameStep(body);
     else if (step === 4) renderNicknameStep(body);
     else if (step === 5) renderBirthdayStep(body);    // 양/음력 토글
     else if (step === 6) renderLocationStep(body);    // 도시·타임존
     else if (step === 7) renderCutiStep(body);
-    else if (step === 8) renderBibleVersionStep(body);
-    else if (step === 9) renderTrackStep(body);       // 묵상 트랙
-    else if (step === 10) renderFontStep(body);
-    else if (step === 11) renderMeditationStep(body); // 첫 묵상 한 절
-    else if (step === 12) renderCommitmentStep(body); // 묵상의 결단 (목표)
-    else if (step === 13) renderTimeboxStep(body);    // 어느 시간에 실천
-    else if (step === 14) renderDailyAlarmStep(body); // 매일 묵상 알람 시간
+    else if (step === 8) renderFontStep(body);        // (v105) 옛 step 10
+    else if (step === 9) renderMeditationStep(body);  // (v105) 옛 step 11 — 첫 묵상 한 절
+    else if (step === 10) renderCommitmentStep(body); // (v105) 옛 step 12 — 묵상의 결단(목표)
+    else if (step === 11) renderTimeboxStep(body);    // (v105) 옛 step 13 — 어느 시간
+    else if (step === 12) renderDailyAlarmStep(body); // (v105) 옛 step 14 — 매일 묵상 알람
     else if (step === 99) renderFinishCard(body);
 
     // (2026-05-18 후속) step 9 (폰트 설정) 진입 시 큰 폰트 모드 해제 →
@@ -391,7 +393,7 @@ function renderSwanIntroSetupCard(body) {
       <div class="onboarding-card onboarding-card-swan-hero onboarding-card-swan-hero-simple">
         <h2 class="onboarding-swan-hero-greeting" id="onboarding-title"
             data-swan-hero
-            data-swan-message="Sanctum OS 를 통한&#10;말씀과 삶의 연결을 보조해 드릴게요.&#10;먼저 기본 세팅을 위한&#10;설정을 부탁드려요."></h2>
+            data-swan-message="Sanctum OS 를 통한&#10;말씀과 삶의 연결을&#10;보조해 드릴게요.&#10;&#10;먼저 기본 세팅을&#10;부탁드려요."></h2>
         <div class="onboarding-actions">
           <button type="button" class="onboarding-btn onboarding-btn-primary onboarding-btn-block" id="onboarding-next">다음</button>
         </div>
@@ -829,7 +831,7 @@ function renderTrackStep(body) {
 
     // (베타 슬림 v1 A 묶음) track: back=7(bible) · next=9(font)
     document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
-    nextBtn.addEventListener('click', () => renderStep(10));
+    nextBtn.addEventListener('click', () => renderStep(8));
 }
 
 // ─── Step 9: 폰트 크기 ────────────────────────────────────
@@ -900,11 +902,11 @@ function renderFontStep(body) {
     document.getElementById('onboarding-next').addEventListener('click', () => {
         if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
             window.__sanctumOpenPreSurveyForm({
-                onComplete: () => renderStep(11),
+                onComplete: () => renderStep(9),
             });
             return;
         }
-        renderStep(11);
+        renderStep(9);
     });
 }
 
@@ -936,8 +938,8 @@ function renderPrincipleStep(body) {
     titleEl.addEventListener('input', () => { _state.draft.principleTitle = titleEl.value; });
     bodyEl.addEventListener('input', () => { _state.draft.principleBody = bodyEl.value; });
     // (베타 슬림 v1 A 묶음) principle: back=9(font) · next=11(meditation)
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(12));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(10));
 }
 
 // ─── Step 9: 첫 묵상 한 절 + 본문 클릭 → 에디터 (S-E7) ────
@@ -1014,23 +1016,24 @@ function renderMeditationStep(body) {
     // 오늘 묵상 이미 있는지 비동기 체크 — 있으면 안내 카드 노출, 합치기 모드로 작동
     checkExistingMeditation().catch(() => {});
     // (의사결정 제거 후속 2026-05-18) meditation: back=9(font로 직접 — principle 빈 자리)
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(8));
     // (2단계 진입 2026-05-18) meditation 의 [나중에]·[다음] = step 11(결단)로 이동.
     //   persistAll 은 마지막 step (현재 13) 끝나는 시점에만 호출.
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.meditationNote = '';
-        renderStep(12);
+        renderStep(10);
     });
     document.getElementById('onboarding-next-meditation').addEventListener('click', () => {
-        renderStep(12);
+        renderStep(10);
     });
 }
 
-// ─── Step 11: 묵상의 결단 (목표) — 2단계 2026-05-18 ───────
+// ─── Step 10 (v105): 오늘의 목표 — 2단계 2026-05-18 / v105 카피 갈아끼움 ───
+// 사용자 명시 (2026-05-20): "묵상의 결단 → 오늘의 목표로 가야"
 function renderCommitmentStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
-        ${swanBubbleHTML('묵상의 결단이 있으실까요?')}
+        ${swanBubbleHTML('오늘의 목표를 적어볼까요?')}
         <label class="onboarding-label" for="onboarding-commitment">오늘 실천해보고 싶은 한 가지를 적어주세요. (선택)</label>
         <textarea class="onboarding-textarea" id="onboarding-commitment"
                   rows="3" maxlength="200"
@@ -1046,20 +1049,21 @@ function renderCommitmentStep(body) {
     `;
     const textarea = document.getElementById('onboarding-commitment');
     textarea.addEventListener('input', () => { _state.draft.firstCommitment = textarea.value.trim(); });
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(11));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(9));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.firstCommitment = '';
-        renderStep(13);
+        renderStep(11);
     });
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(13));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(11));
 }
 
-// ─── Step 12: 어느 시간에 실천 (타임박싱) — 2단계 2026-05-18 ───
+// ─── Step 11 (v105): 오늘의 시간표 — 2단계 2026-05-18 / v105 카피 갈아끼움 ───
+// 사용자 명시 (2026-05-20): "오늘의 시간표가 나와야"
 function renderTimeboxStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
-        ${swanBubbleHTML('어느 시간에 실천하고 싶으신가요?')}
-        <label class="onboarding-label" for="onboarding-commitment-time">결단을 실천할 시간을 정해주세요. 캘린더에 들어가요.</label>
+        ${swanBubbleHTML('오늘의 시간표에 넣어볼까요?')}
+        <label class="onboarding-label" for="onboarding-commitment-time">목표를 실천할 시간을 정해주세요. 시간표·캘린더에 자연 자리잡혀요.</label>
         <input type="time" class="onboarding-input" id="onboarding-commitment-time"
                value="${escapeAttr(_state.draft.firstCommitmentTime || '19:00')}" />
         <p class="onboarding-sub onboarding-sub-mini">10분 전에 한 번 알림으로 알려드릴게요.</p>
@@ -1076,12 +1080,12 @@ function renderTimeboxStep(body) {
     timeInput.addEventListener('input', () => { _state.draft.firstCommitmentTime = timeInput.value; });
     // 초기 디폴트 자리잡기
     if (!_state.draft.firstCommitmentTime) _state.draft.firstCommitmentTime = '19:00';
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(12));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(10));
     document.getElementById('onboarding-skip').addEventListener('click', () => {
         _state.draft.firstCommitmentTime = '';
-        renderStep(14);
+        renderStep(12);
     });
-    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(14));
+    document.getElementById('onboarding-next').addEventListener('click', () => renderStep(12));
 }
 
 // ─── Step 13: 매일 묵상 알람 시간 — 2단계 2026-05-18 ────────
@@ -1161,7 +1165,7 @@ function renderDailyAlarmStep(body) {
         });
     }
 
-    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(13));
+    document.getElementById('onboarding-back').addEventListener('click', () => renderStep(11));
     document.getElementById('onboarding-finish').addEventListener('click', async () => {
         const finishBtn = document.getElementById('onboarding-finish');
         finishBtn.disabled = true;

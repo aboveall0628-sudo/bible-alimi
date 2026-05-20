@@ -306,6 +306,8 @@ function renderTodayReportButton(body, dek) {
 // 토요일 추가 회고 — 단계별 버튼.
 // week 는 실제 generateWeeklyReport 흐름. month/quarter/year/decade 는 placeholder 유지.
 function renderSaturdayLayers(body) {
+    if (document.getElementById('saturday-container')) return; // 방어막: 중복 생성 차단
+
     const date = new Date(_date + 'T00:00:00');
     const layers = determineLayers(date);
     if (layers.length === 0) return;   // 토요일 아니면 종료
@@ -327,6 +329,7 @@ function renderSaturdayLayers(body) {
     `).join('');
 
     const section = document.createElement('div');
+    section.id = 'saturday-container'; // ID 지정하여 다음 호출 시 방어막 작동하게 함
     section.style.cssText = 'margin-top:20px; padding-top:16px; border-top:1px solid var(--border, rgba(0,0,0,0.1))';
     section.innerHTML = `
         ${layerButtonsHtml}

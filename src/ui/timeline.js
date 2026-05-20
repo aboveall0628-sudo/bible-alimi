@@ -47,6 +47,12 @@ let _gcalEvents = [];  // plan 레인의 외부 일정
 
 let _onChange = null;  // 데이터 갱신 시 외부에 알리기 (todayView가 결단 패널 다시 그릴 수 있게)
 
+// 모바일 변수
+let _mobileTab = 'plan'; // 'plan' | 'actual'
+const _tabScrollPos = { plan: 0, actual: 0 }; // 탭별 스크롤 위치 보존
+let _mobileZoomScale = 1.0; // 핀치 줌 배율 (0.8 ~ 1.8)
+let _pinchInitDist = 0; // 핀치 제스처 최초 거리
+
 /**
  * 타임라인 마운트 (앱 시작 시 1회)
  */
@@ -60,7 +66,7 @@ export function initTimeline({ userId, date, onChange }) {
 /**
  * 데이터 다시 로드 + 렌더 (잠금 해제, 날짜 변경, 평가 저장 후 호출)
  */
-export async function refreshTimeline({ userId, date, scrollToNow = false }) {
+export async function refreshTimeline({ userId, date, scrollToNow = false, fromSave = false }) {
     _userId = userId;
     _date = date;
     const dek = getDEK();
@@ -95,6 +101,13 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     }
 
     render();
+
+    // 모바일 자동 전환 처리
+    if (fromSave && window.matchMedia('(max-width: 768px)').matches) {
+        _mobileTab = 'actual';
+        renderMobile();
+    }
+
     // 마운트/날짜 변경/사용자 명시 액션에서만 현재 시간으로 이동.
     // 인라인 저장 후 refresh 같은 자동 refresh는 사용자 스크롤 위치를 보존.
     if (scrollToNow) scrollTimelineToNow();
@@ -185,7 +198,6 @@ function renderDesktop() {
         positionSlot(slotEl, d.timeSlot, d.durationSlots || 4);
         planCol.appendChild(slotEl);
     });
-
     // 도트 그리기 (actual 레인) — durationSlots 지원, 없으면 1슬롯
     _dots.forEach(dot => {
         if (dot.timeSlot == null) return;
@@ -198,33 +210,90 @@ function renderDesktop() {
     bindCellEvents(actualCol, 'actual');
 }
 
-// 모바일 탭 상태 (워크플로우 트랙 STEP 2 — 사용자 결정: 계획/실제 분리 스와이프)
-let _mobileTab = 'plan'; // 'plan' | 'actual'
+function bindMobileZoom(el) {
+    el.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            _pinchInitDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && _pinchInitDist > 0) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const factor = dist / _pinchInitDist;
+            // 0.8배 ~ 1.8배 범위 제한
+            const newScale = Math.min(Math.max(_mobileZoomScale * factor, 0.8), 1.8);
+            el.style.setProperty('--mobile-zoom-scale', newScale.toFixed(2));
+        }
+    }, { passive: true });
+
+    el.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+            const currentVar = parseFloat(el.style.getPropertyValue('--mobile-zoom-scale') || '1.0');
+            _mobileZoomScale = currentVar;
+            _pinchInitDist = 0;
+        }
+    });
+}
 
 function renderMobile() {
     const list = document.getElementById('utl-mobile-list');
     if (!list) return;
 
+    // Fix 5: 스크롤 위치 기록
+    const scrollEl = document.getElementById('main-content') || window;
+    const currentScroll = scrollEl.scrollTop || window.scrollY || 0;
+    _tabScrollPos[_mobileTab] = currentScroll;
+
+    // A. planSlots (계획 탭 카드들)
     const planSlots = _decisions.filter(d => d.timeSlot != null).map(d => ({
         slot: d.timeSlot,
         duration: d.durationSlots || 4,
         label: (d.gcalEventId ? '📅 ' : '') + (d.title ?? d.text ?? '(이름 없음)'),
-        kind: 'decision'
-    })).sort((a, b) => a.slot - b.slot);
-
-    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => ({
-        slot: d.timeSlot,
-        duration: d.durationSlots || 1,
-        label: d.actualTask || d.plannedTask || '(아직 평가 전)',
-        dotClass: dotColorClass(d),
-        fromWorkflow: !!d.linkedWorkflowStepId,
-        kind: 'dot',
+        kind: 'decision',
         id: d.id
     })).sort((a, b) => a.slot - b.slot);
+
+    // B. guideSlots (실제 탭 상단의 스마트 가이드용 미기록 계획들)
+    const guideSlots = _decisions.filter(d => d.timeSlot != null && d.id).filter(d => {
+        const hasDot = _dots.some(dot => 
+            dot.linkedGoalId === d.id || 
+            dot.timeSlot === d.timeSlot
+        );
+        return !hasDot;
+    }).map(d => ({
+        slot: d.timeSlot,
+        label: d.title ?? d.text ?? '(이름 없음)',
+        id: d.id
+    })).sort((a, b) => a.slot - b.slot);
+
+    // C. actualSlots (실제 탭 본문 피드용 기록들)
+    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => {
+        const linkedPlan = _decisions.find(dec =>
+            dec.id === d.linkedGoalId || dec.timeSlot === d.timeSlot
+        );
+        return {
+            slot: d.timeSlot,
+            duration: d.durationSlots || 1,
+            label: d.actualTask || d.plannedTask || '(내용 없음)',
+            dotClass: dotColorClass(d),
+            fromWorkflow: !!d.linkedWorkflowStepId,
+            kind: 'dot',
+            id: d.id,
+            linkedPlanTitle: linkedPlan ? (linkedPlan.title ?? linkedPlan.text) : null
+        };
+    }).sort((a, b) => a.slot - b.slot);
 
     const planEmpty = planSlots.length === 0;
     const actualEmpty = actualSlots.length === 0;
 
+    // D. 렌더링 HTML 명세
     const tabsHtml = `
         <div class="utl-mobile-tabs" role="tablist">
             <button class="utl-mobile-tab ${_mobileTab === 'plan' ? 'active' : ''}"
@@ -238,26 +307,67 @@ function renderMobile() {
         </div>
     `;
 
+    // 스마트 가이드 캐러셀 렌더링
+    let guideCarouselHtml = '';
+    if (_mobileTab === 'actual' && guideSlots.length > 0) {
+        const cardsHtml = guideSlots.map(item => `
+            <div class="utl-mobile-guide-card" data-decision-id="${item.id}" data-slot="${item.slot}" data-label="${escapeHtml(item.label)}">
+                <span class="utl-mobile-guide-card-time">${slotToTime(item.slot)}</span>
+                <div class="utl-mobile-guide-card-label">${escapeHtml(item.label)}</div>
+                <div class="utl-mobile-guide-card-cta">👉 실제 기록하고 평가</div>
+            </div>
+        `).join('');
+
+        guideCarouselHtml = `
+            <div class="utl-mobile-guide-container">
+                <div class="utl-mobile-guide-title">💡 오늘 이런 계획이 있었어요! 실제로는 어땠나요?</div>
+                <div class="utl-mobile-guide-carousel">
+                    ${cardsHtml}
+                </div>
+            </div>
+        `;
+    }
+
     const renderRow = (item) => {
         const endSlot = item.slot + (item.duration || 1);
         const timeLabel = (item.duration || 1) > 1
             ? `${slotToTime(item.slot)}~${slotToTime(endSlot)}`
             : slotToTime(item.slot);
-        const cls = [
-            'utl-mobile-card',
-            item.dotClass || 'dot-gray',
-            item.fromWorkflow ? 'from-workflow' : ''
-        ].join(' ').trim();
-        // (2026-05-13 HC#1 A-1 종결) plan 카드도 data-slot 으로 클릭 → quickReview 진입.
-        const dotAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
-        return `
-            <div class="${cls}" ${dotAttr} data-slot="${item.slot}">
-                <span class="utl-mobile-time">${timeLabel}</span>
-                <div class="utl-mobile-body">
-                    <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
+
+        if (_mobileTab === 'plan') {
+            const cls = [
+                'utl-mobile-card',
+                'dot-gray'
+            ].join(' ').trim();
+            return `
+                <div class="${cls}" data-slot="${item.slot}">
+                    <span class="utl-mobile-time">${timeLabel}</span>
+                    <div class="utl-mobile-body">
+                        <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        } else {
+            const cls = [
+                'utl-mobile-card',
+                item.dotClass || 'dot-gray',
+                item.fromWorkflow ? 'from-workflow' : ''
+            ].join(' ').trim();
+            const dotAttr = item.id ? `data-dot-id="${escapeHtml(item.id)}"` : '';
+            return `
+                <div class="${cls}" ${dotAttr} data-slot="${item.slot}">
+                    <span class="utl-mobile-time">${timeLabel}</span>
+                    <div class="utl-mobile-body">
+                        <div class="utl-mobile-plan">${escapeHtml(item.label)}</div>
+                        ${item.linkedPlanTitle ? `
+                            <div class="utl-mobile-plan-origin">
+                                📋 계획 출처: ${escapeHtml(item.linkedPlanTitle)}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
     };
 
     const emptyHtml = (msg) => `
@@ -274,12 +384,15 @@ function renderMobile() {
             ? emptyHtml('아직 기록이 없어요. 계획 탭의 슬롯을 톡 눌러 평가하거나, 아래 [+ 추가] 로 빈 시간을 채워 보세요.')
             : actualSlots.map(renderRow).join(''));
 
-    // 실제 탭에만 "+ 추가" 버튼. 시간 직접 입력 → 평가 모달이 빈 시간 모드로 열림.
     const addBtnHtml = _mobileTab === 'actual'
         ? `<button type="button" class="utl-mobile-add-btn" id="utl-mobile-add">+ 추가</button>`
         : '';
 
-    list.innerHTML = `${tabsHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>${addBtnHtml}`;
+    list.innerHTML = `${tabsHtml}${guideCarouselHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>${addBtnHtml}`;
+
+    // 핀치 줌 배율 및 제스처 바인딩
+    list.style.setProperty('--mobile-zoom-scale', _mobileZoomScale.toFixed(2));
+    bindMobileZoom(list);
 
     // 탭 클릭
     list.querySelectorAll('.utl-mobile-tab').forEach(btn => {
@@ -289,12 +402,69 @@ function renderMobile() {
         });
     });
 
-    // (2026-05-13 HC#1 A-1 종결) plan/actual 두 탭 다 카드 클릭 → quickReview 모달.
-    // actual 카드는 data-dot-id 기반 재평가, plan 카드는 data-slot 기반 — 같은 slot 의
-    // 도트가 이미 있으면 그 도트 재평가, 없으면 신규 평가 (plannedTask 는 결단·캘린더 제목 prefill).
-    // 안내 문구 "계획 탭의 슬롯을 톡 눌러 평가"와 실제 동작이 이제 일치.
-    list.querySelectorAll('.utl-mobile-card').forEach(card => {
+    // 스마트 가이드 캐러셀 카드 클릭 이벤트 바인딩
+    list.querySelectorAll('.utl-mobile-guide-card').forEach(card => {
         card.addEventListener('click', () => {
+            const slot = parseInt(card.dataset.slot ?? '', 10);
+            const label = card.dataset.label ?? '';
+            const decisionId = card.dataset.decisionId ?? '';
+            openQuickReview({
+                timeSlot: slot,
+                cells: [],
+                userId: _userId,
+                date: _date,
+                plannedTask: label,
+                decisionId: decisionId,
+                existingDot: null
+            });
+        });
+    });
+
+    // 카드 탭/롱프레스 바인딩
+    list.querySelectorAll('.utl-mobile-card').forEach(card => {
+        let pressTimer = null;
+        let preventClick = false;
+
+        card.addEventListener('touchstart', (e) => {
+            preventClick = false;
+            pressTimer = setTimeout(async () => {
+                preventClick = true;
+                const dotId = card.dataset.dotId;
+                if (dotId && _mobileTab === 'actual') {
+                    if (confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) {
+                        const dek = getDEK();
+                        if (dek) {
+                            try {
+                                await deleteDot(dek, _userId, dotId);
+                                showToast('기록을 지웠어요');
+                                if (_onChange) _onChange();
+                                await refreshTimeline({ userId: _userId, date: _date });
+                            } catch (e) {
+                                showToast('지우는 중에 잠깐 막혔어요');
+                            }
+                        }
+                    }
+                }
+            }, 500);
+        }, { passive: true });
+
+        card.addEventListener('touchend', () => {
+            if (pressTimer) clearTimeout(pressTimer);
+        }, { passive: true });
+
+        card.addEventListener('touchmove', () => {
+            if (pressTimer) clearTimeout(pressTimer);
+        }, { passive: true });
+
+        card.addEventListener('click', () => {
+            if (preventClick) return;
+
+            if (_mobileTab === 'plan') {
+                // 계획 탭 카드 클릭 시 토스트 피드백만
+                showToast('평가는 [실제] 탭에서 해 주세요. 계획은 오늘을 타임박싱하는 의도 선언이에요.');
+                return;
+            }
+
             const dotId = card.dataset.dotId;
             const slot = parseInt(card.dataset.slot ?? '', 10);
             if (dotId) {
@@ -323,8 +493,7 @@ function renderMobile() {
         });
     });
 
-    // "+ 추가" — 실제 탭에서만. 빈 시간 모드로 quickReview 모달 열기.
-    // 사용자가 모달 안에서 시간·길이·내용을 직접 입력 → 새 도트 저장.
+    // "+ 추가" 버튼
     const addBtn = list.querySelector('#utl-mobile-add');
     if (addBtn) {
         addBtn.addEventListener('click', () => {
