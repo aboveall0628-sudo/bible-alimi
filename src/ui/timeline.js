@@ -271,10 +271,15 @@ function renderMobile() {
             ? emptyHtml('아직 계획이 비어있어요. 오늘의 목표를 적거나, 등산로에서 한 걸음을 박아 보세요.')
             : planSlots.map(renderRow).join(''))
         : (actualEmpty
-            ? emptyHtml('아직 기록이 없어요. 계획 탭의 슬롯을 톡 눌러 평가하거나, 빈 시간을 채워 보세요.')
+            ? emptyHtml('아직 기록이 없어요. 계획 탭의 슬롯을 톡 눌러 평가하거나, 아래 [+ 추가] 로 빈 시간을 채워 보세요.')
             : actualSlots.map(renderRow).join(''));
 
-    list.innerHTML = `${tabsHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>`;
+    // 실제 탭에만 "+ 추가" 버튼. 시간 직접 입력 → 평가 모달이 빈 시간 모드로 열림.
+    const addBtnHtml = _mobileTab === 'actual'
+        ? `<button type="button" class="utl-mobile-add-btn" id="utl-mobile-add">+ 추가</button>`
+        : '';
+
+    list.innerHTML = `${tabsHtml}<div class="utl-mobile-body-wrap">${bodyHtml}</div>${addBtnHtml}`;
 
     // 탭 클릭
     list.querySelectorAll('.utl-mobile-tab').forEach(btn => {
@@ -317,6 +322,22 @@ function renderMobile() {
             }
         });
     });
+
+    // "+ 추가" — 실제 탭에서만. 빈 시간 모드로 quickReview 모달 열기.
+    // 사용자가 모달 안에서 시간·길이·내용을 직접 입력 → 새 도트 저장.
+    const addBtn = list.querySelector('#utl-mobile-add');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            openQuickReview({
+                timeSlot: null,
+                cells: [],
+                userId: _userId,
+                date: _date,
+                plannedTask: '',
+                existingDot: null,
+            });
+        });
+    }
 
     // 좌우 스와이프 — 사용자 결정 (2026-05-13)
     bindMobileSwipe(list);

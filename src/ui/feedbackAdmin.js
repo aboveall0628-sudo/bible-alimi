@@ -318,7 +318,7 @@ function renderListRow(row, kindTab) {
     const cat  = categoryEmoji(row.category);
     const cBadge = kindTab === 'feedback' ? `<span class="fbadmin-row-cat">${cat}</span>` : '';
     const checked = _state.selectedIds.has(row.id) ? 'checked' : '';
-    const readDot = row.status === 'read' ? '●' : '○';
+    // 읽음·안읽음 표시는 폰트 굵기·색으로만(.is-read / .is-unread CSS). 별도 동그라미는 안 띄움.
     const summary = row.summary || (row.turns?.find(t => t.role === 'user')?.text?.slice(0, 60)) || '(빈 대화)';
 
     return `
@@ -328,7 +328,6 @@ function renderListRow(row, kindTab) {
             <label class="fbadmin-row-checkbox" onclick="event.stopPropagation()">
                 <input type="checkbox" data-feedback-id="${escapeHtml(row.id)}" ${checked}>
             </label>
-            <span class="fbadmin-row-status" aria-label="${row.status === 'read' ? '확인' : '미확인'}">${readDot}</span>
             <div class="fbadmin-row-body">
                 <div class="fbadmin-row-meta">
                     <span>${escapeHtml(dt)}</span>

@@ -103,6 +103,18 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     const sat    = ed?.executionSatisfaction ?? 3;
     const outSat = ed?.outcomeSatisfaction   ?? 3;
 
+    // 시간 입력 자리: timeSlot 이 null 이면 사용자가 직접 시간·길이를 고르게.
+    // 시계부 "+ 추가" 흐름. 기존 도트 수정 / 슬롯에서 진입한 경우엔 숨김.
+    const timeRow = document.getElementById('qr-time-row');
+    const timeInput = document.getElementById('qr-time-input');
+    const durInput = document.getElementById('qr-duration-input');
+    const needsTimeInput = timeSlot == null && !existingDot;
+    if (timeRow) timeRow.classList.toggle('hidden', !needsTimeInput);
+    if (needsTimeInput) {
+        if (timeInput) timeInput.value = '';                    // 빈 칸으로 시작 (사용자 명시)
+        if (durInput)  durInput.value  = '1';                   // 기본 15분
+    }
+
     document.getElementById('qr-planned-task').textContent = plannedTask || '(따로 계획은 없었어요)';
     // 실제로 한 일 — 인라인에서 적은 게 있으면 그대로, 없으면 plannedTask 자동 채움.
     document.getElementById('qr-actual-input').value = ed?.actualTask || plannedTask || '';
@@ -185,6 +197,20 @@ function renderModal() {
             <div class="qr-header">
                 <h3>이 시간, 어땠나요?</h3>
                 <span id="qr-planned-task" class="qr-planned-label"></span>
+            </div>
+
+            <!-- 시간을 직접 입력하는 자리. 시계부의 "+ 추가" 처럼 timeSlot 없이 모달을 열 때만 보임. -->
+            <div class="qr-time-row hidden" id="qr-time-row">
+                <label for="qr-time-input">몇 시쯤이었어요?</label>
+                <div class="qr-time-inputs">
+                    <input type="time" id="qr-time-input" step="900" />
+                    <select id="qr-duration-input" aria-label="얼마 동안">
+                        <option value="1">15분</option>
+                        <option value="2">30분</option>
+                        <option value="4">1시간</option>
+                        <option value="8">2시간</option>
+                    </select>
+                </div>
             </div>
 
             <div class="qr-status-row">
@@ -999,6 +1025,27 @@ async function handleSave() {
     const dek = getDEK();
     if (!dek) return;
 
+    // 빈 시간 모드(+ 추가 흐름)에서 진입했다면 사용자가 고른 시간을 슬롯으로 변환.
+    // 시간 미입력 시 토스트로 안내하고 멈춤.
+    const timeRow = document.getElementById('qr-time-row');
+    let chosenDuration = null;
+    if (timeRow && !timeRow.classList.contains('hidden')) {
+        const v = document.getElementById('qr-time-input')?.value || '';
+        if (!v) {
+            showToast('몇 시쯤이었는지 먼저 골라 주실래요?');
+            return;
+        }
+        const [hh, mm] = v.split(':').map(n => parseInt(n, 10));
+        if (Number.isNaN(hh) || Number.isNaN(mm)) {
+            showToast('시간 형식이 좀 이상해요. 한 번 더 골라 주실래요?');
+            return;
+        }
+        _currentSlot = hh * 4 + Math.floor(mm / 15);
+        _currentCells = [_currentSlot];
+        const durVal = parseInt(document.getElementById('qr-duration-input')?.value || '1', 10);
+        chosenDuration = Number.isNaN(durVal) ? 1 : Math.max(1, durVal);
+    }
+
     const statusBtn = document.querySelector('.qr-status-btn.selected');
     const executed = statusBtn?.dataset.status || 'done';
     const satisfaction = parseInt(document.getElementById('qr-satisfaction').value);
@@ -1025,6 +1072,7 @@ async function handleSave() {
             userId: _currentUserId,
             date: _currentDate,
             timeSlot: _currentSlot,
+            durationSlots: chosenDuration || _currentExistingDot?.durationSlots || 1,
             executed,
             executionSatisfaction: satisfaction,
             outcomeSatisfaction: outcomeSat,

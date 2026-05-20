@@ -1271,6 +1271,26 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 .qr-header { margin-bottom: var(--sp-4); }
 .qr-header h3 { font-size: var(--fs-modal); font-weight: 600; }
 .qr-planned-label { font-size: var(--fs-small); color: var(--text-secondary); display: block; margin-top: var(--sp-1); }
+
+/* 시간 입력 행 — "+ 추가" 흐름에서만 보임. 기존 슬롯 진입 시엔 .hidden 으로 숨김. */
+.qr-time-row {
+    margin-bottom: var(--sp-4);
+    padding: var(--sp-3); background: var(--bg-elev); border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+.qr-time-row > label {
+    display: block; font-size: var(--fs-small); color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
+}
+.qr-time-inputs { display: flex; gap: var(--sp-2); align-items: center; }
+.qr-time-inputs input[type="time"],
+.qr-time-inputs select {
+    flex: 1; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg-card); color: var(--text-primary);
+    font-size: 14px;
+}
+
 .qr-status-row {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: var(--sp-2); margin-bottom: var(--sp-4);
@@ -3214,6 +3234,20 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
     .utl-mobile-body { flex: 1; min-width: 0; }
     .utl-mobile-plan { font-size: 13px; font-weight: 500; }
     .utl-mobile-actual { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* 모바일 실제 탭 + 추가 버튼 — 빈 시간을 직접 입력해 도트 만들기 */
+    .utl-mobile-add-btn {
+        margin-top: var(--sp-3); padding: var(--sp-3);
+        width: 100%;
+        background: var(--bg-card); color: var(--text-primary);
+        border: 1px dashed var(--border); border-radius: var(--radius);
+        font-size: 14px; font-weight: 500;
+        cursor: pointer;
+        transition: all var(--ease);
+    }
+    .utl-mobile-add-btn:active {
+        background: var(--bg-quiet, rgba(0,0,0,0.03));
+    }
 }
 
 @media (min-width: 769px) {
@@ -9510,6 +9544,10 @@ button.mission-progress-block:hover {
     gap: 4px;
     border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
     margin-bottom: 16px;
+    /* 모바일 좁은 자리에서도 라벨이 한 글자씩 세로로 깨지지 않게 가로 스크롤 허용 */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
 .fbadmin-tab {
     background: transparent;
@@ -9523,6 +9561,9 @@ button.mission-progress-block:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    /* 라벨 줄바꿈 막기 — 좁은 자리면 fbadmin-tabs 가로 스크롤로 흘러감 */
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .fbadmin-tab:hover {
     color: var(--ink-primary, #1a1814);
@@ -9727,16 +9768,8 @@ button.mission-progress-block:hover {
     height: 16px;
     cursor: pointer;
 }
-.fbadmin-row-status {
-    flex: 0 0 auto;
-    font-size: 16px;
-    color: var(--accent, #1a1814);
-    width: 18px;
-    text-align: center;
-}
-.fbadmin-row.is-read .fbadmin-row-status {
-    color: var(--ink-tertiary, #9c9893);
-}
+/* 읽음 표시 동그라미는 폰트 굵기·색 차이로 대체 (사용자 명시 — 동그라미 안 띄움).
+   .fbadmin-row-status 자리는 더 안 그림. is-read / is-unread 클래스가 본문 톤 결정. */
 .fbadmin-row-body {
     flex: 1;
     min-width: 0;

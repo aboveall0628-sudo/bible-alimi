@@ -18,6 +18,10 @@
 import { showToast } from './quickReview.js';
 import { callSwanPostSurveyQuestions } from './aiClient.js';
 import { typeText, setTextInstant, shouldReduceMotion } from './aiThinking.js';
+// (2026-05-20) 사후 설문 저장 박기 — 그동안 시안만이라 Firestore 저장이 안 되고 있었음.
+//   답변을 turns 배열로 변환해 kind='postSurvey' 로 startFeedback 호출 → finalize 로 마침.
+import { startFeedback, finalizeFeedback, addTurn } from '../data/feedbacksRepo.js';
+import { auth } from '../data/firebase.js';
 
 const MIN_LOADING_MS = 0;
 const TYPING_DELAY_MS = 38;
@@ -713,10 +717,110 @@ function renderFinishCard(body) {
         _state.currentIdx -= 1;
         renderCurrentCard();
     });
-    body.querySelector('.presurvey-btn-finish').addEventListener('click', () => {
+    body.querySelector('.presurvey-btn-finish').addEventListener('click', async (e) => {
         if (_state) console.log('[postSurveyForm] 전체 답변:', JSON.parse(JSON.stringify(_state.responses)));
+
+        // (2026-05-20) Firestore 저장 — kind='postSurvey'. 답변을 turns 로 변환해 한 번에 박음.
+        // 저장 실패해도 사용자 흐름은 막지 않고 토스트만 노출. 다음 자리에서 자연 이어.
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = '보내는 중…';
+        try {
+            await persistPostSurvey();
+        } catch (err) {
+            console.error('[postSurveyForm] 저장 실패:', err);
+            showToast('답변 저장이 잠깐 막혔어요. 한 번만 더 [마치기] 눌러 주실래요?');
+            btn.disabled = false;
+            btn.textContent = orig;
+            return;
+        }
+
         closeForm();  // onComplete 자연 호출 → onboarding step 10 자연 이어
     });
+}
+
+// 사후 설문 답변을 Firestore 에 저장. swanFeedback 결과 톤·구조 맞춰 turns 배열 박음.
+async function persistPostSurvey() {
+    const userId = auth?.currentUser?.uid;
+    if (!userId || !_state) return;     // 비로그인 상태면 조용히 패스 (시안 테스트 호환)
+
+    const turns = [];
+    const at = new Date().toISOString();
+    for (const q of QUESTIONS) {
+        const aiTitle = _state.aiQuestions?.[q.id];
+        const titleText = stripHtml(aiTitle || q.title);
+        turns.push({ role: 'swan', text: titleText, at });
+
+        const r = _state.responses[q.id];
+        const userText = formatResponseAsText(q, r);
+        turns.push({ role: 'user', text: userText, at });
+    }
+
+    const summaryFirst = QUESTIONS.find(q => q.id === 'Q2');
+    const summarySource = summaryFirst
+        ? (_state.responses[summaryFirst.id]?.freeTextBlocks?.[0] || '')
+        : '';
+    const summary = summarySource
+        ? `사후 설문 (12 문항). 한 문장 요약: ${summarySource.slice(0, 160)}`
+        : `사후 설문 (12 문항) 답변 모음`;
+
+    const feedbackId = await startFeedback({
+        userId,
+        nickname: '',
+        context: {
+            screenPath: '/post-survey',
+            moduleName: 'postSurveyForm',
+            viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+            consoleErrors: [],
+        },
+        openingTurn: null,
+        kind: 'postSurvey',
+    });
+
+    // startFeedback 의 openingTurn 자리는 한 줄용. 12 카드 답변은 addTurn 결로 차례 누적.
+    // maxTurns 가드는 999 로 풀어 비용 가드 우회 (사후 설문은 정해진 24 turn).
+    for (const t of turns) {
+        try {
+            await addTurn(userId, feedbackId, t, 999);
+        } catch (e) {
+            console.warn('[postSurveyForm] turn 누적 실패 — 이어 진행:', e?.message || e);
+        }
+    }
+
+    try {
+        await finalizeFeedback(userId, feedbackId, {
+            endReason: 'manual_send',
+            summary,
+            category: 'other',
+            categoryConfidence: 0,
+        });
+    } catch (e) {
+        console.warn('[postSurveyForm] finalize 실패 — 본문은 저장됨:', e?.message || e);
+    }
+
+    console.log(`[postSurveyForm] 저장 끝 (id=${feedbackId})`);
+}
+
+// 한 문항 답변을 사람이 읽을 수 있는 한 덩어리 텍스트로 변환.
+function formatResponseAsText(q, response) {
+    if (!response) return '(답변 없음)';
+    const parts = [];
+
+    (q.chipBlocks || []).forEach((block, i) => {
+        const stored = response.chipBlocks?.[i] || { selected: [], other: '' };
+        const picks = [...(stored.selected || [])];
+        if ((stored.other || '').trim()) picks.push(`기타: ${stored.other.trim()}`);
+        if (picks.length) parts.push(picks.join(' · '));
+    });
+
+    (q.freeTextBlocks || []).forEach((_block, i) => {
+        const txt = (response.freeTextBlocks?.[i] || '').trim();
+        if (txt) parts.push(txt);
+    });
+
+    return parts.length ? parts.join('\n') : '(답변 없음)';
 }
 
 // ─── 이벤트 바인딩 ──────────────────────────────────────────
