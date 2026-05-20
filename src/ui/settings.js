@@ -5,8 +5,8 @@
  * - 전체 데이터 백업
  */
 
-import { diagnoseV1Data } from '../scripts/diagnose-v1-data.js';
-import { migrateCollection, downloadJsonSnapshot } from '../scripts/migrate-v1-to-v2.js';
+import { diagnoseV1Data } from '../../scripts/diagnose-v1-data.js';
+import { migrateCollection, downloadJsonSnapshot } from '../../scripts/migrate-v1-to-v2.js';
 import { exportAllData } from '../security/exportBackup.js';
 import { getDEK } from './lockScreen.js';
 import { changePassword, unlockVault } from '../crypto/keyManager.js';
