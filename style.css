@@ -934,12 +934,29 @@ html[data-mode="settings"] #view-settings > .page-header { display: none; }
 /* ── Meditation note ── */
 .note-editor {
     /* (2026-05-20 v92) 본문 = Pretendard(--font-sans), 헤딩만 Noto Serif.
-       사용자 합의 — 일상 생산성 톤 + 헤딩만 영적 자리. v62 디자인 시스템 v1 Phase A 결 갈아끼움. */
+       사용자 합의 — 일상 생산성 톤 + 헤딩만 영적 자리. v62 디자인 시스템 v1 Phase A 결 갈아끼움.
+       (v93) data-note-font 분기 — 사용자가 설정에서 자유 선택 가능. */
     min-height: 100px; padding: var(--sp-4);
     border: 1px solid var(--border); border-radius: var(--radius);
     font-family: var(--font-sans); font-size: var(--fs-body); line-height: var(--leading-relaxed);
     outline: none; transition: border-color var(--ease);
     background: var(--bg-elev); color: var(--text-primary);
+}
+/* (2026-05-20 v93) 사용자 노트 폰트 선택 — html[data-note-font="serif|system"] 분기.
+   디폴트(pretendard)는 위 .note-editor 자리 그대로. */
+html[data-note-font="serif"] .note-editor {
+    font-family: var(--font-serif);
+}
+html[data-note-font="serif"] .note-editor h1,
+html[data-note-font="serif"] .note-editor h2,
+html[data-note-font="serif"] .note-editor h3 {
+    font-family: var(--font-serif);
+}
+html[data-note-font="system"] .note-editor,
+html[data-note-font="system"] .note-editor h1,
+html[data-note-font="system"] .note-editor h2,
+html[data-note-font="system"] .note-editor h3 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .note-editor:focus { border-color: var(--accent); background: var(--bg-card); }
 .note-editor:empty::before {

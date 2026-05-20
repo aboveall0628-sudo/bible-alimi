@@ -36,6 +36,7 @@ import { bindMarkdownEditor, getMarkdown, setMarkdown } from './markdownEditor.j
 // (S-D 후속 2026-05-15) 시스템 폰트 + 성경 번역본 옵션
 import { SYSTEM_FONT_SIZES, getSystemFontScale, setSystemFontScale } from '../config/systemFont.js';
 import { ACCENT_COLORS, getAccentColor, setAccentColor } from '../config/accentColor.js';
+import { NOTE_FONTS, getNoteFont, setNoteFont } from '../config/noteFont.js';
 // 베타 슬림 v1 (2026-05-18) — tier 토글
 import { TIERS, getTier, setTier } from '../config/featureFlags.js';
 // (2026-05-18 후속) 브라우저 알림 권한 상태·요청 + 매일 묵상 시각 자동 발화 재스케줄
@@ -421,6 +422,20 @@ function injectExtraSections() {
     `;
     appendToGroup('settings-group-body-appearance', accentColorCard, container);
 
+    // (2026-05-20 v93) 노트 폰트 카드 — 묵상·기도 노트 본문 폰트 자유 선택.
+    //   사용자 명시 "사용자가 폰트 선택하게 해주든지". 3 옵션: Pretendard·Noto Serif·시스템.
+    const noteFontCard = document.createElement('div');
+    noteFontCard.id = 'settings-note-font-card';
+    noteFontCard.className = 'card-section';
+    noteFontCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="type"></i> 노트 폰트</h3>
+        <p class="section-desc">
+            묵상·기도 노트의 본문 폰트예요. 영적 톤이 더 살아나는 자리로 고르실 수 있어요. 헤딩(제목 1·2·3)은 항상 노토 세리프 그대로예요.
+        </p>
+        <div id="settings-note-font-row" class="settings-font-chip-row"></div>
+    `;
+    appendToGroup('settings-group-body-appearance', noteFontCard, container);
+
     // (베타 슬림 v1 2026-05-18) tier 토글 카드 — 6 화면 루프만 보이는 모드.
     //   (v73 2026-05-18) 운영자 카테고리로 이동. 운영자 전용 분기 자리 일관성.
     if (isSwanAdmin(_userId)) {
@@ -701,6 +716,79 @@ function injectExtraSections() {
         </div>
     `;
     appendToGroup('settings-group-body-cleanup', cleanupCard, container);
+
+    // (2026-05-20 v91) Google 캘린더 연결 카드 — Calendar 스코프 분리 결.
+    //   기본 로그인엔 calendar.events 빠져 있고, 캘린더 연동을 원하는 사람만 여기서 별도 권한 요청.
+    //   상태: 연결됨(녹색·해제 버튼) / 연결 안 됨(회색·연결하기 버튼).
+    //   사용자 결: 가입 마찰 0, "안전하지 않음" 경고 안 노출, 캘린더 안 쓰는 사람도 자연.
+    const gcalCard = document.createElement('div');
+    gcalCard.id = 'settings-gcal-card';
+    gcalCard.className = 'card-section';
+    gcalCard.innerHTML = `
+        <h3 class="section-title"><i class="section-icon" data-lucide="calendar"></i> Google 캘린더 연결</h3>
+        <p class="section-desc">
+            Google 캘린더의 일정을 오늘 화면 시간표에서 함께 보고, 시간표의 결단을 캘린더에 옮길 수 있어요.
+            <strong>필요할 때만 연결</strong>하면 되니, 안 쓰셔도 괜찮아요.
+        </p>
+        <div class="settings-row" style="align-items:center;">
+            <div class="settings-row-text">
+                <h4 style="margin:0;font-size:14px;font-weight:600;">연결 상태</h4>
+                <p class="section-desc" id="gcal-card-status" style="margin-top:4px;">확인 중…</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+                <button id="gcal-connect-btn" class="primary-btn" hidden>연결하기</button>
+                <button id="gcal-revoke-btn" class="text-btn" hidden>해제</button>
+            </div>
+        </div>
+        <p class="section-desc" style="margin-top:8px; font-size:12px; color:var(--ink-secondary);">
+            연결 시 Google에서 "캘린더 일정 보기·수정" 권한을 한 번 더 묻는 화면이 떠요.
+            동의하셔야 시간표↔캘린더 양방향 연동이 자연 작동해요.
+        </p>
+    `;
+    appendToGroup('settings-group-body-more', gcalCard, container);
+
+    // 캘린더 카드 상태 갱신 + 버튼 핸들러
+    const refreshGcalCard = () => {
+        const statusEl = gcalCard.querySelector('#gcal-card-status');
+        const connectBtn = gcalCard.querySelector('#gcal-connect-btn');
+        const revokeBtn = gcalCard.querySelector('#gcal-revoke-btn');
+        if (!statusEl || !connectBtn || !revokeBtn) return;
+        const connected = typeof window.__sanctumIsCalendarConnected === 'function'
+            ? window.__sanctumIsCalendarConnected() : false;
+        if (connected) {
+            statusEl.innerHTML = '<span style="color:var(--dot-green);">● 연결됨</span> — 시간표·캘린더 양방향 작동 중';
+            connectBtn.hidden = true;
+            revokeBtn.hidden = false;
+        } else {
+            statusEl.innerHTML = '<span style="color:var(--ink-secondary);">○ 연결 안 됨</span> — Google 캘린더와 연동되지 않은 상태예요';
+            connectBtn.hidden = false;
+            revokeBtn.hidden = true;
+        }
+    };
+    refreshGcalCard();
+    gcalCard.querySelector('#gcal-connect-btn')?.addEventListener('click', async () => {
+        const btn = gcalCard.querySelector('#gcal-connect-btn');
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = '연결하는 중…';
+        try {
+            if (typeof window.__sanctumRequestCalendarAccess === 'function') {
+                await window.__sanctumRequestCalendarAccess();
+            }
+            refreshGcalCard();
+        } catch (e) {
+            console.warn('[gcal-card] 연결 실패:', e?.message || e);
+            btn.disabled = false;
+            btn.textContent = orig;
+        }
+    });
+    gcalCard.querySelector('#gcal-revoke-btn')?.addEventListener('click', () => {
+        if (!confirm('캘린더 연결을 해제할까요? 시간표·캘린더 연동이 멈추고, 다시 연결하려면 동의 화면을 거쳐야 해요.')) return;
+        if (typeof window.__sanctumRevokeCalendarAccess === 'function') {
+            window.__sanctumRevokeCalendarAccess();
+        }
+        refreshGcalCard();
+    });
 
     // 단축키 설정 카드 (Phase E-9 / Step 1)
     const shortcutCard = document.createElement('div');
@@ -1599,6 +1687,7 @@ function bindEvents() {
     // ─── (S-D 후속 2026-05-15) 시스템 글자 크기 + 성경 번역본 안내 ───
     bindSystemFontSettings();
     bindAccentColorSettings();
+    bindNoteFontSettings();
     bindTierSettings();
     bindBibleVersionSettings();
 
@@ -1940,6 +2029,34 @@ function bindAccentColorSettings() {
             const id = btn.dataset.accentColor;
             if (!ACCENT_COLORS[id]) return;
             setAccentColor(id);
+            row.querySelectorAll('.settings-font-chip').forEach(b => {
+                b.classList.toggle('selected', b === btn);
+            });
+        });
+    });
+}
+
+/**
+ * (2026-05-20 v93) 노트 폰트 칩 — 3 옵션 (pretendard · serif · system).
+ *   클릭 즉시 <html data-note-font> 적용 + localStorage 저장 + 노트 에디터 라이브 갈아끼움.
+ */
+function bindNoteFontSettings() {
+    const row = document.getElementById('settings-note-font-row');
+    if (!row) return;
+    const current = getNoteFont();
+    row.innerHTML = Object.entries(NOTE_FONTS).map(([id, cfg]) => `
+        <button type="button"
+                class="settings-font-chip${current === id ? ' selected' : ''}"
+                data-note-font="${id}">
+            <span class="settings-font-chip-label">${escapeText(cfg.label)}</span>
+            <span class="settings-font-chip-desc">${escapeText(cfg.desc)}</span>
+        </button>
+    `).join('');
+    row.querySelectorAll('.settings-font-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.noteFont;
+            if (!NOTE_FONTS[id]) return;
+            setNoteFont(id);
             row.querySelectorAll('.settings-font-chip').forEach(b => {
                 b.classList.toggle('selected', b === btn);
             });

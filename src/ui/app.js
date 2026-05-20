@@ -24,6 +24,8 @@ import { renderScriptureForDate, loadBibleData as loadBibleDataModule, bindScrip
 import { applyFontSizeToCSS as applyScriptureFontSize } from './scriptureSettings.js';
 import { applySystemFontFromStorage } from '../config/systemFont.js';
 import { applyAccentFromStorage } from '../config/accentColor.js';
+// (v93 2026-05-20) 노트 폰트 사용자 선택 — pretendard·serif·system
+import { applyNoteFontFromStorage } from '../config/noteFont.js';
 // 베타 슬림 v1 (2026-05-18): tier 분기 — ?tier=slim 또는 설정 토글로 6 화면만 노출
 import { applyTierFromURL, applyTierFromStorage, getTier, setTier } from '../config/featureFlags.js';
 import { captureRefFromUrl } from '../data/referralRepo.js';
@@ -143,7 +145,14 @@ let _isLoginFlow = false;
 const GOOGLE_CLIENT_ID = '407329001149-iu5otvtcq9actgloveehvhus09sq04pf.apps.googleusercontent.com';
 const GOOGLE_API_KEY = 'AIzaSyDdQAmIWoKy5z1I6w4BWE3xK9a1ryBZXHQ';
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+// (2026-05-20 v91) Calendar 스코프 분리 — sensitive scope 빼고 기본 로그인은 profile+email 만.
+//   캘린더 연동은 설정 > 더보기 > "Google 캘린더 연결" 카드에서 사용자가 명시적으로 요청할 때만.
+//   효과: OAuth 검증 부담 가벼워짐 + 사용자 로그인 시 "안전하지 않음" 경고 안 노출.
+const BASE_SCOPES = "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+const CALENDAR_SCOPES = "https://www.googleapis.com/auth/calendar.events";
+// 기존 사용자(이미 캘린더 권한 가진 사람)는 localStorage 의 토큰 그대로 유지 — 마찰 없음.
+// 새 사용자는 BASE_SCOPES 로만 로그인하고, 캘린더가 필요하면 별도로 동의.
+const SCOPES = BASE_SCOPES;
 const TOKEN_KEY = 'gcal_token';
 
 // Bible data: ui/scripture.js 모듈로 이전
@@ -359,6 +368,8 @@ async function init() {
     applySystemFontFromStorage();
     // (디자인 시스템 v1 2026-05-15) 강조 색 — <html data-accent> 자동 적용
     applyAccentFromStorage();
+    // (v93 2026-05-20) 노트 폰트 — <html data-note-font> 자동 적용
+    applyNoteFontFromStorage();
     // (베타 슬림 v1 2026-05-18) tier — URL ?tier=slim 우선, 없으면 localStorage 값으로 <html data-tier> 적용
     applyTierFromURL();
     applyTierFromStorage();
@@ -1135,6 +1146,10 @@ function reflectGcalAuthUI() {
     if (pushBtn) pushBtn.classList.toggle('hidden', !hasToken);
 }
 window.__sanctumReflectGcalAuthUI = reflectGcalAuthUI;
+// (2026-05-20 v91) 캘린더 연결 카드용 전역 노출 — 설정 settings.js 에서 호출.
+window.__sanctumRequestCalendarAccess = requestCalendarAccess;
+window.__sanctumRevokeCalendarAccess = revokeCalendarAccess;
+window.__sanctumIsCalendarConnected = isCalendarConnected;
 
 // gapi/google 스크립트는 async defer라 app.js 실행 시점엔 아직 안 붙어 있을 수 있다.
 // 한 번 보고 없다고 그냥 return하면 부팅이 'Google과 연결하는 중...'에서 영구 멈춤.
@@ -1235,6 +1250,67 @@ function handleAuthClick() {
         needConsent = false;
     }
     tokenClient.requestAccessToken({ prompt: needConsent ? 'consent' : '' });
+}
+
+// (2026-05-20 v91) Calendar 스코프 분리 — 사용자가 명시적으로 캘린더 연결 요청할 때만 호출.
+//   설정 > 더보기 > "Google 캘린더 연결" 카드 [연결하기] 버튼 → 이 함수 호출.
+//   별도 tokenClient 자리잡아 CALENDAR_SCOPES 추가 요청. 동의하면 기존 토큰에 권한 합쳐짐.
+//   기존 토큰에 캘린더 권한이 이미 있으면 silent 갱신 (사용자 동의 화면 안 노출).
+let _calendarTokenClient = null;
+function requestCalendarAccess() {
+    if (typeof google === 'undefined' || !google.accounts?.oauth2) {
+        console.warn('[gcal] GIS 모듈이 아직 안 들어왔어요');
+        return Promise.reject(new Error('gis_not_ready'));
+    }
+    return new Promise((resolve, reject) => {
+        if (!_calendarTokenClient) {
+            _calendarTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: BASE_SCOPES + ' ' + CALENDAR_SCOPES,
+                callback: async (resp) => {
+                    if (resp.error) {
+                        console.warn('[gcal] 동의 거부:', resp.error);
+                        reject(new Error(resp.error));
+                        return;
+                    }
+                    const token = gapi.client.getToken();
+                    token.expires_at = Date.now() + token.expires_in * 1000;
+                    localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
+                    reflectGcalAuthUI();
+                    try { await refreshTodayData(); } catch (e) { console.warn('post-cal-auth refresh failed:', e); }
+                    resolve(token);
+                },
+            });
+        }
+        _calendarTokenClient.requestAccessToken({ prompt: 'consent' });
+    });
+}
+
+// (2026-05-20 v91) Calendar 연결 해제 — 사용자가 [해제] 버튼 누를 때.
+//   localStorage 토큰 제거 + gapi 토큰 비움 + UI 갱신. revoke API 호출은 비용·실패 무관하게 클라이언트 해제 우선.
+function revokeCalendarAccess() {
+    try {
+        const saved = localStorage.getItem(TOKEN_KEY);
+        if (saved) {
+            const t = JSON.parse(saved);
+            if (t?.access_token && typeof google !== 'undefined' && google.accounts?.oauth2?.revoke) {
+                // 권한 회수 — 실패해도 진행
+                try { google.accounts.oauth2.revoke(t.access_token, () => {}); } catch {}
+            }
+        }
+    } catch {}
+    localStorage.removeItem(TOKEN_KEY);
+    try { gapi.client.setToken(null); } catch {}
+    reflectGcalAuthUI();
+}
+
+// 현재 캘린더 권한 상태 — 설정 카드에서 상태 표시·버튼 분기에 사용.
+function isCalendarConnected() {
+    if (!gapiInited) return false;
+    const t = gapi.client.getToken();
+    if (!t) return false;
+    // scope 문자열에 calendar.events 있는지 검사. 토큰 메타에 scope 안 들어있을 수도 있어 안전망.
+    return !!(t.scope ? t.scope.includes('calendar') : t.access_token);
 }
 
 async function loadUserProfile() {
