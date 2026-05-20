@@ -99,6 +99,10 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     const modal = document.getElementById('qr-modal');
     modal.classList.remove('hidden');
 
+    // (2026-05-20 v95) 안드로이드 뒤로가기 자리 자리잡혀 모달만 닫힘 — 페이지 자리 뒤로가기 자리 자연 차단
+    //   가짜 history entry 자리잡고 popstate 자리에서 closeModal 호출.
+    _installQrBackHandler();
+
     const ed = existingDot || null;
     const sat    = ed?.executionSatisfaction ?? 3;
     const outSat = ed?.outcomeSatisfaction   ?? 3;
@@ -1174,6 +1178,43 @@ function closeModal() {
     if (modal) modal.classList.add('hidden');
     const btn = document.getElementById('qr-save-btn');
     if (btn) { btn.textContent = '저장하기'; btn.disabled = false; }
+    // (2026-05-20 v95) 가짜 history entry 자리 자연 정리
+    _uninstallQrBackHandler();
+}
+
+// (2026-05-20 v95) 안드로이드 뒤로가기 자리 자리잡힘 — 모달만 닫고 페이지 자리 자연 유지
+let _qrBackHandler = null;
+let _qrBackInstalled = false;
+function _installQrBackHandler() {
+    if (_qrBackInstalled) return;
+    _qrBackInstalled = true;
+    try {
+        // 가짜 entry 자리잡기 — 뒤로가기 자리 자리잡으면 자연 자리
+        history.pushState({ sanctumModal: 'qr' }, '', location.href);
+    } catch (_) {}
+    _qrBackHandler = () => {
+        // 모달 자리 자리잡혀 있을 때만 닫기 (그 외 자리는 자연 통과)
+        const modal = document.getElementById('qr-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            // closeModal 자리잡으면 _uninstallQrBackHandler 자리잡혀 listener 자리 자연 정리
+            //   다만 _uninstallQrBackHandler 자리에서 history.back 자리잡지 X — 이미 pop 자리잡힘
+            _qrBackInstalled = false;
+            try { window.removeEventListener('popstate', _qrBackHandler); } catch (_) {}
+            const modalEl = document.getElementById('qr-modal');
+            if (modalEl) modalEl.classList.add('hidden');
+            _newlyCreatedPersonIds.clear();
+            _newlyCreatedOrgIds.clear();
+        }
+    };
+    window.addEventListener('popstate', _qrBackHandler);
+}
+function _uninstallQrBackHandler() {
+    if (!_qrBackInstalled) return;
+    _qrBackInstalled = false;
+    try { window.removeEventListener('popstate', _qrBackHandler); } catch (_) {}
+    _qrBackHandler = null;
+    // 가짜 entry 자리 자연 자리 — back 자리잡혀 자리 자연 자리
+    try { history.back(); } catch (_) {}
 }
 
 function showToast(msg) {

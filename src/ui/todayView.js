@@ -1179,10 +1179,12 @@ async function saveMeditationDoc() {
     const dek = getDEK();
     if (!dek || !_userId || !_date) return;
 
+    // (2026-05-20 v95) 사용자 명시 "저장하는 중·안전하게 보관됐어요 자리 굳이 전달할 필요 없어" — 자리잡지 X.
+    //   자동 저장 결로 자연 자리. 에러 자리만 토스트 자리잡힘.
     const noteStatus   = document.getElementById('meditation-save-status');
     const prayerStatus = document.getElementById('prayer-save-status');
-    if (noteStatus)   noteStatus.textContent   = '저장하는 중...';
-    if (prayerStatus) prayerStatus.textContent = '저장하는 중...';
+    if (noteStatus)   noteStatus.textContent   = '';
+    if (prayerStatus) prayerStatus.textContent = '';
 
     try {
         const id = `meditation_${_userId}_${_date}`;
@@ -1287,15 +1289,12 @@ async function saveMeditationDoc() {
             }
         }
 
-        const ok = '🔐 안전하게 보관됐어요';
-        if (noteStatus)   noteStatus.textContent   = ok;
-        if (prayerStatus) prayerStatus.textContent = ok;
-        setTimeout(() => {
-            if (noteStatus)   noteStatus.textContent   = '';
-            if (prayerStatus) prayerStatus.textContent = '';
-        }, 1500);
+        // (2026-05-20 v95) "안전하게 보관됐어요" 자리 자리잡지 X — 자연 자동 저장 결.
+        if (noteStatus)   noteStatus.textContent   = '';
+        if (prayerStatus) prayerStatus.textContent = '';
     } catch (e) {
         console.error('meditation save failed:', e);
+        // 에러 자리만 자연 자리 — 사용자가 자기 자리 자리잡힌 자리잡히지 못한 자리 자리잡혀야 자리
         if (noteStatus)   noteStatus.textContent   = '저장이 잘 안 됐어요';
         if (prayerStatus) prayerStatus.textContent = '저장이 잘 안 됐어요';
     }
