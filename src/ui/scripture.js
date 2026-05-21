@@ -17,6 +17,8 @@ import { renderDailyBibleLink } from './suDaily.js';
 // (2026-05-14 #23 후속) 절 → 마크다운 변환 + 사용자 템플릿 적용
 import { formatScriptureBlocks, applyScriptureToNote, getMeditationTemplate } from './meditationTemplate.js';
 import { getMarkdown, setMarkdown } from './markdownEditor.js';
+// (2026-05-21 v129) 100구절 트랙 자리잡힘 — verse-based(1/day), parts/chapter X.
+import { DEVOTIONAL_TRACKS } from '../config/devotionalTracks.js';
 
 const BIBLE_METADATA = {
     parts: [
@@ -339,6 +341,13 @@ export async function renderScriptureForDate(date) {
     container.innerHTML = '';
 
     const plan = getActivePlan();
+
+    // (2026-05-21 v129) 100구절 트랙은 별도 결 — verse-based, 1/day.
+    //   parts/chapter 결과 다른 자리라 essentials100이면 여기서 자리잡혀 끝.
+    if (plan && plan.id === 'essentials100') {
+        return renderEssentials100ForDate(date, container);
+    }
+
     const visibleParts = resolvePlanParts(plan);
 
     if (visibleParts.length === 0) {
@@ -650,6 +659,96 @@ export function bindScriptureSettingsListener() {
         renderScriptureForDate(d).catch(() => {});
     });
 }
+
+/**
+ * (2026-05-21 v129) 100구절 트랙 — 하루 한 구절 결.
+ *   anchorDate 기준 일수 → DEVOTIONAL_TRACKS.essentials100.verses[index] 자기 결로.
+ *   100구절 다 돌면 1번 자리로 자연 순환.
+ *   verse-item 자리 그대로 유지 — 기존 [붙여넣기] 버튼 회로 자기 결로 작동.
+ */
+function renderEssentials100ForDate(date, container) {
+    const track = DEVOTIONAL_TRACKS?.essentials100;
+    if (!track || !Array.isArray(track.verses) || track.verses.length === 0) {
+        container.innerHTML = `
+            <div class="meditation-error">
+                100구절 데이터를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.
+            </div>
+        `;
+        return;
+    }
+
+    // anchorDate 자리 — partOverride[1] 의 anchorDate 자리잡힘 (온보딩·설정에서 자리잡힘).
+    //   없으면 오늘 자기 자리 = day 1.
+    const override = getPartOverride('essentials100', 1);
+    const anchorISO = (override && override.anchorDate)
+        ? override.anchorDate
+        : toLocalISO(date instanceof Date ? date : new Date(date));
+
+    const anchor = new Date(anchorISO + 'T00:00:00');
+    const target = (date instanceof Date)
+        ? new Date(date.getFullYear(), date.getMonth(), date.getDate())
+        : new Date(String(date) + 'T00:00:00');
+
+    const dayDiff = Math.floor((target - anchor) / (1000 * 60 * 60 * 24));
+    const total = track.verses.length; // 100
+    const verseIndex = ((dayDiff % total) + total) % total; // 0~99, 음수 자리 보호
+    const dayNumber = verseIndex + 1; // 1~100 표기용
+    const verse = track.verses[verseIndex];
+
+    const partEl = document.createElement('div');
+    partEl.className = 'reading-part essentials100-part';
+
+    const themeLabel = (verse.theme && track.themes && track.themes[verse.theme])
+        ? track.themes[verse.theme].label
+        : '';
+
+    partEl.innerHTML = `
+        <div class="passage-container">
+            <div class="passage-header">
+                <span class="passage-title">${escapeHtml(verse.ref)}</span>
+                <span class="passage-meta">100구절 · ${dayNumber}/100${themeLabel ? ` · ${escapeHtml(themeLabel)}` : ''}</span>
+            </div>
+            <div class="verse-list">
+                <div class="verse-item"
+                     data-abbr="${escapeAttr(verse.ref)}"
+                     data-full="${escapeAttr(verse.ref)}"
+                     data-chapter=""
+                     data-num="${dayNumber}">
+                    <span class="verse-num">${dayNumber}</span>
+                    <span class="verse-text">${escapeHtml(verse.text)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 헤더 클릭으로 접기/펴기
+    partEl.querySelector('.passage-header').addEventListener('click', () => {
+        partEl.querySelector('.passage-container').classList.toggle('collapsed');
+    });
+
+    // verse-item 클릭 = 선택 결 (기존 결과 정합)
+    partEl.querySelectorAll('.verse-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            el.classList.toggle('selected');
+            updateCopyButton();
+        });
+    });
+
+    container.appendChild(partEl);
+    ensureStickyCopyBar(container);
+    updateCopyButton();
+
+    // 매일성경 링크 등 다른 자리 — 단순 결로 자리잡지 X (100구절 트랙엔 부적합).
+}
+
+// (escapeHtml/escapeAttr — 기존 자리 있으면 재사용, 없으면 간단 폴백)
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[c]);
+}
+function escapeAttr(s) { return escapeHtml(s); }
 
 /**
  * 말씀 카드 안 하단에 복사 바를 만들어 둠 (한 번만).

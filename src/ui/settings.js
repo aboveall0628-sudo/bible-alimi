@@ -1999,7 +1999,7 @@ function renderScriptureSettingsHTML() {
 
         <div class="setting-block" style="margin-top: var(--sp-4);">
             <div class="setting-label">묵상 계획</div>
-            <p class="setting-hint">미리 만들어 둔 6종 중에 고르거나, 아래에서 내 계획을 직접 만들어요.</p>
+            <p class="setting-hint">미리 만들어 둔 5종 중에 고르거나, 아래에서 내 계획을 직접 만들어요.</p>
             <div class="plan-list" id="scripture-plan-list">${planOptions}</div>
             ${userPlanSection}
         </div>
@@ -2526,7 +2526,19 @@ function bindScriptureSettingsEvents() {
     // 묵상 계획 라디오 — 즉시 저장 + 시작점 패널 다시 그림.
     document.querySelectorAll('input[name="scripture-plan"]').forEach(r => {
         r.addEventListener('change', (e) => {
-            setActivePlanId(e.target.value);
+            const newPlanId = e.target.value;
+            setActivePlanId(newPlanId);
+            // (2026-05-21 v129) essentials100 자기 결로 자리잡힐 때 anchorDate 자동 자리잡기.
+            //   사용자가 [100구절] 라디오 누르면 오늘부터 day 1 자기 결로 시작.
+            //   이미 자리잡혀 있으면 그대로 (사용자 진도 자리잡힘 보호).
+            if (newPlanId === 'essentials100') {
+                const existing = getPartOverride('essentials100', 1);
+                if (!existing) {
+                    const todayISO = new Date().toISOString().slice(0, 10);
+                    setPartOverride('essentials100', 1, { abbr: '시', chapter: 1, anchorDate: todayISO });
+                    setPartOverride('essentials100', 4, { abbr: '마', chapter: 1, anchorDate: todayISO });
+                }
+            }
             renderAnchorPanel();
         });
     });
