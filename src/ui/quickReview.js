@@ -307,7 +307,7 @@ function renderModal() {
 
             <div class="qr-actions">
                 <!-- (v110) existingDot 있을 때만 자리잡힙 — openQuickReview 에서 hidden 자리 토글 -->
-                <button id="qr-delete-btn" class="text-btn qr-delete-btn" type="button" hidden>이 기록 지우기</button>
+                <button id="qr-delete-btn" class="text-btn qr-delete-btn" type="button" hidden>삭제</button>
                 <button id="qr-cancel-btn" class="text-btn">닫기</button>
                 <button id="qr-save-btn" class="primary-btn">저장하기</button>
             </div>
@@ -1048,14 +1048,14 @@ async function handleDelete() {
         closeModal();
     } catch (e) {
         console.error('[quickReview.handleDelete]', e);
-        showToast('지우는 중에 잠깐 멈췄어요. 다시 시도해 보세요.');
+        showToast('잠깐 막혔어요. 다시 해 볼까요?');
     }
 }
 
 async function handleSave() {
     const dek = getDEK();
     if (!dek) {
-        showToast('잠금 해제 후 다시 자리잡아 주세요');
+        showToast('잠금 해제 후 다시 해 주세요');
         return;
     }
 
@@ -1067,7 +1067,7 @@ async function handleSave() {
     }
     if (!_currentUserId || _currentUserId === 'anonymous') {
         console.error('[quickReview] _currentUserId 자리잡혀 있지 X — handleSave 중단');
-        showToast('로그인 자리 자리잡지 못함 — 새로고침 자리잡아 주세요');
+        showToast('로그인이 안 됐어요. 새로고침 후 다시 해 주세요');
         return;
     }
 
@@ -1190,7 +1190,7 @@ async function handleSave() {
         // (2026-05-20 v97) 에러 자리 더 자세히 자리잡기 — Firebase rules 자리 자리잡으면 "권한 자리 자리잡지 못함" 토스트.
         const msg = (e?.message || '').toLowerCase();
         if (msg.includes('permission') || msg.includes('insufficient')) {
-            showToast('권한 자리 자리잡지 못함 — 로그인 자리 확인 후 새로고침 자리잡아 주세요');
+            showToast('권한이 안 됐어요. 로그인 확인 후 새로고침해 주세요');
         } else {
             showToast('저장이 잠깐 막혔어요. 한 번만 더 자리잡아 주실래요?');
         }

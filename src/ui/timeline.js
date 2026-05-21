@@ -45,6 +45,19 @@ let _decisions = [];   // timeSlot != null 인 것만 plan 레인에 그림
 let _dots = [];        // actual 레인
 let _gcalEvents = [];  // plan 레인의 외부 일정
 
+// (v111) 72시간 결 — 모바일 시간표 어제 + 오늘 + 내일 한 화면. 데스크탑은 오늘만.
+let _decisionsYesterday = [];
+let _decisionsTomorrow = [];
+let _dotsYesterday = [];
+let _dotsTomorrow = [];
+
+function formatDateLocal(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
 let _onChange = null;  // 데이터 갱신 시 외부에 알리기 (todayView가 결단 패널 다시 그릴 수 있게)
 
 // 모바일 변수 — (v108 Phase 1+2 통합 진입 2026-05-20)
@@ -103,10 +116,21 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
 
     // 하나가 실패해도 나머지는 살아남도록 allSettled. decisions 인덱스가 빠져 있어
     // throw가 나도 도트/캘린더는 그대로 보임.
-    const [decisionsR, dotsR, gcalR] = await Promise.allSettled([
+    // (v111) 72시간 결 — 어제·오늘·내일 자리 한 번에 fetch
+    const dateObj = new Date(_date);
+    const yest = new Date(dateObj); yest.setDate(yest.getDate() - 1);
+    const tom = new Date(dateObj); tom.setDate(tom.getDate() + 1);
+    const yestStr = formatDateLocal(yest);
+    const tomStr = formatDateLocal(tom);
+
+    const [decisionsR, dotsR, gcalR, dYR, dotsYR, dTR, dotsTR] = await Promise.allSettled([
         getDailyGoals(dek, _userId, _date),
         getDotsByDate(dek, _userId, _date),
         listUpcomingEvents(),
+        getDailyGoals(dek, _userId, yestStr),
+        getDotsByDate(dek, _userId, yestStr),
+        getDailyGoals(dek, _userId, tomStr),
+        getDotsByDate(dek, _userId, tomStr),
     ]);
     if (decisionsR.status === 'fulfilled') _decisions = decisionsR.value;
     else console.error('decisions load failed:', decisionsR.reason);
@@ -114,6 +138,10 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
     else console.error('dots load failed:', dotsR.reason);
     if (gcalR.status === 'fulfilled') _gcalEvents = gcalR.value;
     else console.error('gcal load failed:', gcalR.reason);
+    _decisionsYesterday = dYR.status === 'fulfilled' ? dYR.value : [];
+    _dotsYesterday = dotsYR.status === 'fulfilled' ? dotsYR.value : [];
+    _decisionsTomorrow = dTR.status === 'fulfilled' ? dTR.value : [];
+    _dotsTomorrow = dotsTR.status === 'fulfilled' ? dotsTR.value : [];
 
     // Phase E-6 C-2: GCal 이벤트를 daily 목표로 자동 동기화.
     // 새/변경된 이벤트가 있으면 goals 컬렉션에 반영하고, 그 결과를 _decisions 에 다시 반영.
@@ -253,78 +281,109 @@ function renderMobile() {
 
     loadMobilePrefs();
 
-    // 자리잡힌 자리 자연 복원 — 헤더가 자체 자리 자리잡혀 스크롤 자리 분리
     const scrollEl = list.querySelector('.utl-mg-scroll') || list;
     _mobileScrollPos = scrollEl.scrollTop || _mobileScrollPos;
 
-    closeMobileDropdown(); // 재렌더 시 자리 자연 자리잡힙
-
-    // ── 데이터 가공 ─────────────────────────────────────
-    const planSlots = _decisions.filter(d => d.timeSlot != null).map(d => ({
-        slot: d.timeSlot,
-        duration: Math.max(1, d.durationSlots || 4),
-        label: d.title ?? d.text ?? '(이름 없음)',
-        id: d.id,
-        gcal: !!d.gcalEventId,
-    }));
-
-    const actualSlots = _dots.filter(d => d.timeSlot != null).map(d => ({
-        slot: d.timeSlot,
-        duration: Math.max(1, d.durationSlots || 1),
-        label: d.actualTask || d.plannedTask || '(아직 비어있어요)',
-        dotClass: dotColorClass(d),
-        executed: d.executed,
-        fromWorkflow: !!d.linkedWorkflowStepId,
-        id: d.id,
-    }));
+    closeMobileDropdown();
 
     const rowH = getMobileRowHeight();
-    const totalHeight = SLOTS_PER_DAY * rowH;
+    const ALL_SLOTS = SLOTS_PER_DAY * 3; // 72시간 = 288 슬롯 (어제·오늘·내일)
+    const totalHeight = ALL_SLOTS * rowH;
     const showPlan = _mobileLayer === 'plan' || _mobileLayer === 'both';
     const showActual = _mobileLayer === 'actual' || _mobileLayer === 'both';
 
-    // ── 시간 라벨·격자선·현재 시간 ─────────────────────
+    // ── 데이터 가공 — 72시간 자리. day=0(어제) slot+0, day=1(오늘) slot+96, day=2(내일) slot+192
+    const planAll = [];
+    const pushPlanList = (arr, offset, dayKey) => {
+        arr.filter(d => d.timeSlot != null).forEach(d => {
+            planAll.push({
+                slot: d.timeSlot + offset,
+                duration: Math.max(1, d.durationSlots || 4),
+                label: d.title ?? d.text ?? '(이름 없음)',
+                id: d.id,
+                gcal: !!d.gcalEventId,
+                day: dayKey,
+            });
+        });
+    };
+    pushPlanList(_decisionsYesterday, 0, 'yesterday');
+    pushPlanList(_decisions, SLOTS_PER_DAY, 'today');
+    pushPlanList(_decisionsTomorrow, SLOTS_PER_DAY * 2, 'tomorrow');
+
+    const actualAll = [];
+    const pushActualList = (arr, offset, dayKey) => {
+        arr.filter(d => d.timeSlot != null).forEach(d => {
+            actualAll.push({
+                slot: d.timeSlot + offset,
+                duration: Math.max(1, d.durationSlots || 1),
+                label: d.actualTask || d.plannedTask || '(아직 비어있어요)',
+                dotClass: dotColorClass(d),
+                executed: d.executed,
+                fromWorkflow: !!d.linkedWorkflowStepId,
+                id: d.id,
+                day: dayKey,
+            });
+        });
+    };
+    pushActualList(_dotsYesterday, 0, 'yesterday');
+    pushActualList(_dots, SLOTS_PER_DAY, 'today');
+    pushActualList(_dotsTomorrow, SLOTS_PER_DAY * 2, 'tomorrow');
+
+    // ── 시간 라벨·격자선 — 72시간 자리 ─────────────────────
     let timeAxisHtml = '';
     let gridLinesHtml = '';
-    for (let h = 0; h < 24; h++) {
-        const top = h * 4 * rowH;
-        const period = h < 12 ? '오전' : '오후';
-        const displayH = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+    for (let absHour = 0; absHour < 72; absHour++) {
+        const top = absHour * 4 * rowH;
+        const hourInDay = absHour % 24;
+        const period = hourInDay < 12 ? '오전' : '오후';
+        const displayH = hourInDay === 0 ? 12 : (hourInDay > 12 ? hourInDay - 12 : hourInDay);
         timeAxisHtml += `<div class="utl-mg-time" style="top:${top}px">${period} ${displayH}시</div>`;
     }
-    for (let h = 0; h <= 24; h++) {
-        const top = h * 4 * rowH;
+    for (let absHour = 0; absHour <= 72; absHour++) {
+        const top = absHour * 4 * rowH;
         gridLinesHtml += `<div class="utl-mg-line" style="top:${top}px"></div>`;
     }
+
+    // ── 날짜 구분선 — 각 날짜 시작 자리에 큰 라벨 ─────────
+    const dayLabels = ['어제', '오늘', '내일'];
+    let dayDividerHtml = '';
+    for (let day = 0; day < 3; day++) {
+        const top = day * SLOTS_PER_DAY * rowH;
+        dayDividerHtml += `<div class="utl-mg-day-divider" style="top:${top}px">
+            <span class="utl-mg-day-label">${dayLabels[day]}</span>
+        </div>`;
+    }
+
+    // ── 현재 시간 라인 — 오늘 자리 안에서만 ─────────────
     let nowLineHtml = '';
     if (isToday(_date)) {
         const now = new Date();
-        const nowTop = (now.getHours() * 4 + now.getMinutes() / 15) * rowH;
+        const nowAbsSlot = SLOTS_PER_DAY + now.getHours() * 4 + now.getMinutes() / 15;
+        const nowTop = nowAbsSlot * rowH;
         nowLineHtml = `<div class="utl-mg-now" style="top:${nowTop}px"></div>`;
     }
 
-    // ── 계획 슬롯 (showPlan 일 때만 자리잡힙) ─────────────
-    // data-slot 자리 자리잡혀 자리 — id 자리 자리잡혀 X면 timeSlot 으로 자연 fallback (신규 자리잡힌 계획)
-    const planSlotsHtml = showPlan ? planSlots.map(p => {
+    // ── 계획 슬롯 ─────────
+    const planSlotsHtml = showPlan ? planAll.map(p => {
         const top = p.slot * rowH;
         const height = Math.max(rowH, p.duration * rowH - 2);
         const decisionAttr = p.id ? `data-decision-id="${escapeHtml(p.id)}"` : '';
         const gcalCls = p.gcal ? ' gcal-source' : '';
-        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" ${decisionAttr}>
+        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls} day-${p.day}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" data-day="${p.day}" ${decisionAttr}>
             <span class="utl-mg-slot-label">${escapeHtml(p.label)}</span>
         </div>`;
     }).join('') : '';
 
-    // ── 실제 슬롯 (showActual 일 때만, 인라인 4상태 + 리사이즈 핸들 포함) ─────
-    const actualSlotsHtml = showActual ? actualSlots.map(a => {
+    // ── 실제 슬롯 (인라인 4상태 + 리사이즈) ─────
+    const actualSlotsHtml = showActual ? actualAll.map(a => {
         const top = a.slot * rowH;
         const height = Math.max(rowH, a.duration * rowH - 2);
         const fromWf = a.fromWorkflow ? ' from-workflow' : '';
         const evaluatedCls = a.executed ? ' evaluated' : '';
-        const showEval = height >= 44; // 너무 짧으면 4상태 자리잡힙 X
-        return `<div class="utl-mg-slot utl-mg-slot-actual ${a.dotClass || 'dot-gray'}${fromWf}${evaluatedCls}"
+        const showEval = height >= 44;
+        return `<div class="utl-mg-slot utl-mg-slot-actual ${a.dotClass || 'dot-gray'}${fromWf}${evaluatedCls} day-${a.day}"
             style="top:${top}px; height:${height}px"
-            data-dot-id="${escapeHtml(a.id)}" data-duration="${a.duration}">
+            data-dot-id="${escapeHtml(a.id)}" data-duration="${a.duration}" data-day="${a.day}">
             <span class="utl-mg-slot-label">${escapeHtml(a.label)}</span>
             ${showEval ? `<div class="utl-mg-quick-eval">
                 <button type="button" class="utl-mg-eval-btn" data-eval="done" aria-label="잘 했어요">😀</button>
@@ -336,9 +395,8 @@ function renderMobile() {
         </div>`;
     }).join('') : '';
 
-    // ── 헤더: 레이어 인디케이터 + 줌 컨트롤 ──────────────
-    const layerLabel = _mobileLayer === 'plan' ? '계획만' : _mobileLayer === 'actual' ? '실제만' : '계획 + 실제';
-    const layerHint = _mobileLayer === 'both' ? '좌·우로 슬라이드해서 한 자리만 보기' : '슬라이드해서 자리 자연 자리잡힙';
+    // ── 헤더: 레이어(계획/통합/기록) + 줌 ──────────────────
+    const layerLabel = _mobileLayer === 'plan' ? '계획' : _mobileLayer === 'actual' ? '기록' : '통합';
     const controlsHtml = `
         <div class="utl-mg-controls">
             <div class="utl-mg-layer-status">
@@ -353,7 +411,7 @@ function renderMobile() {
                 <button type="button" class="utl-mg-zoom-btn" data-zoom="in" aria-label="시간축 확대">+</button>
             </div>
         </div>
-        <div class="utl-mg-layer-hint">${layerHint}</div>
+        <div class="utl-mg-layer-hint">좌우로 슬라이드하면 화면 바꿔 볼 수 있어요</div>
     `;
 
     list.innerHTML = `
@@ -362,6 +420,7 @@ function renderMobile() {
             <div class="utl-mg-container" style="height:${totalHeight}px">
                 ${timeAxisHtml}
                 ${gridLinesHtml}
+                ${dayDividerHtml}
                 ${nowLineHtml}
                 ${planSlotsHtml}
                 ${actualSlotsHtml}
@@ -395,20 +454,26 @@ function renderMobile() {
     list.querySelectorAll('.utl-mg-slot-actual').forEach(card => bindActualSlot(card));
 
     // ── 계획 슬롯: 톡 = 평가 진입 ──────────────────────
-    // 신규 자리잡힌 계획(id 자리잡힘 후 자리잡힘 X) 자리 — timeSlot 으로 fallback 자연
+    // 72시간 결 — day(yesterday/today/tomorrow) 자리 자리잡힘. 어제·내일 자리 = 보기만, 평가 자리 X (v111 1차)
     list.querySelectorAll('.utl-mg-slot-plan').forEach(card => {
         card.addEventListener('click', (e) => {
             e.stopPropagation();
             const decisionId = card.dataset.decisionId;
-            const slotNum = parseInt(card.dataset.slot ?? '', 10);
+            const day = card.dataset.day;
+            // 어제·내일 자리 톡 = 안내만 (1차 — 평가 자리 자리잡힘 X)
+            if (day !== 'today') {
+                showToast(day === 'yesterday' ? '어제는 보기만 할 수 있어요' : '내일은 미리 보기예요');
+                return;
+            }
+            const absSlot = parseInt(card.dataset.slot ?? '', 10);
+            const slotInDay = absSlot - SLOTS_PER_DAY; // 오늘 기준 0~95
             let decision = decisionId ? _decisions.find(d => d.id === decisionId) : null;
-            if (!decision && !Number.isNaN(slotNum)) {
-                decision = _decisions.find(d => d.timeSlot === slotNum);
+            if (!decision && !Number.isNaN(slotInDay)) {
+                decision = _decisions.find(d => d.timeSlot === slotInDay);
             }
             if (!decision) {
-                // fallback: 그 시간 자리에 새 도트 자리 자연 자리잡힙
                 openQuickReview({
-                    timeSlot: Number.isNaN(slotNum) ? null : slotNum,
+                    timeSlot: Number.isNaN(slotInDay) ? null : slotInDay,
                     cells: [], userId: _userId, date: _date,
                     plannedTask: '',
                     existingDot: null,
@@ -427,27 +492,35 @@ function renderMobile() {
     });
 
     // ── 빈 자리 톡 = 드롭다운 (미배치 목표 + 직접 입력) ─────
+    // 72시간 결 — 어제·내일 자리 톡 = 안내만, 오늘 자리만 드롭다운 자리잡힘
     if (container) {
         container.addEventListener('click', (e) => {
             if (e.target.closest('.utl-mg-slot')) return;
             if (e.target.closest('.utl-mg-dropdown')) return;
             const rect = container.getBoundingClientRect();
             const y = e.clientY - rect.top;
-            const slot = Math.max(0, Math.min(SLOTS_PER_DAY - 1, Math.floor(y / rowH)));
-            openMobileDropdown(container, slot, y, rowH);
+            const absSlot = Math.max(0, Math.min(ALL_SLOTS - 1, Math.floor(y / rowH)));
+            const day = Math.floor(absSlot / SLOTS_PER_DAY); // 0=어제, 1=오늘, 2=내일
+            if (day !== 1) {
+                showToast(day === 0 ? '어제는 보기만 할 수 있어요' : '내일은 미리 보기예요');
+                return;
+            }
+            const slotInDay = absSlot - SLOTS_PER_DAY;
+            openMobileDropdown(container, slotInDay, y, rowH);
         });
     }
 
-    // ── 스크롤 자리 복원 ────────────────────────────────
+    // ── 스크롤 자리 복원 — 오늘 자리잡힌 자리에서 시작 (slot 96 + 현재) ─────
     requestAnimationFrame(() => {
         if (_mobileScrollPos > 0) {
             scrollArea.scrollTop = _mobileScrollPos;
         } else if (isToday(_date)) {
             const now = new Date();
-            const nowSlot = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
-            scrollArea.scrollTop = Math.max(0, (nowSlot - 4) * rowH);
+            const nowAbsSlot = SLOTS_PER_DAY + now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+            scrollArea.scrollTop = Math.max(0, (nowAbsSlot - 4) * rowH);
         } else {
-            scrollArea.scrollTop = Math.max(0, 9 * 4 * rowH);
+            // 다른 날짜 = 오늘 자리잡힌 결로 09:00 자리
+            scrollArea.scrollTop = Math.max(0, (SLOTS_PER_DAY + 9 * 4) * rowH);
         }
     });
 }
@@ -484,21 +557,29 @@ function openMobileDropdown(container, slot, yPx, rowH) {
     container.appendChild(dropdown);
     _activeDropdown = dropdown;
 
-    // 자리잡힌 목표 톡 = 자리 자리잡힙
+    // 자리잡힌 목표 톡 = 시간표에 넣기
+    // placeGoal 시그니처: (dek, goal, timeSlot, durationSlots = 4)
+    // v110 자리 — userId·date 인자 잘못 자리잡혀 호출 실패. v111 에 시그니처 정합
     dropdown.querySelectorAll('.utl-mg-dd-item').forEach(item => {
         item.addEventListener('click', async (e) => {
             e.stopPropagation();
             const goalId = item.dataset.goalId;
             const dek = getDEK();
             if (!dek) return;
+            const goal = _decisions.find(d => d.id === goalId);
+            if (!goal) {
+                showToast('목표를 찾지 못했어요. 새로고침 후 다시 해 주세요.');
+                return;
+            }
             closeMobileDropdown();
             try {
-                await placeGoal(dek, _userId, _date, goalId, slot, 4); // default 1시간
-                showToast('자리잡았어요');
+                await placeGoal(dek, goal, slot, 4); // default 1시간
+                showToast('시간표에 넣었어요');
                 if (_onChange) _onChange();
                 await refreshTimeline({ userId: _userId, date: _date });
             } catch (e) {
-                showToast('자리 자리잡히는 중 잠깐 멈췄어요.');
+                console.error('[placeGoal]', e);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
             }
         });
     });
@@ -662,7 +743,7 @@ function bindResizeHandle(handle, card, dot) {
             if (_onChange) _onChange();
             await refreshTimeline({ userId: _userId, date: _date });
         } catch (e) {
-            showToast('길이 자리 자리잡히는 중 잠깐 멈췄어요.');
+            showToast('잠깐 막혔어요. 다시 해 볼까요?');
             await refreshTimeline({ userId: _userId, date: _date }); // 자리 원래대로
         }
     };
@@ -706,7 +787,7 @@ async function quickEvalDot(dot, evalKey) {
         if (_onChange) _onChange();
         await refreshTimeline({ userId: _userId, date: _date });
     } catch (e) {
-        showToast('자리 자리잡히는 중 잠깐 멈췄어요.');
+        showToast('잠깐 막혔어요. 다시 해 볼까요?');
     }
 }
 
