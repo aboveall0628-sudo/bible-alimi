@@ -10795,6 +10795,40 @@ button.mission-progress-block:hover {
     border-bottom-right-radius: 4px;
 }
 
+/* (v127 2026-05-21) SWAN 채팅 안 quick reply 자리 — 첫 인사 후·예/아니오 결 질문 자리.
+   사용자 명시: "선택지를 예 아니오 가 필요한 질문들은 타자 치지말고 그냥 선택하게."
+   리스트 아이템 결로 자연 자리잡힘 — 채팅 흐름 안 한 줄 차지. 클릭 한 번에 자연 사라짐. */
+.swan-quick-reply-row {
+    align-self: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 90%;
+    padding: 0;
+    background: transparent;
+    list-style: none;
+    justify-content: flex-end;
+}
+.swan-quick-reply-btn {
+    padding: 8px 14px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--accent, #1a1814);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--accent, #1a1814);
+    cursor: pointer;
+    transition: background var(--ease, 200ms), color var(--ease, 200ms);
+    font-family: inherit;
+    line-height: 1.2;
+    font-weight: 500;
+}
+.swan-quick-reply-btn:hover,
+.swan-quick-reply-btn:focus-visible {
+    background: var(--accent, #1a1814);
+    color: var(--bg-card, #fff);
+    outline: none;
+}
+
 .swan-thinking {
     /* (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 + 도트 한 묶음 */
     padding: 10px 14px;

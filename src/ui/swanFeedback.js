@@ -37,8 +37,10 @@ import { FAQ_FALLBACK_HINT_CHAT, findFaqById, getVisibleFaqs } from '../config/f
 const COPY = {
     // 일반 피드백 (kind='feedback')
     feedback: {
-        // (2026-05-20 v95) 사용자 명시 — SWAN 시작 멘트 갈아끼움 "안녕하세요, 무엇을 도와드릴까요?"
-        openingTurn:    '안녕하세요, 무엇을 도와드릴까요?',
+        // (v127 2026-05-21) SWAN 풍선 = 단일 입구 결로 자리잡힘.
+        //   사용자 명시: "전체 메뉴를 둘러볼 수 있는 미션이 있다. 그러니까 해볼거면 말해라. 미션 전부 클리어하면 히든미션도 진행할 수 있다. 이렇게만 말하게."
+        //   옛 결("무엇을 도와드릴까요?") 갈음 — 부드러운 미션 권유 톤 + quick reply 버튼 결로 자연 자리잡힘.
+        openingTurn:    '안녕하세요. 전체 메뉴를 둘러볼 수 있는 미션이 있어요.\n해볼 마음이면 말씀해 주세요.\n미션 전부 마치면 히든 미션도 자리잡혀요.',
         closeFarewell:  '알려주셔서 고마워요. 잘 정리해 둘게요.',
         turnLimitNote:  '여기까지 알려주신 걸 정리해서 보낼게요.',
         title:          'SWAN',
@@ -187,11 +189,17 @@ async function startSession({ kind = 'feedback' } = {}) {
 
     // (v74) 첫 인사도 typing breath 적용 — 모달 진입 직후 자연 흐름
     //   fire-and-forget — 사용자 즉시 입력 시작 가능. 두 흐름 자연 stacking.
+    // (v127 2026-05-21) 첫 인사 끝나면 quick reply 자리잡힘 — feedback 모드만.
     if (openingTurn) {
-        appendSwanTurnTyping(listEl, openingTurn).catch(e => {
-            console.warn('[swanFeedback] opening typing failed, fallback to instant:', e);
-            appendTurnDOM(listEl, openingTurn);
-        });
+        appendSwanTurnTyping(listEl, openingTurn)
+            .then(() => {
+                if (kind === 'feedback') appendOpeningQuickReply(listEl);
+            })
+            .catch(e => {
+                console.warn('[swanFeedback] opening typing failed, fallback to instant:', e);
+                appendTurnDOM(listEl, openingTurn);
+                if (kind === 'feedback') appendOpeningQuickReply(listEl);
+            });
     }
 
     // (v73) feedback 모드 — FAQ chip row 클릭 핸들러 바인딩 (preSurvey 시 chip row 자체 X)
@@ -435,6 +443,103 @@ function appendTurnDOM(listEl, turn) {
     li.textContent = turn.text;
     listEl.appendChild(li);
     listEl.scrollTop = listEl.scrollHeight;
+}
+
+// (v127 2026-05-21) SWAN 첫 인사 후 quick reply 자리잡힘.
+//   사용자 명시: "예/아니오 결로 자리잡힌 질문은 타자 X·버튼 결로 자연. 자유 발언만 채팅창."
+//   3 자리: [해볼게요] → 미션 허브 모달 / [나중에] → 자연 닫기 / [다른 얘기] → 채팅창 자리 포커스.
+function appendOpeningQuickReply(listEl) {
+    if (!_session || _session.finalized) return;
+    // 이미 자리잡혀 있으면 자리 X
+    if (listEl.querySelector('.swan-quick-reply-row')) return;
+
+    const li = document.createElement('li');
+    li.className = 'swan-quick-reply-row';
+    li.setAttribute('role', 'group');
+    li.setAttribute('aria-label', '빠른 답변');
+
+    const replies = [
+        { label: '해볼게요', value: 'mission-start' },
+        { label: '나중에', value: 'mission-later' },
+        { label: '다른 얘기 하고 싶어요', value: 'free-chat' },
+    ];
+
+    replies.forEach(({ label, value }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'swan-quick-reply-btn';
+        btn.dataset.value = value;
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+            // 한 번 누르면 quick reply 자리 자연 사라짐 — 두 번 누르기 X
+            li.remove();
+            handleQuickReply(value, label).catch(e =>
+                console.warn('[swanFeedback] quick reply handle failed:', e?.message || e)
+            );
+        });
+        li.appendChild(btn);
+    });
+
+    listEl.appendChild(li);
+    listEl.scrollTop = listEl.scrollHeight;
+}
+
+// (v127) Quick reply 클릭 처리. UI sugar — Firestore turn 저장 X (자유 채팅 결만 자리잡힘).
+async function handleQuickReply(value, label) {
+    if (!_session || _session.finalized) return;
+    const sess = _session;
+
+    // 사용자 선택 자리 = UI에만 자리잡힘 (Firestore 저장 X, 토큰 소모 X)
+    appendTurnDOM(sess.listEl, {
+        role: 'user',
+        text: label,
+        at:   new Date().toISOString(),
+    });
+
+    if (value === 'mission-start') {
+        try {
+            const { getDEK } = await import('./lockScreen.js');
+            const dek = getDEK();
+            if (!dek || !_userId) {
+                await appendSwanTurnTyping(sess.listEl, {
+                    role: 'swan',
+                    text: '잠금 해제 자리 확인이 안 돼요. 잠시 후 다시 해볼까요?',
+                    at:   new Date().toISOString(),
+                });
+                return;
+            }
+            // 짧은 SWAN 응답 + 모달 닫고 미션 허브 자리잡힘
+            await appendSwanTurnTyping(sess.listEl, {
+                role: 'swan',
+                text: '미션 목록 자리 열어드릴게요. 가벼운 결부터 골라보세요.',
+                at:   new Date().toISOString(),
+            });
+            const { openMissionHubModal } = await import('./missionGate.js');
+            // 짧은 자연 결로 모달 닫고 hub 자리 열기
+            setTimeout(async () => {
+                try { sess.modalHandle?.close(); } catch (_) {}
+                try { await openMissionHubModal(dek, _userId); } catch (e) {
+                    console.warn('[swanFeedback] mission hub open failed:', e?.message || e);
+                }
+            }, 600);
+        } catch (e) {
+            console.warn('[swanFeedback] mission-start failed:', e?.message || e);
+        }
+    } else if (value === 'mission-later') {
+        await appendSwanTurnTyping(sess.listEl, {
+            role: 'swan',
+            text: '편하실 때 다시 들러주세요.',
+            at:   new Date().toISOString(),
+        });
+        setTimeout(() => { try { sess.modalHandle?.close(); } catch (_) {} }, 1200);
+    } else if (value === 'free-chat') {
+        await appendSwanTurnTyping(sess.listEl, {
+            role: 'swan',
+            text: '편하게 적어주세요. 무엇이든 듣고 있어요.',
+            at:   new Date().toISOString(),
+        });
+        try { sess.inputEl?.focus(); } catch (_) {}
+    }
 }
 
 // (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 회전 + 도트 한 묶음.

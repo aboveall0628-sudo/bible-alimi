@@ -542,8 +542,9 @@ async function onVaultUnlocked(dek) {
     // 일간 리포트 자동 생성 제거 — 사용자가 "오늘 리포트 만들기" 버튼으로 직접 트리거
     // (todayView.js / reports/dailyReportFlow.js)
 
-    // Phase E-7: 알람 UI 마운트 + 자동 알람 4종 생성 (background, 실패해도 메인은 안 막힘)
-    initRemindersUI(currentUserId).catch(e => console.warn('reminders UI init failed:', e));
+    // (v127 2026-05-21) 옛 종 자리 = SWAN 풍선 안으로 통째 이관 자리 — initRemindersUI 호출 X.
+    //   알람 데이터(reminders 컬렉션) + 자동 알람 생성 결은 그대로 유지. SWAN 안에 보여줄 자리는 v128 후속.
+    // initRemindersUI(currentUserId).catch(e => console.warn('reminders UI init failed:', e));
 
     // B-1 의사결정 시스템 (2026-05-13): 분별의 자리 — 헤더 아이콘 + view-today 카드 바인딩
     try { mountDecisionGate(currentUserId); } catch (e) { console.warn('[B-1] decisionGate mount failed:', e); }
@@ -563,14 +564,13 @@ async function onVaultUnlocked(dek) {
 
     // (2026-05-20 v96) 사용자 명시 "안전하게 열렸어요 토스트 없어도 됨 · 웹·모바일 전부 없애" — 자리잡지 X.
 
-    // (S-E4 / S-E6 2026-05-15) 잠금 해제 직후 미션 게이트 UI 첫 렌더 —
-    //   사이드바 잠금 톤·도트 진행도·추천 카드. switchView 를 거치지 않아도 첫 화면에서 자리잡음.
-    //   사이드바 풋터는 S-E6 에서 제거.
+    // (v127 2026-05-21) 옛 진행도 도트·추천 카드 자리 = SWAN 풍선 안으로 이관 자리 — null 결로 자리잡힘.
+    //   사이드바 잠금 회색 톤은 유지(잠긴 모듈 클릭 시 자연 가드). 진행도·추천은 SWAN 풍선 [해볼게요] 결로 자연 자리.
     refreshMissionGateUI(
         dek,
         currentUserId,
-        'mission-progress-block',
-        'mission-recommend-cards',
+        null,
+        null,
         null
     ).catch(e => console.warn('[missionGate] initial refresh failed:', e?.message || e));
 
@@ -1038,12 +1038,13 @@ function switchView(viewId) {
         requestAnimationFrame(() => scrollTimelineToNow());
         // 2026-05-13 재기획: '오늘의 시작' 영역 (시간대 인사 + 핀 원칙 + 어제 질문) 갱신
         renderTodayStartIntoView(currentUserId, currentDate).catch(() => {});
-        // (S-C / S-E / S-E6) 미션 게이트 UI 한 번에 갱신 — 사이드바 회색 톤·진행도·추천 카드.
+        // (v127 2026-05-21) 옛 진행도·추천 카드 자리 = SWAN 풍선 안으로 이관 — null 결로 자리잡힘.
+        //   사이드바 잠금 톤만 자연 자리잡혀요.
         refreshMissionGateUI(
             getDEK(),
             currentUserId,
-            'mission-progress-block',
-            'mission-recommend-cards',
+            null,
+            null,
             null
         ).catch(() => {});
     } else {

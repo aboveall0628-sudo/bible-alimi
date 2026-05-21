@@ -194,26 +194,12 @@
             </button>
         </div>
 
-        <!-- 우측 상단 알람 종 + dropdown 패널 (Phase E-7) — 잠금 해제 후에만 노출 -->
-        <div id="reminder-bell-wrap" class="reminder-bell-wrap hidden">
-            <button id="reminder-bell-btn" class="reminder-bell-btn" title="알람" aria-label="알람 패널 열기">
-                <i data-lucide="bell"></i>
-                <span id="reminder-bell-badge" class="reminder-bell-badge hidden">0</span>
-            </button>
-            <div id="reminder-panel" class="reminder-panel hidden" role="dialog" aria-label="알람 패널">
-                <div class="reminder-panel-head">
-                    <h3>알람</h3>
-                    <button id="reminder-close-btn" class="reminder-close-btn" aria-label="닫기">×</button>
-                </div>
-                <div class="reminder-manual-input">
-                    <input id="reminder-manual-text" type="text" placeholder="알람으로 남길 한 줄" maxlength="200" />
-                    <button id="reminder-manual-add-btn" class="primary-btn">+</button>
-                </div>
-                <ul id="reminder-list" class="reminder-list">
-                    <li class="reminder-empty">아직 알람이 없어요.</li>
-                </ul>
-            </div>
-        </div>
+        <!-- (v127 2026-05-21) 옛 우측 상단 알람 종 자리 = SWAN 풍선 안으로 통째 이관 — DOM 자체 제거.
+             알람 데이터(reminders 컬렉션) + 자동 알람 생성 결은 유지. SWAN 안 노출은 v128 후속. -->
+        <!--
+        <div id="reminder-bell-wrap" class="reminder-bell-wrap hidden">…</div>
+        -->
+
 
         <!-- 메인 — 잠금 해제 전엔 숨김 (부팅 안전장치) -->
         <main id="main-content" class="content-area hidden">
@@ -244,11 +230,9 @@
                      시간대 인사 + 핀 원칙 + 어제 묵상 질문 + 미열람 Q&A 한자리.
                      2026-05-14 S-C: 미션 진행도 도트 블록 추가 (오늘의 시작 머리). -->
                 <section class="dash-section" id="dash-section-today-start">
-                    <div id="mission-progress-block"></div>
-                    <!-- 2026-05-15 S-E: "다음 해볼 만한 미션" 카드 3개 (도트 바로 아래). -->
-                    <div id="mission-recommend-cards"></div>
-                    <!-- (2026-05-21 v116) 초대 링크 카드 — referralCode 존재 시 노출 -->
-                    <div id="invite-card-today"></div>
+                    <!-- (v127 2026-05-21) 옛 #mission-progress-block·#mission-recommend-cards 자리 = SWAN 풍선 안으로 이관 — DOM 자체 제거.
+                         사용자 명시: "웬만해서는 채팅으로 모든 것을 진행. 미션 해볼거면 SWAN한테 말해라." -->
+                    <!-- (v131) 옛 #invite-card-today 자리 폐기 — 추천 공유는 자기 프로필 자리에서만 -->
                     <div id="today-start-content"></div>
                 </section>
 
