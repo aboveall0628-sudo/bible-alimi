@@ -46,13 +46,20 @@ export const POLICY = {
         ]
     },
     meditations: {
-        plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
+        plaintext: [
+            'id', 'userId', 'date', 'scriptureRef', 'createdAt',
+            // (2026-05-21 v112 묵상 시점 루프 시작점 트랙) 묵상한 시각 'HH:MM' 평문.
+            //   본문·기도는 그대로 암호화 / 시간만 평문 — 인덱싱·통계·휴리스틱 분기용.
+            //   loopStartPoint.getLoopStartHint(hour) 입력값. 2차 베타 학습 데이터 누적 핵심.
+            //   기획: docs/backlog/묵상시점_루프시작점_기획서_v1.md
+            'meditationTime',
+        ],
         // (2026-05-18 후속) commitment — 슬림 베타 적용 다짐 자리. content·prayer 와 같은 결.
         encrypted: ['content', 'decisions', 'prayer', 'commitment']
     },
     // memos: v1 빌드의 묵상 컬렉션. meditations와 동일 구조로 마이그레이션됨.
     memos: {
-        plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt'],
+        plaintext: ['id', 'userId', 'date', 'scriptureRef', 'createdAt', 'meditationTime'],
         encrypted: ['content', 'decisions', 'prayer', 'commitment']
     },
     principles: {

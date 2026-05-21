@@ -173,6 +173,32 @@ export const MISSION_CATALOG = {
         difficulty: 1,
     },
 
+    // (2026-05-21 v112 묵상 시점 루프 시작점 트랙) 신규 2건
+    any_meditation: {
+        moduleId: 'meditation',
+        icon: '📖',
+        title: '묵상 1회 자리잡기',
+        hint: '어느 시점이든 묵상 노트 한 번 자리잡기',
+        unlockCopy: '묵상 자리가 자기 결로 자리잡혔어요',
+        successCopy: '첫 묵상이 자리잡혔어요. 시점이 어느 자리든 말씀이 가장 자연 자리예요.',
+        trigger: 'saveMeditationDoc(any time)',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+    plan_first_toggle: {
+        moduleId: 'goals',
+        icon: '🔄',
+        title: '오늘·내일 계획 한 번 짜기',
+        hint: '묵상 끝 자리에서 [오늘] 또는 [내일] 한 번 톡',
+        unlockCopy: '계획 자리가 자리잡혔어요',
+        successCopy: '계획 자리가 자기 결로 자리잡혔어요. 묵상이 다음 자리로 자연 흘러가요.',
+        trigger: 'loopStartCta 토글 1회',
+        deferred: false,
+        slim: true,
+        difficulty: 1,
+    },
+
     // 📖 묵상 결 (난이도 2)
     first_review_then_daily_report: {
         moduleId: 'reports',

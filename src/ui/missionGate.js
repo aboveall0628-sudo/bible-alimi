@@ -61,6 +61,9 @@ const ROUTE_BY_MISSION = {
     meditation_streak_14:            'today',
     report_first_weekly:             'reports',
     invite_first_friend:             'self-profile',   // 추천 링크 카드 자리
+    // (2026-05-21 v112 묵상 시점 루프 시작점 트랙)
+    any_meditation:                  'today',          // 묵상 에디터 자리
+    plan_first_toggle:               'today',          // 묵상 끝 CTA 카드 자리
 };
 
 /**

@@ -402,6 +402,9 @@ const MODULE_FROM_MISSION_ID = {
     'first_review_then_daily_report':'reports',
     'past_meditation_revisit':       'meditation',
     'morning_meditation':            'meditation',
+    // (2026-05-21 v112 묵상 시점 루프 시작점 트랙)
+    'any_meditation':                'meditation',
+    'plan_first_toggle':             'goals',
     'evening_meditation':            'meditation',
     'meditation_streak_3':           'meditation',
     'meditation_streak_7':           'meditation',
