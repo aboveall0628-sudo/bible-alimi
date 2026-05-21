@@ -32,15 +32,16 @@ import {
 } from '../data/feedbacksRepo.js';
 import { THINKING_COPY, typeText, shouldReduceMotion } from './aiThinking.js';
 import { FAQ_FALLBACK_HINT_CHAT, findFaqById, getVisibleFaqs } from '../config/faqCatalog.js';
+// (v133 2026-05-22) 시스템 폰트 크기 SWAN 모달 안에도 따라오게 — 부팅 시 1회만으로는 모달 동적 자리에 안 먹어 명시 호출
+import { applySystemFontFromStorage } from '../config/systemFont.js';
 
 // ─── 카피 (Rule 9 §10-1~4 디폴트, 2026-05-15) ─────────────────
 const COPY = {
     // 일반 피드백 (kind='feedback')
     feedback: {
-        // (v127 2026-05-21) SWAN 풍선 = 단일 입구 결로 자리잡힘.
-        //   사용자 명시: "전체 메뉴를 둘러볼 수 있는 미션이 있다. 그러니까 해볼거면 말해라. 미션 전부 클리어하면 히든미션도 진행할 수 있다. 이렇게만 말하게."
-        //   옛 결("무엇을 도와드릴까요?") 갈음 — 부드러운 미션 권유 톤 + quick reply 버튼 결로 자연 자리잡힘.
-        openingTurn:    '안녕하세요. 전체 메뉴를 둘러볼 수 있는 미션이 있어요.\n해볼 마음이면 말씀해 주세요.\n미션 전부 마치면 히든 미션도 자리잡혀요.',
+        // (v133 2026-05-22) 사용자 명시 — "자리잡혀요" 어간 금지 + 사용자 원본 톤 살림 옵션 D 결.
+        //   "전체 메뉴를 둘러볼 수 있는 미션이 있다. 해볼거면 말해라. 미션 전부 클리어하면 히든미션도 진행할 수 있다."
+        openingTurn:    '안녕하세요. 전체 메뉴를 둘러볼 수 있는 작은 미션이 준비돼 있어요.\n해보고 싶으면 말씀해 주세요.\n미션 전부 마치면 히든 미션도 열려요.',
         closeFarewell:  '알려주셔서 고마워요. 잘 정리해 둘게요.',
         turnLimitNote:  '여기까지 알려주신 걸 정리해서 보낼게요.',
         title:          'SWAN',
@@ -222,16 +223,27 @@ async function startSession({ kind = 'feedback' } = {}) {
         listEl,
         inputEl,
         sendBtn,
+        // (v133 2026-05-22) intent 결로 admin 알림 분기 — 사용자 명시 옵션 D.
+        //   null/mission-help → 알림 X, free-chat → 종료 시 명시 확인 후 yes일 때만 알림.
+        intent: null,
+        sendAsFeedback: false,           // free-chat 종료 시 사용자가 "네 보낼게요" 결로 자기 결
+        endConfirmShown: false,          // 종료 확인 quick reply 한 번만 자리
     };
 
     // 3) modalManager 로 열기
+    //   (v133 2026-05-22) closeOnBackdrop: false — 사용자 명시 "채팅 바깥에 클릭하면 닫히네 그렇지 않게 해줘."
+    //   채팅과 미션 같이 진행하려면 모달이 계속 보여야 자연.
     _session.modalHandle = openModal({
         overlay,
         label: 'swanFeedback',
         initialFocus: inputEl,
-        closeOnBackdrop: true,
+        closeOnBackdrop: false,
         onClose: handleModalClose,
     });
+
+    // (v133 2026-05-22) 시스템 폰트 크기가 모달 동적 자리에 반영되게 — 부팅 시 1회는 모달 생성 전이라 안 먹었음.
+    //   html[data-system-font] 그대로 — 모달 안 CSS 변수(var(--fs-body)) 결로 자연 따라옴.
+    try { applySystemFontFromStorage(); } catch (_) {}
 
     // 4) 이벤트 바인딩
     sendBtn.addEventListener('click', handleSend);
@@ -241,7 +253,9 @@ async function startSession({ kind = 'feedback' } = {}) {
             handleSend();
         }
     });
-    closeBtn.addEventListener('click', () => _session?.modalHandle?.close());
+    // (v133 2026-05-22) 닫기 가로채기 — free-chat 인 결로 사용자 발언 1+ 자리 = "피드백으로 보낼까요?" 묻고 닫기.
+    //   사용자 명시 옵션 D — mission-help 결은 즉시 닫음·admin 알림 X. 명시 yes만 알림.
+    closeBtn.addEventListener('click', () => handleCloseClick());
 
     // 5) 5분 무응답 타이머
     resetAutoCloseTimer();
@@ -484,12 +498,13 @@ function appendOpeningQuickReply(listEl) {
     listEl.scrollTop = listEl.scrollHeight;
 }
 
-// (v127) Quick reply 클릭 처리. UI sugar — Firestore turn 저장 X (자유 채팅 결만 자리잡힘).
+// (v133 2026-05-22) Quick reply 클릭 처리 — intent 분기 + 모달 유지 결.
+//   사용자 명시: "모달을 닫을 필요는 없고, 채팅 안에서 미션이 전부 나타나야 함. 채팅하고 함께 미션을 수행할 수 있어야."
 async function handleQuickReply(value, label) {
     if (!_session || _session.finalized) return;
     const sess = _session;
 
-    // 사용자 선택 자리 = UI에만 자리잡힘 (Firestore 저장 X, 토큰 소모 X)
+    // 사용자 선택 자리 = UI에만 보임 (Firestore 저장 X, 토큰 소모 X)
     appendTurnDOM(sess.listEl, {
         role: 'user',
         text: label,
@@ -497,35 +512,24 @@ async function handleQuickReply(value, label) {
     });
 
     if (value === 'mission-start') {
+        sess.intent = 'mission-help';
         try {
             const { getDEK } = await import('./lockScreen.js');
             const dek = getDEK();
             if (!dek || !_userId) {
                 await appendSwanTurnTyping(sess.listEl, {
                     role: 'swan',
-                    text: '잠금 해제 자리 확인이 안 돼요. 잠시 후 다시 해볼까요?',
+                    text: '잠금 풀린 결 확인이 안 돼요. 잠시 후 다시 해볼까요?',
                     at:   new Date().toISOString(),
                 });
                 return;
             }
-            // 짧은 SWAN 응답 + 모달 닫고 미션 허브 자리잡힘
-            await appendSwanTurnTyping(sess.listEl, {
-                role: 'swan',
-                text: '미션 목록 자리 열어드릴게요. 가벼운 결부터 골라보세요.',
-                at:   new Date().toISOString(),
-            });
-            const { openMissionHubModal } = await import('./missionGate.js');
-            // 짧은 자연 결로 모달 닫고 hub 자리 열기
-            setTimeout(async () => {
-                try { sess.modalHandle?.close(); } catch (_) {}
-                try { await openMissionHubModal(dek, _userId); } catch (e) {
-                    console.warn('[swanFeedback] mission hub open failed:', e?.message || e);
-                }
-            }, 600);
+            await renderMissionListInline(sess.listEl, dek, _userId);
         } catch (e) {
             console.warn('[swanFeedback] mission-start failed:', e?.message || e);
         }
     } else if (value === 'mission-later') {
+        sess.intent = 'mission-help';
         await appendSwanTurnTyping(sess.listEl, {
             role: 'swan',
             text: '편하실 때 다시 들러주세요.',
@@ -533,6 +537,7 @@ async function handleQuickReply(value, label) {
         });
         setTimeout(() => { try { sess.modalHandle?.close(); } catch (_) {} }, 1200);
     } else if (value === 'free-chat') {
+        sess.intent = 'free-chat';
         await appendSwanTurnTyping(sess.listEl, {
             role: 'swan',
             text: '편하게 적어주세요. 무엇이든 듣고 있어요.',
@@ -540,6 +545,158 @@ async function handleQuickReply(value, label) {
         });
         try { sess.inputEl?.focus(); } catch (_) {}
     }
+}
+
+// (v133 2026-05-22) 채팅 안 미션 리스트 inline — 추천 미션 3개 보여주고 quick reply 결로 한 자리 시작.
+//   사용자 명시: "채팅 안에서 미션이 전부 나타나야 함."
+//   클릭 시 routeToMission(뷰 전환) — 모달은 닫지 않음. SWAN이 같이 안내.
+async function renderMissionListInline(listEl, dek, userId) {
+    try {
+        const { getSelfCard } = await import('../data/personRepo.js');
+        const { getRecommendedMissions } = await import('../config/missionCatalog.js');
+
+        const self = await getSelfCard(dek, userId);
+        const tutorialState = self?.tutorialState || {};
+        const completedIds = Object.entries(tutorialState)
+            .filter(([_, v]) => v?.completedAt)
+            .map(([k]) => k);
+
+        const recs = getRecommendedMissions(completedIds, 3);
+        if (!recs.length) {
+            await appendSwanTurnTyping(listEl, {
+                role: 'swan',
+                text: '와! 미션을 다 마쳤어요. 히든 미션 열려 있으니 한 번 들러볼까요?',
+                at:   new Date().toISOString(),
+            });
+            return;
+        }
+
+        const titleList = recs.map((r, i) => `${i + 1}. ${r.mission.title} — ${r.mission.hint}`).join('\n');
+        await appendSwanTurnTyping(listEl, {
+            role: 'swan',
+            text: `해볼 만한 미션 ${recs.length}개에요:\n\n${titleList}\n\n어느 미션부터 시작할까요?`,
+            at:   new Date().toISOString(),
+        });
+
+        appendMissionPickQuickReply(listEl, recs);
+    } catch (e) {
+        console.warn('[swanFeedback] renderMissionListInline failed:', e?.message || e);
+        await appendSwanTurnTyping(listEl, {
+            role: 'swan',
+            text: '미션 목록을 못 가져왔어요. 잠시 후 다시 해볼까요?',
+            at:   new Date().toISOString(),
+        });
+    }
+}
+
+function appendMissionPickQuickReply(listEl, recs) {
+    if (!_session || _session.finalized) return;
+
+    const li = document.createElement('li');
+    li.className = 'swan-quick-reply-row';
+    li.setAttribute('role', 'group');
+    li.setAttribute('aria-label', '미션 고르기');
+
+    recs.forEach((r, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'swan-quick-reply-btn';
+        btn.textContent = `${i + 1}번 시작`;
+        btn.addEventListener('click', () => {
+            li.remove();
+            handleMissionPick(r.missionId, r.mission).catch(e =>
+                console.warn('[swanFeedback] mission pick failed:', e?.message || e)
+            );
+        });
+        li.appendChild(btn);
+    });
+
+    const laterBtn = document.createElement('button');
+    laterBtn.type = 'button';
+    laterBtn.className = 'swan-quick-reply-btn';
+    laterBtn.textContent = '다음에';
+    laterBtn.addEventListener('click', () => {
+        li.remove();
+        appendSwanTurnTyping(listEl, {
+            role: 'swan',
+            text: '편하실 때 다시 들러주세요.',
+            at:   new Date().toISOString(),
+        }).catch(() => {});
+    });
+    li.appendChild(laterBtn);
+
+    listEl.appendChild(li);
+    listEl.scrollTop = listEl.scrollHeight;
+}
+
+async function handleMissionPick(missionId, mission) {
+    if (!_session || _session.finalized) return;
+    const sess = _session;
+
+    // 사용자 선택 자리 = UI에 보임
+    appendTurnDOM(sess.listEl, {
+        role: 'user',
+        text: mission.title,
+        at:   new Date().toISOString(),
+    });
+
+    // SWAN 안내 + 뷰 전환 (모달은 그대로)
+    await appendSwanTurnTyping(sess.listEl, {
+        role: 'swan',
+        text: `좋아요. "${mission.title}" 시작할게요.\n메인 화면을 봐주세요 — ${mission.hint}\n다 하면 미션이 자동으로 완료돼요.`,
+        at:   new Date().toISOString(),
+    });
+
+    try {
+        const { routeToMission } = await import('./missionGate.js');
+        routeToMission(missionId);
+    } catch (e) {
+        console.warn('[swanFeedback] routeToMission failed:', e?.message || e);
+    }
+}
+
+// (v133 2026-05-22) free-chat 종료 시 명시 확인 — 사용자 명시 옵션 D.
+//   "이 대화를 개발자에게 피드백으로 보낼까요?" yes만 admin 알림. no는 그대로 닫음.
+function appendEndConfirmQuickReply(listEl) {
+    if (!_session || _session.finalized) return;
+    if (_session.endConfirmShown) return;
+    _session.endConfirmShown = true;
+
+    appendTurnDOM(listEl, {
+        role: 'swan',
+        text: '잠깐만요 — 이 대화를 개발자에게 피드백으로 보낼까요?',
+        at:   new Date().toISOString(),
+    });
+
+    const li = document.createElement('li');
+    li.className = 'swan-quick-reply-row';
+    li.setAttribute('role', 'group');
+    li.setAttribute('aria-label', '피드백 전달 결');
+
+    const yesBtn = document.createElement('button');
+    yesBtn.type = 'button';
+    yesBtn.className = 'swan-quick-reply-btn';
+    yesBtn.textContent = '네, 보낼게요';
+    yesBtn.addEventListener('click', () => {
+        li.remove();
+        if (_session) _session.sendAsFeedback = true;
+        try { _session?.modalHandle?.close(); } catch (_) {}
+    });
+
+    const noBtn = document.createElement('button');
+    noBtn.type = 'button';
+    noBtn.className = 'swan-quick-reply-btn';
+    noBtn.textContent = '아니요, 그냥 닫을게요';
+    noBtn.addEventListener('click', () => {
+        li.remove();
+        if (_session) _session.sendAsFeedback = false;
+        try { _session?.modalHandle?.close(); } catch (_) {}
+    });
+
+    li.appendChild(yesBtn);
+    li.appendChild(noBtn);
+    listEl.appendChild(li);
+    listEl.scrollTop = listEl.scrollHeight;
 }
 
 // (디자인 시스템 v1 Phase C 2026-05-16) 단계 라벨 회전 + 도트 한 묶음.
@@ -864,10 +1021,38 @@ async function runPreSurveyFinalize(userId, feedbackId, turns, endReason) {
     }
 }
 
+// (v133 2026-05-22) 닫기 클릭 가로채기 — intent 기반 분기.
+//   - mission-help 결: 즉시 닫음 (admin 알림 X)
+//   - free-chat 결 + 사용자 발언 1+ + 아직 종료 확인 안 함: "피드백으로 보낼까요?" 묻고 종료
+//   - free-chat 결 + 사용자 발언 0: 즉시 닫음
+//   - 이미 종료 확인했으면 (yes/no 골랐으면) 즉시 닫음
+//   - kind=preSurvey 등 다른 결: 옛 결 그대로
+function handleCloseClick() {
+    if (!_session) return;
+    const sess = _session;
+
+    if (sess.kind !== 'feedback') {
+        // 사전·사후 설문은 옛 결 그대로 자동 finalize
+        try { sess.modalHandle?.close(); } catch (_) {}
+        return;
+    }
+
+    const hasUserTurn = sess.turns.some(t => t.role === 'user');
+
+    if (sess.intent === 'free-chat' && hasUserTurn && !sess.endConfirmShown) {
+        // 명시 확인 — 닫지 않고 quick reply 자리 보여줌
+        appendEndConfirmQuickReply(sess.listEl);
+        return;
+    }
+
+    // mission-help · free-chat 명시 끝남 · 사용자 발언 X — 즉시 닫음
+    try { sess.modalHandle?.close(); } catch (_) {}
+}
+
 function handleModalClose() {
     if (!_session) return;
 
-    // 사용자가 백드롭/ESC/X 로 닫은 경우 — 아직 finalize 안 됐으면 manual_send 로 처리
+    // 사용자가 백드롭/ESC/X 로 닫은 경우 — 아직 finalize 안 됐으면 처리
     const wasFinalized = _session.finalized;
     const sess = _session;
     _session = null;
@@ -881,15 +1066,27 @@ function handleModalClose() {
     if (sess.autoCloseTimer) clearTimeout(sess.autoCloseTimer);
 
     if (!wasFinalized) {
-        // 사용자 메시지가 하나라도 있으면 manual_send 로 마무리, 없으면 그냥 폐기
         const hasUserTurn = sess.turns.some(t => t.role === 'user');
-        if (hasUserTurn) {
+
+        // (v133 2026-05-22) intent 기반 admin 알림 분기.
+        //   - kind != feedback: 옛 결 그대로 (사전·사후 설문)
+        //   - mission-help: finalize 호출 X → cloud function trigger X → admin 알림 X
+        //   - free-chat + sendAsFeedback=true: finalize 호출 (admin 알림 O)
+        //   - free-chat + sendAsFeedback=false: finalize 호출 X → 알림 X (doc 은 in_progress 결로 남음)
+        //   - free-chat + 결 명시 안 함 (ESC 결 등): 알림 X (안전 결로 기본 no)
+        if (sess.kind !== 'feedback') {
+            if (hasUserTurn) {
+                finalizeAfterClose(sess, 'manual_send').catch(e =>
+                    console.warn('[swanFeedback] post-close finalize failed:', e)
+                );
+            }
+        } else if (sess.intent === 'free-chat' && hasUserTurn && sess.sendAsFeedback === true) {
             finalizeAfterClose(sess, 'manual_send').catch(e =>
                 console.warn('[swanFeedback] post-close finalize failed:', e)
             );
         }
-        // hasUserTurn 이 false 면 빈 대화 — finalize 안 함. 다음 진입 때 새 doc 시작.
-        // (빈 doc 은 남지만 §10-5 에 따라 1회 1 doc 정책으로 유지. 향후 청소 트랙에서 정리.)
+        // 그 외: finalize 호출 X — admin 알림 X.
+        // (in_progress 결로 doc 일부 남을 수 있음 — 향후 청소 트랙에서 정리)
     }
 }
 

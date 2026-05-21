@@ -678,7 +678,8 @@ function scrollToElement(selector) {
     }
 }
 
-function routeToMission(missionId) {
+// (v133 2026-05-22) SWAN 채팅 안 inline 미션 안내 결로 자리 — export 결로 swanFeedback 안에서 호출 결.
+export function routeToMission(missionId) {
     const view = ROUTE_BY_MISSION[missionId] || 'today';
     if (typeof window !== 'undefined' && typeof window.__sanctumSwitchView === 'function') {
         window.__sanctumSwitchView(view);
@@ -699,7 +700,8 @@ function routeToMission(missionId) {
  *
  *   사용자가 실제로 트리거 시점을 거치지 않은 미션은 아직 미완료로 표시. 정확함.
  */
-async function getCompletedMissionIds(dek, userId) {
+// (v133 2026-05-22) SWAN 채팅 안 inline 미션 결로 자리 — export 결로 swanFeedback 안에서 호출 결.
+export async function getCompletedMissionIds(dek, userId) {
     const self = await getSelfCard(dek, userId);
     if (!self) return [];
     const tutorialState = self.tutorialState || {};

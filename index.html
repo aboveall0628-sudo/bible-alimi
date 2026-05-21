@@ -178,12 +178,12 @@
             </nav>
         </aside>
 
-        <!-- 우측 상단 수동 잠금 버튼 — 잠금 해제 후에만 노출 -->
-        <div id="manual-lock-wrap" class="manual-lock-wrap hidden">
-            <button id="manual-lock-btn" class="manual-lock-btn" title="앱 잠그기 (Ctrl+Shift+L)" aria-label="앱 즉시 잠그기">
-                <i data-lucide="lock"></i>
-            </button>
-        </div>
+        <!-- (v133 2026-05-22) 사용자 명시 "우측 상단 자물쇠도 그냥 없애줘" — DOM 자체 제거.
+             단축키 Ctrl+Shift+L 결로 잠금 결은 자연 유지 (shortcuts/registry.js). 설정에서 자동 잠금 시간도 그대로. -->
+        <!--
+        <div id="manual-lock-wrap" class="manual-lock-wrap hidden">…</div>
+        -->
+
 
         <!-- 우측 상단 분별의 자리 바로가기 (B-1 의사결정 시스템, 2026-05-13) — 잠금 해제 후에만 노출
              (2026-05-18 후속) 베타 슬림 모드에서는 자리 숨김 — 사용자 명시 "베타에서는 빼" -->

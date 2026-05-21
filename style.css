@@ -10542,7 +10542,8 @@ button.mission-progress-block:hover {
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
-    padding: 24px;
+    /* (v133 2026-05-22) 사용자 점검 "맨 위에 짤린다" — overlay padding-top 자리 넓혀 모달 위 헤더가 브라우저 가장자리에 안 닿게 */
+    padding: 60px 24px 24px;
     /* (2026-05-20 v89 fix) 모바일 키보드 자리 자리잡혀 자연 — dvh 자리 */
     height: 100dvh;
     max-height: 100dvh;
@@ -10552,7 +10553,8 @@ button.mission-progress-block:hover {
 .swan-modal {
     width: 100%;
     max-width: 420px;
-    height: min(640px, 80vh);
+    /* (v133 2026-05-22) overlay padding-top 늘림 결로 max-height 정합 — 위·아래 84px 자리 빼고 자리 */
+    height: min(640px, calc(100vh - 84px));
     background: var(--bg-card, #fff);
     border-radius: 16px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);

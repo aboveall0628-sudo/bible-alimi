@@ -12,7 +12,7 @@
  * 캐시 이름에 VERSION 박음. 새 버전 deploy 시 이 줄만 올리면 옛 캐시 정리됨.
  */
 
-const VERSION = 'sanctum-v135-2026-05-22-mobile-fixes-5건';
+const VERSION = 'sanctum-v136-2026-05-22-swan-modal-stay-mission-inline-alarm-filter';
 const STATIC_CACHE = `sanctum-static-${VERSION}`;
 
 // 사전 캐시할 가벼운 정적 자산
