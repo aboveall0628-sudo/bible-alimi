@@ -3741,34 +3741,123 @@ html[data-note-font="serif"] .note-editor h3 {
     }
 
     /* ═══════════════════════════════════════════════════════
-       (v108 1.1차 2026-05-20) 모바일 시간축 그리드 결 — Guided Actual UX
-       데스크탑 결을 모바일에 자연 가져옴 — 평가 마찰 해소 (시스템 루핑 병목)
-       기존 utl-mobile-* 자리(탭·카드·가이드) 모두 dead style — 1.2차에 정리
+       (v108 Phase 1+2 통합 2026-05-20) 모바일 시간축 그리드 — Guided Actual UX
+       사용자 7건 신고 정합:
+         1) 카드 폭 꽉 (시간 라벨 자리 좁힘)
+         2) 빈 자리 톡 = 드롭다운 (인라인)
+         3) 슬라이드 3단 토글 (계획만/둘 다/실제만)
+         4) 카드 톡 = 인라인 4상태 + 길게 누름 = 모달
+         5) 카드 하단 모서리 드래그 = 길이 자리 (15분 스냅)
+         6) 줌 [-][100%][+] (ROW_HEIGHT 가변, localStorage 보존)
+         7) + FAB 자리 폐기 (SWAN 톡 자리와 충돌)
+       기존 utl-mobile-tabs·utl-mobile-card·utl-mobile-guide-* CSS dead — 1.3차에 정리
        ═══════════════════════════════════════════════════════ */
     .utl-mobile-list {
         position: relative;
-        display: block;
+        display: flex;
+        flex-direction: column;
         padding: 0;
         background: var(--bg);
+        height: 100%;
+        min-height: 60vh;
+        overflow: hidden; /* 헤더 sticky + scroll 자체 자리잡힙 */
+    }
+    /* 컨트롤 헤더 — 레이어 인디케이터 + 줌 */
+    .utl-mg-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-2);
+        padding: var(--sp-2) var(--sp-3);
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+        flex-shrink: 0;
+    }
+    .utl-mg-layer-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    .utl-mg-layer-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border);
+        transition: background 0.15s ease;
+    }
+    .utl-mg-layer-dot.on {
+        background: var(--accent);
+    }
+    .utl-mg-layer-label {
+        margin-left: 6px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+    .utl-mg-zoom {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .utl-mg-zoom-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+    }
+    .utl-mg-zoom-btn:active {
+        background: var(--accent-soft);
+    }
+    .utl-mg-zoom-label {
+        min-width: 38px;
+        text-align: center;
+        font-size: 0.6875rem;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+    }
+    .utl-mg-layer-hint {
+        font-size: 0.625rem;
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 4px var(--sp-3);
+        opacity: 0.7;
+        flex-shrink: 0;
+    }
+    /* 스크롤 영역 — 헤더 분리, 시간축만 자체 스크롤 */
+    .utl-mg-scroll {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
     }
     .utl-mg-container {
         position: relative;
-        margin-left: 56px;
+        margin-left: 44px; /* 시간 라벨 자리 좁힘 — 카드 자리 자연 차지 */
         background: var(--bg);
     }
     .utl-mg-time {
         position: absolute;
-        left: -56px;
-        width: 50px;
-        font-size: 0.6875rem; /* 11px */
+        left: -44px;
+        width: 40px;
+        font-size: 0.625rem; /* 10px — 좁은 자리 정합 */
         color: var(--text-secondary);
         font-variant-numeric: tabular-nums;
         transform: translateY(-50%);
         text-align: right;
-        padding-right: 6px;
+        padding-right: 4px;
         white-space: nowrap;
         pointer-events: none;
         z-index: 0;
+        line-height: 1.2;
     }
     .utl-mg-line {
         position: absolute;
@@ -3801,34 +3890,32 @@ html[data-note-font="serif"] .note-editor h3 {
     }
     .utl-mg-slot {
         position: absolute;
-        left: 4px;
-        right: 4px;
+        left: 2px;
+        right: 2px;
         border-radius: 6px;
-        padding: 3px 8px;
-        font-size: 0.75rem; /* 12px */
-        line-height: 1.3;
+        padding: 3px 6px;
+        font-size: 0.75rem;
+        line-height: 1.25;
         overflow: hidden;
         cursor: pointer;
         box-sizing: border-box;
         transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
-    .utl-mg-slot:active {
-        transform: scale(0.98);
-    }
-    /* 계획 = 옅은 띠 (z-index 1, 배경 자리) */
+    .utl-mg-slot:active { transform: scale(0.98); }
+    /* 계획 = 옅은 띠 */
     .utl-mg-slot-plan {
         background: var(--accent-soft);
         color: var(--text-secondary);
         border-left: 2px solid var(--accent-soft);
         z-index: 1;
-        opacity: 0.55;
+        opacity: 0.6;
         font-weight: 400;
     }
     .utl-mg-slot-plan.gcal-source {
         background: rgba(124, 139, 111, 0.08);
         border-left-color: var(--accent);
     }
-    /* 실제 = 만족도 색 카드 (z-index 2, 계획 위) */
+    /* 실제 = 만족도 색 카드 */
     .utl-mg-slot-actual {
         background: var(--bg-card);
         color: var(--text-primary);
@@ -3836,6 +3923,9 @@ html[data-note-font="serif"] .note-editor h3 {
         z-index: 2;
         font-weight: 500;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
     .utl-mg-slot-actual.dot-gray { border-left-color: var(--dot-gray); }
     .utl-mg-slot-actual.dot-yellow { border-left-color: var(--dot-yellow); }
@@ -3843,39 +3933,186 @@ html[data-note-font="serif"] .note-editor h3 {
     .utl-mg-slot-actual.dot-orange { border-left-color: var(--dot-orange); }
     .utl-mg-slot-actual.dot-red { border-left-color: var(--dot-red); }
     .utl-mg-slot-actual.dot-purple { border-left-color: var(--dot-purple); }
-    .utl-mg-slot-actual.from-workflow {
-        border-left-color: var(--brand-primary, var(--accent));
-    }
+    .utl-mg-slot-actual.from-workflow { border-left-color: var(--brand-primary, var(--accent)); }
+    .utl-mg-slot-actual.evaluated { opacity: 0.9; }
     .utl-mg-slot-label {
         display: block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex-shrink: 0;
     }
-    /* + 추가 FAB (우하단 floating) */
-    .utl-mg-fab {
-        position: fixed;
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
-        right: 20px;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
+    /* 인라인 4상태 빠른 평가 자리 — 한 톡으로 평가 마침 */
+    .utl-mg-quick-eval {
+        display: flex;
+        gap: 4px;
+        margin-top: 2px;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .utl-mg-eval-btn {
+        flex: 1;
+        min-width: 0;
+        height: 22px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0;
+        transition: background 0.1s ease, transform 0.1s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .utl-mg-eval-btn:active {
+        background: var(--accent-soft);
+        transform: scale(0.94);
+    }
+    /* 리사이즈 핸들 — 카드 하단 모서리 드래그 */
+    .utl-mg-resize {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 8px;
+        cursor: ns-resize;
+        touch-action: none;
+        z-index: 3;
+    }
+    .utl-mg-resize::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: 2px;
+        transform: translateX(-50%);
+        width: 24px;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--text-secondary);
+        opacity: 0.3;
+    }
+    .utl-mg-slot-actual:active .utl-mg-resize::after { opacity: 0.6; }
+    /* 빈 자리 톡 드롭다운 — 미배치 목표 + 직접 입력 */
+    .utl-mg-dropdown {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        z-index: 100;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        max-height: 280px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: utl-mg-dd-slide 180ms ease-out;
+    }
+    @keyframes utl-mg-dd-slide {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .utl-mg-dd-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-elev);
+    }
+    .utl-mg-dd-time {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--accent);
+    }
+    .utl-mg-dd-close {
+        background: none;
+        border: none;
+        font-size: 16px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0 4px;
+        line-height: 1;
+    }
+    .utl-mg-dd-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px 0;
+        overflow-y: auto;
+        max-height: 160px;
+    }
+    .utl-mg-dd-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        transition: background 0.1s ease;
+    }
+    .utl-mg-dd-item:active { background: var(--accent-soft); }
+    .utl-mg-dd-icon {
+        color: var(--accent);
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .utl-mg-dd-text {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .utl-mg-dd-empty {
+        padding: 16px 14px;
+        text-align: center;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+    }
+    .utl-mg-dd-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 0;
+    }
+    .utl-mg-dd-form {
+        display: flex;
+        gap: 6px;
+        padding: 10px 12px;
+        background: var(--bg);
+    }
+    .utl-mg-dd-input {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        font-family: inherit;
+    }
+    .utl-mg-dd-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .utl-mg-dd-submit {
+        padding: 8px 14px;
         background: var(--accent);
         color: white;
         border: none;
-        font-size: 28px;
-        font-weight: 300;
-        line-height: 1;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 600;
         cursor: pointer;
-        z-index: 50;
-        transition: transform 0.1s ease, box-shadow 0.1s ease;
-        font-family: inherit;
+        flex-shrink: 0;
     }
-    .utl-mg-fab:active {
-        transform: scale(0.92);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    }
+    .utl-mg-dd-submit:active { transform: scale(0.95); }
+
+    /* 시간표 카드 안 자리잡힌 자리 — utl-body·utl-header 자리 모바일 자리잡혀 X (그리드 결만 자리잡힙) */
+    .timeline-toolbar { display: none; }
 }
 
 @media (min-width: 769px) {

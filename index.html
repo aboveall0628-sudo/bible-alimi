@@ -352,13 +352,17 @@
                 <section id="section-timeline" class="card-section">
                     <div class="section-header-flex">
                         <h2 class="section-title"><i class="section-icon" data-lucide="clock"></i> 오늘의 시간표</h2>
-                        <div class="timeline-toolbar">
-                            <button id="auth-btn" class="text-btn">Google 연결</button>
-                            <button id="sync-btn" class="text-btn hidden"><i data-lucide="refresh-cw" class="btn-icon"></i> 일정 새로고침</button>
-                            <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기"><i data-lucide="upload" class="btn-icon"></i> 캘린더에 옮기기</button>
-                            <!-- (2026-05-20 v100) 사용자 명시 "얘는 접기 다른 애들하고 똑같이 맞춰줘 · 다른애들 다 단어인데 얘만 버튼이니까 이상" — .text-btn 결로 자리잡기 -->
-                            <button class="text-btn collapsible-toggle" data-target="unified-timeline"><i data-lucide="chevrons-up-down" class="btn-icon"></i> 접기</button>
-                        </div>
+                        <!-- (v108 사용자 신고 3) 접기 자리 — 다른 카드(어제 묵상·말씀·등산로·목표·거래·리포트)와 동일 결.
+                             아이콘·.text-btn 자리 폐기, 단순 "접기" 텍스트만. -->
+                        <button class="collapsible-toggle" data-target="unified-timeline">접기</button>
+                    </div>
+                    <!-- (v108 사용자 신고 3) Google 연결·일정 새로고침·캘린더에 옮기기 자리 — 시간표 카드 안 자리잡힙 X.
+                         자리 자체는 그대로 자리잡혀 있되 모바일·데스크탑 모두 숨김 (CSS .timeline-toolbar { display: none; }).
+                         설정·온보딩 자리에서 자연 자리잡힙. -->
+                    <div class="timeline-toolbar" hidden>
+                        <button id="auth-btn" class="text-btn">Google 연결</button>
+                        <button id="sync-btn" class="text-btn hidden"><i data-lucide="refresh-cw" class="btn-icon"></i> 일정 새로고침</button>
+                        <button id="gcal-push-btn" class="text-btn hidden" title="결단을 Google 캘린더에도 옮겨 적기"><i data-lucide="upload" class="btn-icon"></i> 캘린더에 옮기기</button>
                     </div>
                     <div id="unified-timeline" class="unified-timeline collapsible-body">
                         <div class="utl-header">
