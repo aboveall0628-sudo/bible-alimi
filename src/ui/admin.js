@@ -92,7 +92,7 @@ export function renderAdminView(container) {
                 </button>
                 <button type="button" id="admin-flow-onboarding" class="admin-flow-btn">
                     <span class="admin-flow-emoji">🦢</span>
-                    <span class="admin-flow-label">온보딩 11 step</span>
+                    <span class="admin-flow-label">온보딩 13 step</span>
                 </button>
                 <button type="button" id="admin-start-presurvey-btn" class="admin-flow-btn">
                     <span class="admin-flow-emoji">📋</span>
@@ -365,7 +365,7 @@ function bindFlowDemo(container) {
     // (2026-05-19 후속) admin-flow-setup-samples 자리 제거 — 샘플 목표 흐름 자체 자리잡힘 X
 
     onClick('admin-flow-onboarding', async () => {
-        showDemoToast('🦢 온보딩 11 step 시연 — 실제 selfCard 자리잡히지 않게 [건너뛰기]·X 로 자연 닫기');
+        showDemoToast('🦢 온보딩 13 step 시연 — 실제 selfCard 자리잡히지 않게 [건너뛰기]·X 로 자연 닫기');
         try {
             const { showOnboardingModal } = await import('./onboarding.js');
             // 현재 사용자 dek 자리 사용 — 닫으면 자연 종료
