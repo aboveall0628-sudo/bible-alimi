@@ -373,7 +373,8 @@ function bindFlowDemo(container) {
             const { isSwanAdmin } = await import('../config/adminConfig.js');
             // 현재 운영자 userId 자리잡혀 있으면 자연 진행. 없으면 demo
             const userId = window.currentUserId || 'demo-user-id';
-            await showOnboardingModal({ userId, dek: getDEK(), onComplete: () => {} });
+            // (v121) 운영자 시연 자리만 X 닫기 버튼 자리잡힘 — 리얼 진입엔 X 안 보임.
+            await showOnboardingModal({ userId, dek: getDEK(), onComplete: () => {}, demoMode: true });
         } catch (e) {
             console.warn('[admin] onboarding demo failed:', e);
             alert('온보딩 시연 실패: ' + (e?.message || e));

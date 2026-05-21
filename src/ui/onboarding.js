@@ -183,7 +183,7 @@ async function activateSwanTyping() {
  *   - onComplete: () => void
  *   - existingCard: 옵션
  */
-export async function showOnboardingModal({ userId, dek, onComplete, existingCard }) {
+export async function showOnboardingModal({ userId, dek, onComplete, existingCard, demoMode = false }) {
     if (!userId || !dek) {
         console.warn('[onboarding] missing userId or dek');
         return;
@@ -244,9 +244,10 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
         cardSnapshot: card,
     };
 
-    // (2026-05-18 후속) 다시보기 닫기 버튼 — 신규 사용자(name 빈 값)는 닫기 X.
-    //   재시청(name 자리잡혀 있음) 시만 우상단 X 버튼 노출 → 저장 없이 원래 화면 복귀.
-    const isReplay = !!(card && card.name && card.name.trim());
+    // (2026-05-21 v121) 사용자 명시 "온보딩에서 X 표시 다 빼야 할 것 같아. 시연에서 돌아가려고 만든 버튼인데 리얼에서도 다 붙어 있으니 곤란".
+    //   X 닫기 버튼 = 운영자 시연 모드(demoMode=true) 자리에서만 자리잡힘.
+    //   리얼 진입 결(가입 첫 진입·다시 보기) 둘 다 X 자리잡지 X.
+    const showCloseBtn = !!demoMode;
 
     const backdrop = document.createElement('div');
     backdrop.className = 'onboarding-backdrop';
@@ -256,9 +257,9 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
     backdrop.setAttribute('aria-labelledby', 'onboarding-title');
     backdrop.innerHTML = `
       <div class="onboarding-modal age-tone-young" id="onboarding-modal">
-        ${isReplay ? `
+        ${showCloseBtn ? `
           <button type="button" class="onboarding-close-btn" id="onboarding-close-btn"
-                  aria-label="안내 닫기 — 원래 화면으로 돌아가기" title="원래 화면으로">
+                  aria-label="시연 닫기" title="시연 닫기">
             <span aria-hidden="true">×</span>
           </button>
         ` : ''}
@@ -283,11 +284,11 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
         applySystemFontScale('lg');
     } catch (_) {}
 
-    // 닫기 버튼 — 저장 없이 모달만 닫고 원래 화면 그대로 보여줌.
-    if (isReplay) {
+    // 닫기 버튼 — 시연 모드에서만 자리잡힘. 저장 없이 모달만 닫고 원래 화면 그대로.
+    if (showCloseBtn) {
         document.getElementById('onboarding-close-btn')?.addEventListener('click', () => {
             closeOnboardingModal();
-            // onComplete 는 호출 X — 사용자가 어디서 띄웠든 그 화면 그대로 유지.
+            // onComplete 는 호출 X — 시연 끝낼 결로 자연 닫음.
         });
     }
 
