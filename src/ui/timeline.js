@@ -221,7 +221,9 @@ function renderDesktop() {
     const totalH = ALL_SLOTS * desktopRowH;
 
     closeDesktopDropdown();
-    const prevScroll = body.scrollTop;
+    // (v116) 이전 scrollArea 자리잡힌 자리 — body.scrollTop 자리잡혀 자리잡혀 X (body는 wrapper)
+    const prevScrollEl = body.querySelector('.utl-desktop-scroll');
+    const prevScroll = prevScrollEl ? prevScrollEl.scrollTop : 0;
     body.innerHTML = '';
 
     // 헤더 자리잡힙 — 줌 컨트롤
@@ -347,7 +349,8 @@ function renderDesktop() {
     bindCellEvents(actualCol, 'actual');
 
     // 스크롤 자리 복원 — 첫 진입이면 오늘 현재 시간 자리
-    requestAnimationFrame(() => {
+    // (v116) 다른 페이지에서 돌아올 때 자리 자리잡혀 X 자리 해소 — requestAnimationFrame 두 번 + setTimeout 50ms 자리잡힙
+    const applyScroll = () => {
         if (prevScroll > 0) {
             scrollArea.scrollTop = prevScroll;
         } else if (isToday(_date)) {
@@ -357,7 +360,9 @@ function renderDesktop() {
         } else {
             scrollArea.scrollTop = Math.max(0, (SLOTS_PER_DAY + 9 * 4) * desktopRowH);
         }
-    });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(applyScroll));
+    setTimeout(applyScroll, 50); // 자리잡힌 자리 자리잡혀 X 자리 안전 자리잡힙
 }
 
 function closeDesktopDropdown() {
@@ -397,7 +402,7 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
         <ul class="utl-desktop-dd-list">${goalsHtml}</ul>
         <div class="utl-desktop-dd-divider"></div>
         <form class="utl-desktop-dd-form">
-            <input type="text" class="utl-desktop-dd-input" placeholder="할 일을 직접 적어 주세요" maxlength="100" autocomplete="off" />
+            <input type="text" class="utl-desktop-dd-input" placeholder="할 일을 직접 적어 주세요" maxlength="100" autocomplete="off" required />
             <button type="submit" class="utl-desktop-dd-submit">추가</button>
         </form>
     `;
@@ -1168,12 +1173,13 @@ function createPlanSlot(decision, source, dayKey = 'today') {
     el.dataset.source = source;
     el.dataset.day = dayKey;
     if (decision.gcalEventId) el.dataset.gcalId = decision.gcalEventId;
-    el.draggable = (dayKey === 'today'); // 오늘 자리만 드래그
+    el.draggable = false; // (v116) drag&drop 자리잡힘 X — 사용자 신고 #8 자리
     const dur = decision.durationSlots || 4;
     const endSlot = (decision.timeSlot || 0) + dur;
     const titleText = decision.title ?? decision.text ?? '(아직 이름이 없어요)';
     const titleDisplay = decision.gcalEventId ? `📅 ${titleText}` : titleText;
-    const interactive = dayKey === 'today';
+    // (v116) 어제 자리만 자리잡힘 X. 내일 계획 자리 "×" 자리잡힙 (사용자 신고 #4)
+    const interactive = dayKey !== 'yesterday';
     el.innerHTML = `
         ${interactive ? '<button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>' : ''}
         <span class="slot-time">${slotToTime(decision.timeSlot)}~${slotToTime(endSlot)}</span>
@@ -1209,8 +1215,9 @@ function createActualSlot(dot, dayKey = 'today') {
     const timeLabel = dur > 1
         ? `${slotToTime(dot.timeSlot)}~${slotToTime(endSlot)}`
         : slotToTime(dot.timeSlot);
-    const interactive = dayKey === 'today';
-    const showEval = interactive && (dur * getDesktopRowHeight()) >= 56; // 너무 짧으면 4상태 자리잡힘 X
+    // (v116) 내일 자리만 자리잡힘 X. 어제 자리 실제 카드 자리잡힙 (사용자 신고 #7 자리)
+    const interactive = dayKey !== 'tomorrow';
+    const showEval = interactive && (dur * getDesktopRowHeight()) >= 56;
     el.innerHTML = `
         ${interactive ? '<button class="slot-delete" type="button" title="이 기록 지우기" aria-label="이 기록 지우기">×</button>' : ''}
         <span class="slot-time">${timeLabel}</span>
@@ -1316,90 +1323,21 @@ function gcalEventToSlotRange(ev) {
 
 // ─── 셀 이벤트 (drop, mousedown-drag, click) ───
 function bindCellEvents(col, lane) {
+    // (v116) drag&drop 자리잡힘 X — 사용자 신고 #8 "그 모션은 없어도 될 거같아" 정합
     col.querySelectorAll('.utl-cell').forEach(cell => {
-        // 드래그 인 - 결단 카드 / 워크플로우 스텝을 받기 (plan 레인만)
-        cell.addEventListener('dragover', (e) => {
-            if (lane !== 'plan') return;
-            const types = e.dataTransfer.types;
-            if (!types.includes('application/x-sanctum-decision') &&
-                !types.includes('application/x-sanctum-slot') &&
-                !types.includes('application/x-sanctum-workflow-step')) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            cell.classList.add('drop-target');
-        });
-        cell.addEventListener('dragleave', () => cell.classList.remove('drop-target'));
-        cell.addEventListener('drop', async (e) => {
-            cell.classList.remove('drop-target');
-            if (lane !== 'plan') return;
-            e.preventDefault();
-            const slot = parseInt(cell.dataset.slot);
-            const decisionId = e.dataTransfer.getData('application/x-sanctum-decision');
-            const slotMoveId = e.dataTransfer.getData('application/x-sanctum-slot');
-            const workflowStepRaw = e.dataTransfer.getData('application/x-sanctum-workflow-step');
-
-            const dek = getDEK();
-            if (!dek) { showToast('잠시 잠겨 있어요. 비밀번호로 열어 주실래요?'); return; }
-
-            try {
-                if (workflowStepRaw) {
-                    // 워크플로우 스텝 드롭 — 도트 즉시 생성 (워크플로우 트랙 STEP 2)
-                    let payload = null;
-                    try { payload = JSON.parse(workflowStepRaw); } catch {}
-                    if (payload?.workflowId && payload?.stepId) {
-                        const { createDotFromStep } = await import('./workflows.js');
-                        await createDotFromStep({
-                            workflowId: payload.workflowId,
-                            stepId: payload.stepId,
-                            parentGoalId: payload.parentGoalId || null,
-                            slot,
-                            date: _date
-                        });
-                        // createDotFromStep 내부에서 onDotCreated 콜백으로 timeline 갱신됨.
-                        // 추가로 refresh 한 번 더 → 동기화 안정성.
-                        await refreshTimeline({ userId: _userId, date: _date });
-                        if (_onChange) await _onChange({ type: 'refresh' });
-                        return;
-                    }
-                }
-                if (decisionId) {
-                    let d = _decisions.find(x => x.id === decisionId);
-                    if (!d) {
-                        const all = await getDailyGoals(dek, _userId);
-                        d = all.find(x => x.id === decisionId);
-                    }
-                    if (d) {
-                        await placeGoal(dek, d, slot, d.durationSlots || 4);
-                    } else {
-                        showToast('이 목표를 찾지 못했어요. 한 번만 더 옮겨 주실래요?');
-                    }
-                } else if (slotMoveId) {
-                    let d = _decisions.find(x => x.id === slotMoveId);
-                    if (!d) {
-                        const all = await getDailyGoals(dek, _userId);
-                        d = all.find(x => x.id === slotMoveId);
-                    }
-                    if (d) await placeGoal(dek, d, slot, d.durationSlots || 4);
-                }
-                await refreshTimeline({ userId: _userId, date: _date });
-                if (_onChange) await _onChange({ type: 'refresh' });
-            } catch (err) {
-                console.error('drop failed:', err);
-                showToast('옮기는 중에 잠깐 막혔어요. 한 번만 더 시도해 주실래요?');
-            }
-        });
-
-        // actual 레인 빈 셀: mousedown → 드래그로 시간 범위 선택 → 인라인 입력
+        // actual 레인 빈 셀: mousedown → 드래그로 시간 범위 선택 → 인라인 입력 (어제·오늘만)
         cell.addEventListener('mousedown', (e) => {
             if (lane !== 'actual') return;
             if (e.button !== 0) return;
             if (e.target.closest('.utl-slot')) return;
+            const day = cell.dataset.day;
+            if (day === 'tomorrow') return; // 내일 자리 = 자리잡힘 X
             e.preventDefault();
             const slot = parseInt(cell.dataset.slot);
             startActualCreateDrag(col, cell, slot);
         });
 
-        // (v115) plan 레인 빈 셀 click → 드롭다운 (모바일 결 정합) — 오늘 자리만
+        // (v115) plan 레인 빈 셀 click → 드롭다운 (모바일 결 정합)
         cell.addEventListener('click', (e) => {
             if (lane !== 'plan') return;
             if (e.target.closest('.utl-slot')) return;
@@ -1420,20 +1358,8 @@ function bindCellEvents(col, lane) {
         });
     });
 
-    // 슬롯 자체 — 클릭/리사이즈/삭제/드래그-이동
+    // 슬롯 자체 — 클릭/리사이즈/삭제 (v116: dragstart·dragend 자리잡힘 X)
     col.querySelectorAll('.utl-slot').forEach(slot => {
-        // 본문 드래그 시작 (시간 이동) — plan 레인의 결단 슬롯만
-        slot.addEventListener('dragstart', (e) => {
-            const did = slot.dataset.decisionId;
-            if (!did) { e.preventDefault(); return; }
-            e.dataTransfer.setData('application/x-sanctum-slot', did);
-            e.dataTransfer.effectAllowed = 'move';
-            slot.classList.add('dragging');
-        });
-        slot.addEventListener('dragend', () => {
-            slot.classList.remove('dragging');
-        });
-
         // (v115) 인라인 4상태 평가 버튼 — actual 슬롯 자리잡힙
         slot.querySelectorAll('.slot-eval-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {

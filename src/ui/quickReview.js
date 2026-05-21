@@ -203,6 +203,11 @@ function renderModal() {
     modal.className = 'modal-overlay hidden';
     modal.innerHTML = `
         <div class="modal-content qr-modal-content">
+            <!-- (v116) 텍스트 입력박스 = 모달 최상단 자리잡힙. "뭐 했어요?" 라벨 자리잡힘 X -->
+            <div class="qr-field qr-actual-field">
+                <input type="text" id="qr-actual-input" class="qr-text-input qr-actual-input-top" placeholder="이 시간에 뭐 했는지 적어 주세요" />
+            </div>
+
             <div class="qr-header">
                 <h3>이 시간, 어땠나요?</h3>
                 <span id="qr-planned-task" class="qr-planned-label"></span>
@@ -254,11 +259,7 @@ function renderModal() {
                 ).join('')}
             </div>
 
-            <!-- (v114) "실제로 한 일" 자리 = 자세히 밖 기본 자리잡힙 (사용자 신고 v113 #5 자리 — 기록 리뷰 입력 자리 자리잡혀 X 해소) -->
-            <div class="qr-field qr-actual-field">
-                <label>뭐 했어요?</label>
-                <input type="text" id="qr-actual-input" class="qr-text-input" placeholder="이 시간에 뭐 했는지 적어 주세요" />
-            </div>
+            <!-- (v116) "뭐 했어요?" 라벨 + 입력 자리잡힘 X — 모달 최상단으로 자리잡힙 (사용자 신고 v115 #6) -->
 
             <button id="qr-detail-toggle" class="qr-toggle-btn">조금 더 자세히 ▼</button>
 

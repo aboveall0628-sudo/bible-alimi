@@ -312,13 +312,16 @@
                     <div class="section-header-flex">
                         <h2 class="section-title"><i class="section-icon" data-lucide="hand-heart"></i> 기도</h2>
                         <span id="prayer-save-status" style="font-size:11px;color:var(--ink-secondary)"></span>
-                        <button class="collapsible-toggle" data-target="prayer-note">접기</button>
+                        <button class="collapsible-toggle" data-target="prayer-body">접기</button>
                     </div>
-                    <div id="prayer-note" class="note-editor collapsible-body" contenteditable="true" spellcheck="false" data-placeholder="오늘 떠오른 기도를 자유롭게 적어 보세요. 비워둬도 괜찮아요."></div>
-                    <label class="prayer-check-row">
-                        <input type="checkbox" id="prayer-after-checkbox">
-                        <span>잠시 기도시간을 가졌어요</span>
-                    </label>
+                    <!-- (2026-05-21 v128) 카드 접으면 체크박스도 함께 사라지게 wrapper 자리잡힘 -->
+                    <div id="prayer-body" class="collapsible-body">
+                        <div id="prayer-note" class="note-editor" contenteditable="true" spellcheck="false" data-placeholder="오늘 떠오른 기도를 자유롭게 적어 보세요. 비워둬도 괜찮아요."></div>
+                        <label class="prayer-check-row">
+                            <input type="checkbox" id="prayer-after-checkbox">
+                            <span>잠시 기도시간을 가졌어요</span>
+                        </label>
+                    </div>
                 </section>
 
                 <!-- 등산로(워크플로우) — 워크플로우 트랙 STEP 2 (2026-05-13)
@@ -369,8 +372,8 @@
                     <div id="unified-timeline" class="unified-timeline collapsible-body">
                         <div class="utl-header">
                             <span>시간</span>
-                            <span>계획 (결단 · 캘린더)</span>
-                            <span>실제 (지난 일)</span>
+                            <span>계획</span>
+                            <span>기록</span>
                         </div>
                         <div id="utl-body" class="utl-body"></div>
                         <div id="utl-mobile-list" class="utl-mobile-list"></div>
