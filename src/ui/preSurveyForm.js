@@ -221,7 +221,7 @@ let _escHandler = null;
 let _onComplete = null;
 
 // ─── 진입점 ─────────────────────────────────────────────────
-export async function openPreSurveyForm({ userContext = {}, userId = null, nickname = '', onComplete = null } = {}) {
+export async function openPreSurveyForm({ userContext = {}, userId = null, nickname = '', onComplete = null, demoMode = false } = {}) {
     if (_backdropEl) return;
 
     // (2026-05-20 Phase 2) userId fallback — 호출자가 자리잡지 못해도 window.currentUserId 자리
@@ -242,9 +242,10 @@ export async function openPreSurveyForm({ userContext = {}, userId = null, nickn
     backdrop.className = 'presurvey-backdrop';
     backdrop.setAttribute('role', 'dialog');
     backdrop.setAttribute('aria-modal', 'true');
+    // (v123 2026-05-21) 사용자 명시 "X 빼야". 시연 모드(demoMode=true)에서만 X 노출.
     backdrop.innerHTML = `
         <div class="presurvey-modal" id="presurvey-modal">
-            <button type="button" class="presurvey-close-temp" id="presurvey-close-btn" aria-label="시안 닫기 (베타에서는 없어요)">×</button>
+            ${demoMode ? `<button type="button" class="presurvey-close-temp" id="presurvey-close-btn" aria-label="시연 닫기">×</button>` : ''}
             <div class="onboarding-stepper presurvey-stepper" id="presurvey-stepper" aria-label="진행도">
                 ${Array.from({ length: QUESTIONS.length }, (_, i) => i + 1).map(n =>
                     `<span class="onboarding-step-dot${n === 1 ? ' active' : ''}" data-step="${n}"></span>`
@@ -257,12 +258,13 @@ export async function openPreSurveyForm({ userContext = {}, userId = null, nickn
     document.body.appendChild(backdrop);
     _backdropEl = backdrop;
 
-    document.getElementById('presurvey-close-btn').addEventListener('click', closeForm);
-
-    _escHandler = (e) => {
-        if (e.key === 'Escape') closeForm();
-    };
-    document.addEventListener('keydown', _escHandler);
+    if (demoMode) {
+        document.getElementById('presurvey-close-btn')?.addEventListener('click', closeForm);
+        _escHandler = (e) => {
+            if (e.key === 'Escape') closeForm();
+        };
+        document.addEventListener('keydown', _escHandler);
+    }
 
     // Phase 2-1: 시작 시 일괄 호출로 12 질문 SWAN 톤 발화 캐싱.
     // 호출 진행 중엔 로딩 카드 노출. 끝나면 첫 카드 자연 전환.

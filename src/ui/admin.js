@@ -162,14 +162,15 @@ export function renderAdminView(container) {
     }
 
     // (2026-05-19 후속) 사전·사후 설문 단독 테스트 + 전체 가입 흐름 — settings 자리에서 통합
+    // (v123 2026-05-21) 운영자 시연 자리만 X 닫기 자리잡힘 — demoMode: true.
     container.querySelector('#admin-start-presurvey-btn')?.addEventListener('click', () => {
         if (typeof window.__sanctumOpenPreSurveyForm === 'function') {
-            window.__sanctumOpenPreSurveyForm();
+            window.__sanctumOpenPreSurveyForm({ demoMode: true });
         }
     });
     container.querySelector('#admin-start-postsurvey-btn')?.addEventListener('click', () => {
         if (typeof window.__sanctumOpenPostSurveyForm === 'function') {
-            window.__sanctumOpenPostSurveyForm();
+            window.__sanctumOpenPostSurveyForm({ demoMode: true });
         }
     });
     // (2026-05-20 v104) 전체 가입 흐름 = 랜딩페이지부터 시작.
