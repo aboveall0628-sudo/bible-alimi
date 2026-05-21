@@ -51,15 +51,13 @@ import { attachDrillDown } from './reportDrillDown.js';
 import { mountReportQna } from './reportQna.js';
 // STEP A-6: 시간순 도트 펼치기 — reports.js 와 같은 토글 재사용
 import { renderDotsTimelineDetails } from './reports.js';
-// (2026-05-21 v112 묵상 시점 루프 시작점 트랙) 시점 휴리스틱·timeSlot·안내 모달
+// (2026-05-21 v120 묵상 시점 루프 시작점 트랙 — 다이어트) 시스템 내부 자리만 유지.
+//   사용자 노출 결(토글 카드·안내 모달) 폐기 — 사용자 명시 "시스템에서만 인식되면 되는거 아닐까".
+//   학습 데이터(meditationTime·timeSlot) 자리는 그대로 누적.
 import {
-    getLoopStartHint,
-    resolveTargetDate,
     currentLocalHHMM,
     currentTimeSlot,
     DEFAULT_MEDITATION_DURATION_SLOTS,
-    hasSeenLoopStartIntro,
-    showLoopStartIntroModal,
 } from './loopStartPoint.js';
 
 let _userId = null;
@@ -85,8 +83,6 @@ export async function refreshTodayView({ userId, date }) {
     _userId = userId;
     _date = date;
     renderEveningBanner();
-    // (2026-05-21 v112 묵상 시점 루프 시작점 트랙) "지금부터 계획하기" CTA 카드
-    renderLoopStartCta();
     const dek = getDEK();
     if (!dek) return;
     await loadPinnedPrinciple(dek);
@@ -1316,16 +1312,6 @@ async function saveMeditationDoc() {
             } catch (e) {
                 console.warn('[saveMeditationDoc] auto-dot failed:', e?.message || e);
             }
-
-            // (2026-05-21 v112 묵상 시점 루프 시작점 트랙) 기존 사용자 1회 안내 모달.
-            //   첫 묵상 저장 후 1회만 노출. localStorage 플래그로 한 번만 자리잡힘.
-            //   기획 자리 ⑧ — 새 결 자리잡혔다는 알림.
-            if (!hasSeenLoopStartIntro()) {
-                showLoopStartIntroModal().catch(() => {});
-            }
-
-            // CTA 카드 갱신 (시점·hint 결 새로 자리잡힘)
-            renderLoopStartCta();
         }
 
         // (2026-05-20 v95) "안전하게 보관됐어요" 자리 자리잡지 X — 자연 자동 저장 결.
@@ -1416,131 +1402,9 @@ function bindEveningBannerDismiss() {
     });
 }
 
-// ═════════════════════════════════════════════════════════════════
-// (2026-05-21 v112 묵상 시점 루프 시작점 트랙) "지금부터 계획하기" CTA 카드
-// ═════════════════════════════════════════════════════════════════
-//   자리 ④·⑤ 한 결로 묶임 — 묵상 후·묵상 전 모두 같은 카드.
-//   현재 시간 휴리스틱으로 디폴트 [오늘]/[내일]/[둘 다] 자리잡힘.
-//   클릭 시: 미션 트리거 + 결단·시간표 자리로 스크롤 + 사용자 결 누적.
-//   기획: docs/backlog/묵상시점_루프시작점_기획서_v1.md
-function renderLoopStartCta() {
-    // 첫 진입 시 section 자리잡기 (section-prayer 다음)
-    let host = document.getElementById('section-loop-start-cta');
-    if (!host) {
-        const prayerSection = document.getElementById('section-prayer');
-        if (!prayerSection) return; // 오늘 뷰 안에서만 자리잡힘
-        host = document.createElement('section');
-        host.id = 'section-loop-start-cta';
-        host.className = 'card-section loop-start-section';
-        prayerSection.insertAdjacentElement('afterend', host);
-    }
-
-    const hint = getLoopStartHint();
-    const isBoth = hint.defaultTarget === 'both';
-    const hhmm = currentLocalHHMM();
-
-    const headerHtml = `
-        <div class="section-header-flex">
-            <h2 class="section-title"><i class="section-icon" data-lucide="rotate-cw"></i> 지금부터 계획하기</h2>
-            <span class="loop-start-hint">${hhmm}</span>
-        </div>
-    `;
-
-    if (isBoth) {
-        // 정오·오후 (12~17시): 두 카드 동시 노출 (R2-Q2 A 결)
-        host.innerHTML = `
-            ${headerHtml}
-            <p class="section-desc">한참 진행 중인 자리예요. 오늘 남은 시간 또는 내일 미리, 어느 결로 자리잡으실래요?</p>
-            <div class="loop-start-grid">
-                <button class="loop-start-card" data-target="today">
-                    <div class="loop-start-card-icon">🌤</div>
-                    <div class="loop-start-card-label">오늘 남은 시간</div>
-                    <div class="loop-start-card-desc">지금부터 잠 전까지</div>
-                </button>
-                <button class="loop-start-card" data-target="tomorrow">
-                    <div class="loop-start-card-icon">🌅</div>
-                    <div class="loop-start-card-label">내일 하루</div>
-                    <div class="loop-start-card-desc">다음 깨어있는 자리 미리</div>
-                </button>
-            </div>
-        `;
-    } else {
-        // 그 외 시간대: 단일 카드 + 위 토글
-        const isToday = hint.defaultTarget === 'today';
-        const desc = hint.bucket === 'morning'   ? '오늘 하루 자리잡기'
-                   : hint.bucket === 'midnight'  ? '오늘 남은 시간 자리잡기'
-                   : hint.bucket === 'evening'   ? '내일 하루 미리 자리잡기'
-                   : '계획하기';
-        host.innerHTML = `
-            ${headerHtml}
-            <div class="loop-start-toggle">
-                <button class="loop-start-toggle-btn ${isToday ? 'active' : ''}" data-target="today">🌤 오늘</button>
-                <button class="loop-start-toggle-btn ${!isToday ? 'active' : ''}" data-target="tomorrow">🌅 내일</button>
-            </div>
-            <div class="loop-start-single">
-                <span class="loop-start-single-desc">${desc}</span>
-                <button class="loop-start-single-btn primary-btn" data-target="${hint.defaultTarget}">지금부터 →</button>
-            </div>
-        `;
-    }
-
-    // 토글 클릭 — 디폴트 갈아끼움 (단일 카드 결)
-    host.querySelectorAll('.loop-start-toggle-btn').forEach(btn => {
-        btn.onclick = () => {
-            const target = btn.dataset.target;
-            host.querySelectorAll('.loop-start-toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
-            const mainBtn = host.querySelector('.loop-start-single-btn');
-            const descEl  = host.querySelector('.loop-start-single-desc');
-            if (mainBtn) mainBtn.dataset.target = target;
-            if (descEl) descEl.textContent = target === 'today' ? '오늘 자리잡기' : '내일 자리잡기';
-        };
-    });
-
-    // 메인 버튼 / 두 카드 클릭 — 미션 트리거 + 스크롤
-    host.querySelectorAll('.loop-start-single-btn, .loop-start-card').forEach(el => {
-        el.onclick = () => _onLoopStartClick(el.dataset.target);
-    });
-
-    // lucide 아이콘 자리잡힘
-    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
-}
-
-async function _onLoopStartClick(target) {
-    if (!target) return;
-
-    // 1) 사용자 결 누적 — 2차 베타 학습 데이터 자리
-    try {
-        sessionStorage.setItem('sanctum.planTarget', target);
-        sessionStorage.setItem('sanctum.planTargetAt', new Date().toISOString());
-    } catch (_) { /* ignore */ }
-
-    // 2) 미션 트리거 — plan_first_toggle (idempotent)
-    try {
-        const dek = getDEK();
-        if (dek && _userId) {
-            const { markMissionComplete } = await import('../data/personRepo.js');
-            await markMissionComplete(dek, _userId, 'plan_first_toggle', {
-                signal: `loopStartCta:${target}`,
-            });
-        }
-    } catch (e) {
-        console.warn('[loopStartCta] mission trigger failed:', e?.message || e);
-    }
-
-    // 3) 결단·시간표 자리로 부드러운 스크롤
-    const decisionsSection = document.getElementById('section-decisions');
-    if (decisionsSection) {
-        decisionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // 4) [내일] 결 안내 — 1차 베타엔 화면 자체 갈아끼움 X.
-    //    2차 베타에서 실제 _date 갈아끼움·"내일 화면" 자리 자리잡힘 예정.
-    if (target === 'tomorrow') {
-        showToast('내일 계획 자리는 다음 자리잡힘에서 더 자연스러워질 거예요. 결은 기록해뒀어요.', { duration: 3500 });
-    } else {
-        showToast('계획 자리로 자리잡혔어요.', { duration: 1800 });
-    }
-}
+// (2026-05-21 v120) 토글 카드·CTA 폐기 — 사용자 명시 "시스템에서만 인식되면 되는거 아닐까".
+//   사용자 노출 결 통째 제거, 시스템 내부 자리(meditationTime·자동 도트 timeSlot)만 그대로.
+//   학습 데이터 누적은 saveMeditationDoc 안에서 자기 결로 자리잡힘.
 
 // ─── 결단 패널 ───
 function bindDecisionsPanel() {

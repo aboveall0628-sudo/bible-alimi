@@ -1,14 +1,13 @@
 /**
- * loopStartPoint.js — 묵상 시점에 따른 루프 시작점 결정 헬퍼
+ * loopStartPoint.js — 묵상 시점에 따른 루프 시작점 결정 헬퍼 (시스템 내부 자리만)
  *
- * (2026-05-21 v112 묵상 시점 루프 시작점 트랙) 사용자 명시:
- *   "아침에 하는 사람은 당일 계획, 저녁에 하는 사람은 다음날 계획"
- *   "사용자가 이용하는 시간에 맞춰서 다음 순간을 계획하게 만들어줘야"
+ * (2026-05-21 v120 다이어트) 사용자 명시 "시스템에서만 인식되면 되는거 아닐까".
+ *   사용자 노출 결(토글 카드·안내 모달) 폐기. 시스템 내부 자리만 유지:
+ *   - meditationTime 평문 저장 (HH:MM)
+ *   - 자동 도트 timeSlot 자동 자리잡힘
+ *   - getLoopStartHint 헬퍼 (학습 자리·미래 분기용)
  *
- * 핵심 결: "자기 리듬을 시스템이 입력 없이 알아채는 결".
- *   사용자 수면 시간대 입력 X. 묵상 시점 시간만으로 휴리스틱 분기.
- *
- * 4 buckets (R2 합의):
+ * 4 buckets (R2 합의 — 학습 자리 결로 유지):
  *   5~12시  → 오늘 시작     → 'today'    (오늘 계획)
  *   12~17시 → 한참 진행 중  → 'both'     (오늘 + 내일 둘 다)
  *   17~24시 → 자기 전 결    → 'tomorrow' (내일 계획)
@@ -95,79 +94,5 @@ export function currentTimeSlot() {
  */
 export const DEFAULT_MEDITATION_DURATION_SLOTS = 4;
 
-// ─── 1회 안내 모달 (기존 사용자에게 새 결 알림) ─────────────
-const INTRO_SEEN_KEY = 'sanctum.loopStartPoint.intro.v1.seen';
-
-/**
- * 안내 1회 노출 여부.
- */
-export function hasSeenLoopStartIntro() {
-    try {
-        return localStorage.getItem(INTRO_SEEN_KEY) === '1';
-    } catch (_) {
-        return true; // localStorage 차단 자리 = 안내 안 띄움 (안전)
-    }
-}
-
-/**
- * 안내 본 표시.
- */
-export function markLoopStartIntroSeen() {
-    try {
-        localStorage.setItem(INTRO_SEEN_KEY, '1');
-    } catch (_) { /* ignore */ }
-}
-
-/**
- * 안내 모달 자리잡기. 다음 묵상 끝 자리에서 1회만.
- *   사용자가 닫으면 markLoopStartIntroSeen 자동 호출.
- *
- * @returns {Promise<void>}
- */
-export function showLoopStartIntroModal() {
-    return new Promise(resolve => {
-        if (hasSeenLoopStartIntro()) {
-            resolve();
-            return;
-        }
-        // 중복 자리 방지
-        document.getElementById('loop-start-intro-modal')?.remove();
-
-        const overlay = document.createElement('div');
-        overlay.id = 'loop-start-intro-modal';
-        overlay.className = 'lock-screen-overlay';
-        overlay.innerHTML = `
-            <div class="lock-screen-box" style="max-width: 440px;">
-                <div class="lock-icon">🔄</div>
-                <h2>계획 자리가 자리잡혔어요</h2>
-                <p class="lock-subtitle" style="text-align:left; font-size:13px; line-height:1.65;">
-                    이제 묵상 끝나면 <strong>지금부터 계획하기</strong> 자리가 자연 자리잡혀요.<br><br>
-                    묵상한 시간에 맞춰 시스템이 <strong>[오늘]</strong>·<strong>[내일]</strong> 디폴트를 자기 결로 알아채고,
-                    원하시면 한 번 톡으로 갈아끼울 수 있어요.
-                </p>
-                <div style="background:var(--bg-elev); border-radius:8px; padding:12px 14px; margin: 12px 0; text-align:left; font-size:12px; line-height:1.7; color:var(--text-secondary);">
-                    🌅 새벽·아침 묵상 → 오늘 계획<br>
-                    ☀️ 정오·오후 묵상 → 오늘 + 내일 둘 다<br>
-                    🌇 저녁 묵상 → 내일 계획<br>
-                    🌙 심야 묵상 → 오늘 계획
-                </div>
-                <p style="font-size:11px; color:var(--text-secondary); text-align:left; margin: 8px 0 16px;">
-                    ※ 묵상한 시간도 시간표에 자동 자리잡혀요. 자기 리듬 자리잡혀가요.
-                </p>
-                <button id="loop-start-intro-close" class="primary-btn" style="width:100%;">알겠어요</button>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-        requestAnimationFrame(() => overlay.classList.add('is-visible'));
-
-        const close = () => {
-            markLoopStartIntroSeen();
-            overlay.classList.remove('is-visible');
-            setTimeout(() => {
-                overlay.remove();
-                resolve();
-            }, 240);
-        };
-        overlay.querySelector('#loop-start-intro-close').onclick = close;
-    });
-}
+// (2026-05-21 v120 다이어트) 1회 안내 모달·INTRO_SEEN 플래그 통째 폐기.
+//   사용자 명시 "시스템에서만 인식되면 되는거 아닐까" — 사용자 노출 자리 X.
