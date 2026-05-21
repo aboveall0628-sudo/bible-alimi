@@ -9,7 +9,7 @@ import {
     IS_DEV_ENV, ENV_LABEL,
 } from '../data/firebase.js';
 import { setupNewVault, unlockVault, recoverWithWords, KDF_PARAMS } from '../crypto/keyManager.js';
-import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen, getDEK } from './lockScreen.js';
+import { initLockScreen, setUnlocked, lock, showLockError, showLockScreen, hideLockScreen, getDEK, tryRestoreDEKFromSession } from './lockScreen.js';
 import { attachSidebarLockGuard, refreshMissionGateUI, bindMissionUnlockListener } from './missionGate.js';
 import { initAuth, showSetupScreen, hideSetupScreen, showGoogleLoginScreen, hideGoogleLoginScreen, showPasswordMigrationModal, showEmailRecoveryMigrationModal } from './auth.js';
 import { isEmailRecoveryRegistered } from '../crypto/emailRecoverySlot.js';
@@ -271,6 +271,17 @@ async function init() {
         startHidden: true // 부팅 제어권을 app.js가 가짐
     });
 
+    // (v134 2026-05-22) 사용자 결정 — 새로고침해도 잠금 안 풀리도록 sessionStorage 안 DEK 복원 시도.
+    //   탭 닫으면 sessionStorage 자동 비움 = 새 탭·새 창은 다시 잠금.
+    try {
+        const restoredDek = await tryRestoreDEKFromSession();
+        if (restoredDek) {
+            setUnlocked(restoredDek);
+        }
+    } catch (e) {
+        console.warn('[app] DEK 복원 실패 (무시):', e?.message || e);
+    }
+
     // 2. 인증 모듈 초기화
     initAuth({
         onSetupComplete: (dek, opts = {}) => {
@@ -433,12 +444,42 @@ function setupBrowserNav() {
         // 첫 entry 덮어쓰기 — 랜딩 또는 외부에서 들어온 자리를 sanctum 자리로.
         //   첫 view 는 'today' 로 가정. 실제 첫 switchView 가 자연 갱신.
         if (!history.state || !history.state.sanctum) {
-            history.replaceState({ sanctum: true, view: 'today' }, '', location.pathname + location.search);
+            history.replaceState({ sanctum: true, view: 'today', sentinel: true }, '', location.pathname + location.search);
         }
+        // (v134 2026-05-22) sentinel entry 추가 — 사용자 뒤로가기 1번 시 popstate 발화 자리 만들기.
+        //   사용자 보고 "뒤로가기 한 번 = 그냥 종료, 토스트 안 옴" = history에 sanctum entry 1개만 있어서
+        //   뒤로가기가 브라우저 자체 종료로 자기. sentinel + 일반 entry 2개 있어야 1번 뒤로가기 시
+        //   sentinel로 popstate → 토스트.
+        history.pushState({ sanctum: true, view: 'today' }, '', location.pathname + location.search);
     } catch (_) {}
 
     window.addEventListener('popstate', (e) => {
-        const target = e.state && e.state.sanctum && e.state.view;
+        const isSanctum = !!(e.state && e.state.sanctum);
+        const isSentinel = !!(e.state && e.state.sentinel);
+        const target = isSanctum && e.state.view;
+
+        // (v134) sentinel entry로 뒤로가기 = 사용자가 종료하려는 결.
+        //   첫 번째: 토스트 + push back 자기 결로 자리. 두 번째 (3초 안): 자연 외부.
+        if (isSentinel) {
+            if (_backExitPending) {
+                // 두 번째 뒤로가기 — trap 안 함. 한 번 더 history.back() 결로 자연 종료.
+                _backExitPending = false;
+                clearTimeout(_backExitTimer);
+                try { history.back(); } catch {}
+                return;
+            }
+            _backExitPending = true;
+            try {
+                history.pushState({ sanctum: true, view: getLastView() }, '', location.pathname + location.search);
+            } catch (_) {}
+            import('./quickReview.js').then(({ showToast }) => {
+                showToast('한 번 더 뒤로가기를 누르면 앱을 나가요');
+            }).catch(() => {});
+            clearTimeout(_backExitTimer);
+            _backExitTimer = setTimeout(() => { _backExitPending = false; }, 3000);
+            return;
+        }
+
         if (target) {
             // sanctum 자리 (정상 nav) — switchView 자연 자리잡힘.
             _navSilent = true;
@@ -447,27 +488,11 @@ function setupBrowserNav() {
             return;
         }
 
-        // (v131) sanctum 자리 아닌 entry — 외부 자리로 나가려 함.
-        if (_backExitPending) {
-            // 두 번째 뒤로가기 (3초 안) = 진짜 종료. trap 안 자기 결로 자연 외부 자리.
-            _backExitPending = false;
-            clearTimeout(_backExitTimer);
-            return;
-        }
-
-        // 첫 번째 뒤로가기 — trap + 안내 토스트
-        _backExitPending = true;
+        // (v131) 비-sanctum 외부 entry — push back 자기 결로 자리.
         try {
             const restoreView = getLastView();
             history.pushState({ sanctum: true, view: restoreView }, '', location.pathname + location.search);
         } catch (_) {}
-
-        import('./quickReview.js').then(({ showToast }) => {
-            showToast('한 번 더 뒤로가기를 누르면 앱을 나가요');
-        }).catch(() => {});
-
-        clearTimeout(_backExitTimer);
-        _backExitTimer = setTimeout(() => { _backExitPending = false; }, 3000);
     });
 }
 

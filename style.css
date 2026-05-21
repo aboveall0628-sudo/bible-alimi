@@ -3949,7 +3949,11 @@ html[data-note-font="serif"] .note-editor h3 {
          7) + FAB 자리 폐기 (SWAN 톡 자리와 충돌)
        기존 utl-mobile-tabs·utl-mobile-card·utl-mobile-guide-* CSS dead — 1.3차에 정리
        ═══════════════════════════════════════════════════════ */
-    /* 시간표 카드 padding 자리잡힙 (모바일) — 카드 안 카드 답답 자리 해소 */
+    /* (v134 2026-05-22) 사용자 보고: 모바일에서 카드 안 읽고 쓰는 공간이 답답 + 시간표만 폭 다름.
+       모든 #view-today 카드 padding을 시간표와 동일하게(var(--sp-2)) 통일. */
+    #view-today .card-section { padding: var(--sp-2); }
+    #view-today .card-section .section-header-flex { padding: 0 var(--sp-2); margin-bottom: var(--sp-2); }
+    /* 시간표 카드는 위 규칙으로 자연 자리. 기존 명시 자리는 fallback 결로 그대로 둠. */
     #section-timeline.card-section { padding: var(--sp-2); }
     #section-timeline .section-header-flex { padding: 0 var(--sp-2); margin-bottom: var(--sp-2); }
     .utl-mobile-list {
@@ -10776,7 +10780,8 @@ button.mission-progress-block:hover {
     max-width: 80%;
     padding: 9px 13px;
     border-radius: 12px;
-    font-size: 14px;
+    /* (v133 2026-05-22) 사용자 점검 "폰트 크기 선택하면 채팅에도 폰트 크기가 따라와야" — 시스템 폰트 토큰 결로 갈음 */
+    font-size: var(--fs-body, 14px);
     line-height: 1.5;
     word-wrap: break-word;
     white-space: pre-wrap;
@@ -10814,7 +10819,8 @@ button.mission-progress-block:hover {
     background: var(--bg-card, #fff);
     border: 1px solid var(--accent, #1a1814);
     border-radius: 999px;
-    font-size: 13px;
+    /* (v133 2026-05-22) 시스템 폰트 토큰 결로 갈음 */
+    font-size: var(--fs-small, 13px);
     color: var(--accent, #1a1814);
     cursor: pointer;
     transition: background var(--ease, 200ms), color var(--ease, 200ms);
@@ -10876,7 +10882,8 @@ button.mission-progress-block:hover {
     border: 1px solid var(--border, rgba(0,0,0,0.12));
     border-radius: 10px;
     padding: 10px 12px;
-    font-size: 14px;
+    /* (v133 2026-05-22) 시스템 폰트 토큰 결로 갈음 */
+    font-size: var(--fs-body, 14px);
     font-family: inherit;
     line-height: 1.5;
     background: var(--bg-card, #fff);
@@ -10897,7 +10904,8 @@ button.mission-progress-block:hover {
     padding: 10px 16px;
     background: var(--accent, #1a1814);
     color: var(--bg-card, #fff);
-    font-size: 14px;
+    /* (v133 2026-05-22) 시스템 폰트 토큰 결로 갈음 */
+    font-size: var(--fs-body, 14px);
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -11609,6 +11617,9 @@ html[data-accent="beige"] .onboarding-swan-bubble {
     font-size: 0.95em;  /* (v83) px → em 결 — systemFont scale 자연 따라가요 */
     line-height: 1.55;
     color: var(--ink, #2a2a2a);
+    /* (v134 2026-05-22) 한국어 단어 어색하게 끊기지 않게 — keep-all 결로 자연 줄바꿈 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 .onboarding-swan-intro-meta {
     margin: 16px 0 0;

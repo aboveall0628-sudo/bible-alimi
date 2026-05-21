@@ -12,6 +12,49 @@ let _onUnlock = null; // 콜백
 let _onLock = null;
 let _timerInterval = null;
 
+// (v134 2026-05-22) 사용자 결정 — 새로고침 시 잠금 풀고 싶음.
+//   DEK를 sessionStorage에 JWK 결로 임시 저장. 탭 닫으면 자동 비움.
+//   새로고침·내부 링크 이동에는 unlock 유지. 누가 같은 탭에서 새로고침해도 안 잠긴다는
+//   약점은 있지만, 그 시점엔 이미 화면 노출 = 더 큰 위험. UX 결로 적절.
+const SESSION_DEK_KEY = 'sanctum.session.dek.jwk';
+
+async function persistDEKToSession(dek) {
+    try {
+        const jwk = await crypto.subtle.exportKey('jwk', dek);
+        sessionStorage.setItem(SESSION_DEK_KEY, JSON.stringify(jwk));
+    } catch (e) {
+        console.warn('[lockScreen] persistDEKToSession 실패 (무시):', e?.message || e);
+    }
+}
+
+function clearSessionDEK() {
+    try { sessionStorage.removeItem(SESSION_DEK_KEY); } catch {}
+}
+
+/**
+ * 부팅 시 sessionStorage 안 DEK 있으면 복원 시도.
+ * @returns {Promise<CryptoKey|null>}
+ */
+export async function tryRestoreDEKFromSession() {
+    try {
+        const raw = sessionStorage.getItem(SESSION_DEK_KEY);
+        if (!raw) return null;
+        const jwk = JSON.parse(raw);
+        const dek = await crypto.subtle.importKey(
+            'jwk',
+            jwk,
+            { name: 'AES-GCM', length: 256 },
+            true,
+            ['encrypt', 'decrypt']
+        );
+        return dek;
+    } catch (e) {
+        console.warn('[lockScreen] tryRestoreDEKFromSession 실패:', e?.message || e);
+        clearSessionDEK();
+        return null;
+    }
+}
+
 /**
  * 초기화
  */
@@ -30,6 +73,8 @@ export function initLockScreen({ onUnlock, onLock, startHidden = false }) {
  */
 export function setUnlocked(dek) {
     _dek = dek;
+    // (v134) 새로고침 대비 sessionStorage 임시 보관 — 탭 닫으면 자동 비움
+    persistDEKToSession(dek);
     hideLockScreen();
     startTimerTick();
     showManualLockButton();
@@ -41,6 +86,7 @@ export function setUnlocked(dek) {
  */
 export function lock() {
     _dek = null;
+    clearSessionDEK();
     stopTimerTick();
     hideManualLockButton();
     showLockScreen();

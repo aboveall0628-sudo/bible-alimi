@@ -293,6 +293,17 @@ export async function showOnboardingModal({ userId, dek, onComplete, existingCar
     }
 
     renderStep(1);
+
+    // (v134 2026-05-22) 사용자 보고: 모바일 온보딩 진입 시 스크롤이 맨 위로 안 감.
+    //   backdrop·modal·window 셋 다 0으로 — 어디서 진입했든 맨 위부터 시작.
+    requestAnimationFrame(() => {
+        try {
+            backdrop.scrollTop = 0;
+            const modal = document.getElementById('onboarding-modal');
+            if (modal) modal.scrollTop = 0;
+            window.scrollTo(0, 0);
+        } catch {}
+    });
 }
 
 export function closeOnboardingModal() {
