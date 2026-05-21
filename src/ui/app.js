@@ -836,12 +836,13 @@ function setupNavigation() {
     //   잠긴 모듈 클릭을 가로채 미션 안내 모달을 띄움. 기존 click 핸들러보다 먼저 동작.
     const missionCtxGetter = () => ({ dek: getDEK(), userId: currentUserId });
     attachSidebarLockGuard(missionCtxGetter);
-    // 미션 클리어 즉시 사이드바·진행도·추천 카드 갱신 + 클리어 알림 카드.
-    //   (S-E6 2026-05-15) 사이드바 풋터 제거 — 대시보드 카드 3 + 잠긴 모달 추천 2 자리로 충분.
+    // (2026-05-21 v132) 사용자 명시 *"오늘 맨 위 카드 없애줘. 어차피 저거 SWAN으로 다 몰아서 만들거임"* —
+    //   진행도 도트·추천 카드 자리 자체 폐기. bindMissionUnlockListener 도 container id null 결로.
+    //   미션 클리어 자리잡힘은 그대로 (showMissionAchievement 자리 토스트만 자연 노출).
     bindMissionUnlockListener(
         missionCtxGetter,
-        'mission-progress-block',
-        'mission-recommend-cards',
+        null,
+        null,
         null
     );
 

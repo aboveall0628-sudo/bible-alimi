@@ -1999,22 +1999,21 @@ function renderScriptureSettingsHTML() {
         </div>
 
         <div class="setting-block" style="margin-top: var(--sp-4);">
-            <div class="setting-label">선택한 계획의 시작점</div>
-            <p class="setting-hint">"오늘부터 시편 1편" 같이 시작점을 직접 박을 수 있어요. 다음날부터 한 장씩 자동으로 넘어가요.</p>
+            <div class="setting-label">어디부터 읽을까요?</div>
+            <p class="setting-hint">처음 시작할 책과 장을 직접 골라요. 다음날부터는 자동으로 한 장씩 넘어가요.</p>
             <div id="scripture-anchor-panel" class="anchor-panel"></div>
         </div>
 
         <div class="settings-row" style="margin-top: var(--sp-4);">
             <div class="settings-row-text">
-                <h4 style="margin:0;font-size:14px;font-weight:600;">묵상 안 한 날 본문 미루기</h4>
+                <h4 style="margin:0;font-size:14px;font-weight:600;">묵상 못한 날은 그대로 두기</h4>
                 <p class="section-desc" style="margin-top:4px;">
-                    켜면 달력 자동 진행 대신, 각 파트마다 [이 장 다 읽었어요] 버튼을 눌러 "오늘 분량 끝" 도장을 찍어요.
-                    다음 장은 <strong>내일</strong> 들어왔을 때 자동으로 떠요. 안 누른 날은 같은 장이 계속 떠 있어요.
-                    켜는 순간의 위치는 "오늘 보일 장"으로 자동 시드돼서 진도가 갑자기 줄지 않아요.
+                    켜면 매일 한 장씩 다 읽었을 때만 넘어가요. 읽고 나서 [이 장 다 읽었어요]를 누르면 다음 날 자동으로 다음 장이 떠요.
+                    안 읽은 날은 같은 장이 그대로 기다려요.
                 </p>
                 <p style="margin-top:6px;">
                     <button id="scripture-reset-progress-btn" type="button" class="text-btn" style="font-size:12px;">
-                        ↻ 내 진도 위치 다시 잡기 (오늘 일정 기준)
+                        ↻ 진도 다시 맞추기 (오늘 날짜 기준)
                     </button>
                 </p>
             </div>
@@ -2026,8 +2025,8 @@ function renderScriptureSettingsHTML() {
 
         <div class="settings-row" style="margin-top: var(--sp-4);">
             <div class="settings-row-text">
-                <h4 style="margin:0;font-size:14px;font-weight:600;">매일성경 링크 보이기</h4>
-                <p class="section-desc" style="margin-top:4px;">본문 카드 맨 아래에 "매일성경에서 본문·해설 보기" 한 줄을 띄워요. 누르면 새 창에서 성서유니온 사이트로 이동해요.</p>
+                <h4 style="margin:0;font-size:14px;font-weight:600;">매일성경 사이트 링크 보기</h4>
+                <p class="section-desc" style="margin-top:4px;">말씀 카드 아래에 매일성경 사이트로 가는 링크를 보여줘요. 누르면 새 창에서 본문 해설을 볼 수 있어요.</p>
             </div>
             <label class="switch" for="daily-bible-link-toggle">
                 <input type="checkbox" id="daily-bible-link-toggle" ${cur.showDailyBibleLink ? 'checked' : ''}>
