@@ -702,6 +702,16 @@ function renderEssentials100ForDate(date, container) {
         ? track.themes[verse.theme].label
         : '';
 
+    // (2026-05-21 v131) 사용자 점검 "다음날 말씀은 27인데 절에 2라고 써있는거" — verse-num 자리 fix.
+    //   옛 결: verse-num = dayNumber(1~100) — 사용자 인지 어긋남(창세기 1:27인데 "2" 표기).
+    //   새 결: verse.ref(예: "창세기 1:27") 파싱 → 책 이름·장·절 자기 결로.
+    //     단일 절(:27) / 범위(:8~9) / 다중(:1~4) 모두 자기 결.
+    const refMatch = String(verse.ref || '').match(/^(.+?)\s+(\d+):([\d~,\s]+)$/);
+    const bookName = refMatch ? refMatch[1] : verse.ref;
+    const chapter  = refMatch ? refMatch[2] : '';
+    const verseLabel = refMatch ? refMatch[3].trim() : '';
+    const verseFirstNum = verseLabel ? parseInt(verseLabel, 10) || 0 : 0;
+
     partEl.innerHTML = `
         <div class="passage-container">
             <div class="passage-header">
@@ -710,11 +720,11 @@ function renderEssentials100ForDate(date, container) {
             </div>
             <div class="verse-list">
                 <div class="verse-item"
-                     data-abbr="${escapeAttr(verse.ref)}"
-                     data-full="${escapeAttr(verse.ref)}"
-                     data-chapter=""
-                     data-num="${dayNumber}">
-                    <span class="verse-num">${dayNumber}</span>
+                     data-abbr="${escapeAttr(bookName)}"
+                     data-full="${escapeAttr(bookName)}"
+                     data-chapter="${escapeAttr(chapter)}"
+                     data-num="${verseFirstNum}">
+                    <span class="verse-num">${escapeHtml(verseLabel)}</span>
                     <span class="verse-text">${escapeHtml(verse.text)}</span>
                 </div>
             </div>

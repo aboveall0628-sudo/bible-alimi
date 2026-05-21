@@ -1936,23 +1936,17 @@ function renderScriptureSettingsHTML() {
         </label>
     `).join('');
 
-    // 프리셋(묵상 계획) 라디오 카드 — 각 카드는 포함 파트의 이름도 작은 칩으로 보여줌
-    const planOptions = PRESETS.map(plan => {
-        const partChips = plan.parts.map(pid => {
-            const p = BIBLE_METADATA.parts.find(x => x.id === pid);
-            return p ? `<span class="plan-chip">${p.name.replace('파트', 'P')}</span>` : '';
-        }).join('');
-        return `
-            <label class="plan-option">
-                <input type="radio" name="scripture-plan" value="${plan.id}" ${cur.activePlanId === plan.id ? 'checked' : ''}>
-                <span class="plan-body">
-                    <span class="plan-title">${plan.name}</span>
-                    <span class="plan-desc">${plan.desc}</span>
-                    <span class="plan-chips">${partChips}</span>
-                </span>
-            </label>
-        `;
-    }).join('');
+    // (2026-05-21 v130) 프리셋 라디오 카드 — 사용자 명시 "칩 다 삭제, 심플하게".
+    //   plan.parts 칩(P1 시가서·P2 모세오경 등) 자리잡지 X. 제목 + desc 만 노출.
+    const planOptions = PRESETS.map(plan => `
+        <label class="plan-option">
+            <input type="radio" name="scripture-plan" value="${plan.id}" ${cur.activePlanId === plan.id ? 'checked' : ''}>
+            <span class="plan-body">
+                <span class="plan-title">${plan.name}</span>
+                <span class="plan-desc">${plan.desc}</span>
+            </span>
+        </label>
+    `).join('');
 
     // user plan 라디오 (Phase E-8/B-2)
     const userPlans = getUserPlans();
