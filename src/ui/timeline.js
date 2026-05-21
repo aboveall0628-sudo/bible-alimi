@@ -364,13 +364,16 @@ function renderMobile() {
     }
 
     // ── 계획 슬롯 ─────────
+    // (v112) 오늘 자리 계획 = 길이 드래그 + 길게 누름 삭제 자리잡힙 (사용자 신고 7·8 정합)
     const planSlotsHtml = showPlan ? planAll.map(p => {
         const top = p.slot * rowH;
         const height = Math.max(rowH, p.duration * rowH - 2);
         const decisionAttr = p.id ? `data-decision-id="${escapeHtml(p.id)}"` : '';
         const gcalCls = p.gcal ? ' gcal-source' : '';
-        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls} day-${p.day}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" data-day="${p.day}" ${decisionAttr}>
+        const isTodayPlan = p.day === 'today';
+        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls} day-${p.day}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" data-day="${p.day}" data-duration="${p.duration}" ${decisionAttr}>
             <span class="utl-mg-slot-label">${escapeHtml(p.label)}</span>
+            ${isTodayPlan ? '<span class="utl-mg-resize" aria-hidden="true"></span>' : ''}
         </div>`;
     }).join('') : '';
 
@@ -453,46 +456,12 @@ function renderMobile() {
     // ── 실제 슬롯: 인라인 4상태 + 리사이즈 + 길게 누름 ─────
     list.querySelectorAll('.utl-mg-slot-actual').forEach(card => bindActualSlot(card));
 
-    // ── 계획 슬롯: 톡 = 평가 진입 ──────────────────────
-    // 72시간 결 — day(yesterday/today/tomorrow) 자리 자리잡힘. 어제·내일 자리 = 보기만, 평가 자리 X (v111 1차)
-    list.querySelectorAll('.utl-mg-slot-plan').forEach(card => {
-        card.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const decisionId = card.dataset.decisionId;
-            const day = card.dataset.day;
-            // 어제·내일 자리 톡 = 안내만 (1차 — 평가 자리 자리잡힘 X)
-            if (day !== 'today') {
-                showToast(day === 'yesterday' ? '어제는 보기만 할 수 있어요' : '내일은 미리 보기예요');
-                return;
-            }
-            const absSlot = parseInt(card.dataset.slot ?? '', 10);
-            const slotInDay = absSlot - SLOTS_PER_DAY; // 오늘 기준 0~95
-            let decision = decisionId ? _decisions.find(d => d.id === decisionId) : null;
-            if (!decision && !Number.isNaN(slotInDay)) {
-                decision = _decisions.find(d => d.timeSlot === slotInDay);
-            }
-            if (!decision) {
-                openQuickReview({
-                    timeSlot: Number.isNaN(slotInDay) ? null : slotInDay,
-                    cells: [], userId: _userId, date: _date,
-                    plannedTask: '',
-                    existingDot: null,
-                });
-                return;
-            }
-            const existing = _dots.find(d => d.timeSlot === decision.timeSlot);
-            openQuickReview({
-                timeSlot: decision.timeSlot,
-                cells: [], userId: _userId, date: _date,
-                plannedTask: existing?.plannedTask || decision.title || decision.text || '',
-                decisionId: decision.id,
-                existingDot: existing || null,
-            });
-        });
-    });
+    // ── 계획 슬롯: 길이 드래그 + 길게 누름 삭제 + 톡 평가 (v112)
+    list.querySelectorAll('.utl-mg-slot-plan').forEach(card => bindPlanSlot(card));
 
-    // ── 빈 자리 톡 = 드롭다운 (미배치 목표 + 직접 입력) ─────
-    // 72시간 결 — 어제·내일 자리 톡 = 안내만, 오늘 자리만 드롭다운 자리잡힘
+    // ── 빈 자리 톡 — 레이어 결로 분기 (사용자 신고 v111 자리)
+    // 기록 자리(actual) = quickReview 모달 (시간 자동 + 평가) — 실제 무엇 했는지 자리
+    // 계획·통합 자리(plan/both) = 드롭다운 (미배치 목표 + 직접 입력)
     if (container) {
         container.addEventListener('click', (e) => {
             if (e.target.closest('.utl-mg-slot')) return;
@@ -500,13 +469,24 @@ function renderMobile() {
             const rect = container.getBoundingClientRect();
             const y = e.clientY - rect.top;
             const absSlot = Math.max(0, Math.min(ALL_SLOTS - 1, Math.floor(y / rowH)));
-            const day = Math.floor(absSlot / SLOTS_PER_DAY); // 0=어제, 1=오늘, 2=내일
+            const day = Math.floor(absSlot / SLOTS_PER_DAY);
             if (day !== 1) {
-                showToast(day === 0 ? '어제는 보기만 할 수 있어요' : '내일은 미리 보기예요');
+                showToast(day === 0 ? '어제는 보기만' : '내일은 보기만');
                 return;
             }
             const slotInDay = absSlot - SLOTS_PER_DAY;
-            openMobileDropdown(container, slotInDay, y, rowH);
+            if (_mobileLayer === 'actual') {
+                // 기록 자리 — 시간 자동 채워서 quickReview 모달 자연 자리잡힘
+                openQuickReview({
+                    timeSlot: slotInDay,
+                    cells: [], userId: _userId, date: _date,
+                    plannedTask: '',
+                    existingDot: null,
+                });
+            } else {
+                // 계획·통합 자리 — 드롭다운 (미배치 목표 + 직접 입력)
+                openMobileDropdown(container, slotInDay, y, rowH);
+            }
         });
     }
 
@@ -658,6 +638,137 @@ function bindMobileLayerSwipe(el) {
 }
 
 // ── 실제 슬롯: 4상태 평가 + 리사이즈 + 길게 누름 모달 ────
+// ── 계획 슬롯 바인딩 (v112) ─────────────────────────
+// 톡 = 평가 진입, 길게 누름 = 시간표에서 빼기, 핸들 드래그 = 길이 자리잡힘
+// 오늘 자리만 자리잡힙. 어제·내일 자리 = 안내 토스트.
+function bindPlanSlot(card) {
+    const decisionId = card.dataset.decisionId;
+    const day = card.dataset.day;
+    const absSlot = parseInt(card.dataset.slot ?? '', 10);
+    const slotInDay = absSlot - SLOTS_PER_DAY;
+
+    // 어제·내일 자리 = 안내만 (자리잡힘·삭제·드래그 X)
+    if (day !== 'today') {
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showToast(day === 'yesterday' ? '어제는 보기만' : '내일은 보기만');
+        });
+        return;
+    }
+
+    const findDecision = () => {
+        let d = decisionId ? _decisions.find(g => g.id === decisionId) : null;
+        if (!d && !Number.isNaN(slotInDay)) {
+            d = _decisions.find(g => g.timeSlot === slotInDay);
+        }
+        return d;
+    };
+
+    // 리사이즈 핸들 — 길이 드래그 (15분 스냅)
+    const handle = card.querySelector('.utl-mg-resize');
+    if (handle) {
+        let startY = 0, startDur = 0, curDur = 0;
+
+        const onMove = (e) => {
+            const rowH = getMobileRowHeight();
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            const dy = y - startY;
+            curDur = Math.max(1, startDur + Math.round(dy / rowH));
+            card.style.height = `${Math.max(rowH, curDur * rowH - 2)}px`;
+        };
+        const onEnd = async () => {
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            if (curDur === startDur || curDur < 1) return;
+            const decision = findDecision();
+            if (!decision) return;
+            const dek = getDEK();
+            if (!dek) return;
+            try {
+                await saveGoal(dek, { ...decision, durationSlots: curDur }, { skipVersioning: true });
+                if (_onChange) _onChange();
+                await refreshTimeline({ userId: _userId, date: _date });
+            } catch (e) {
+                console.error('[planSlot.resize]', e);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
+                await refreshTimeline({ userId: _userId, date: _date });
+            }
+        };
+        handle.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            startY = e.touches[0].clientY;
+            startDur = parseInt(card.dataset.duration, 10) || 4;
+            curDur = startDur;
+            document.addEventListener('touchmove', onMove, { passive: true });
+            document.addEventListener('touchend', onEnd);
+        }, { passive: false });
+        handle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            startY = e.clientY;
+            startDur = parseInt(card.dataset.duration, 10) || 4;
+            curDur = startDur;
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+        });
+    }
+
+    // 길게 누름 (500ms) = 삭제 (시간표에서 빼기 — unplaceGoal)
+    let pressTimer = null;
+    let didLongPress = false;
+    card.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.utl-mg-resize')) return;
+        didLongPress = false;
+        pressTimer = setTimeout(async () => {
+            didLongPress = true;
+            const decision = findDecision();
+            if (!decision) return;
+            if (!confirm('이 계획을 시간표에서 뺄까요?')) return;
+            const dek = getDEK();
+            if (!dek) return;
+            try {
+                await unplaceGoal(dek, decision);
+                showToast('시간표에서 뺐어요');
+                if (_onChange) _onChange();
+                await refreshTimeline({ userId: _userId, date: _date });
+            } catch (e) {
+                console.error('[planSlot.unplace]', e);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
+            }
+        }, 500);
+    }, { passive: true });
+    card.addEventListener('touchend', () => clearTimeout(pressTimer));
+    card.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+    card.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+    // 톡 = 평가 진입
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.utl-mg-resize')) return;
+        e.stopPropagation();
+        if (didLongPress) return;
+        const decision = findDecision();
+        if (!decision) {
+            openQuickReview({
+                timeSlot: Number.isNaN(slotInDay) ? null : slotInDay,
+                cells: [], userId: _userId, date: _date,
+                plannedTask: '',
+                existingDot: null,
+            });
+            return;
+        }
+        const existing = _dots.find(d => d.timeSlot === decision.timeSlot);
+        openQuickReview({
+            timeSlot: decision.timeSlot,
+            cells: [], userId: _userId, date: _date,
+            plannedTask: existing?.plannedTask || decision.title || decision.text || '',
+            decisionId: decision.id,
+            existingDot: existing || null,
+        });
+    });
+}
+
 function bindActualSlot(card) {
     const dotId = card.dataset.dotId;
     const dot = _dots.find(d => d.id === dotId);
