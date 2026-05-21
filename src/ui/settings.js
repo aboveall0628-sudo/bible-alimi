@@ -199,6 +199,25 @@ async function refreshReferralCard() {
                 }
             });
         }
+
+        // 공유 버튼
+        const shareBtn = document.getElementById('settings-referral-share');
+        if (shareBtn && !shareBtn.dataset.bound) {
+            shareBtn.dataset.bound = '1';
+            shareBtn.addEventListener('click', async () => {
+                try {
+                    const { showShareSheet } = await import('./shareSheet.js');
+                    const name = self?.name || self?.nicknames?.[0] || '친구';
+                    await showShareSheet({
+                        title: 'Sanctum OS 초대',
+                        text: `묵상과 삶을 깊이 있게 연결하는 나만의 영적 OS, Sanctum OS에 ${name}님이 초대하셨어요.`,
+                        url: url
+                    });
+                } catch (err) {
+                    console.error('[settings] share failed:', err);
+                }
+            });
+        }
     } catch (e) {
         console.warn('[settings] refreshReferralCard failed:', e);
         card.hidden = true;
@@ -393,6 +412,23 @@ function injectExtraSections() {
         diagBox.parentNode.insertBefore(idRow, diagBox.nextSibling);
     }
 
+    // (v115) 화면 모드 카드 — 라이트·다크·시스템 3 옵션 드롭다운 (v102/v108 자리).
+    //   옛 인라인 자리에서 settings.js로 이전해 자주 쓰는 자리 위로 배치.
+    //   themeManager.js renderThemeChips 가 #theme-mode-row를 채워요.
+    const themeModeCard = document.createElement('div');
+    themeModeCard.id = 'settings-theme-mode-card';
+    themeModeCard.className = 'card-section';
+    themeModeCard.innerHTML = `
+        <div class="settings-row">
+            <div class="settings-row-text">
+                <h3 class="section-title"><i class="section-icon" data-lucide="moon"></i> 화면 모드</h3>
+                <p class="section-desc">시스템 결은 윈도우·맥 자체 결을 자연 따라가요.</p>
+            </div>
+            <div id="theme-mode-row"></div>
+        </div>
+    `;
+    appendToGroup('settings-group-body-appearance', themeModeCard, container);
+
     // (S-D 후속 2026-05-15) 시스템 글자 크기 카드 — <html data-system-font> 4단계.
     //   온보딩 모달에서 처음 박힘. 설정에서 언제든 다시 조정.
     const systemFontCard = document.createElement('div');
@@ -435,6 +471,25 @@ function injectExtraSections() {
         <div id="settings-note-font-row" class="settings-font-chip-row"></div>
     `;
     appendToGroup('settings-group-body-appearance', noteFontCard, container);
+
+    // (v115) 화면 가리기 카드 — 민감 정보 마스킹. 화면 그룹 가장 아래 자리 (특수 결).
+    //   옛 인라인 자리에서 settings.js로 이전. lockScreen.js bindSensitiveSettingToggle()이 이 input을 찾아요.
+    const sensitiveCard = document.createElement('div');
+    sensitiveCard.id = 'settings-sensitive-card';
+    sensitiveCard.className = 'card-section';
+    sensitiveCard.innerHTML = `
+        <div class="settings-row">
+            <div class="settings-row-text">
+                <h3 class="section-title"><i class="section-icon" data-lucide="eye-off"></i> 화면 가리기</h3>
+                <p class="section-desc">옆 사람 눈에 띌까 걱정될 때 켜두세요. 인물 이름·메모처럼 민감한 칸이 흐리게 가려지고, 한 번 누르면 5초 동안만 보여요.</p>
+            </div>
+            <label class="switch" for="sensitive-setting-toggle">
+                <input type="checkbox" id="sensitive-setting-toggle">
+                <span class="switch-slider"></span>
+            </label>
+        </div>
+    `;
+    appendToGroup('settings-group-body-appearance', sensitiveCard, container);
 
     // (베타 슬림 v1 2026-05-18) tier 토글 카드 — 6 화면 루프만 보이는 모드.
     //   (v73 2026-05-18) 운영자 카테고리로 이동. 운영자 전용 분기 자리 일관성.
@@ -499,9 +554,11 @@ function injectExtraSections() {
 
     // (S-D 후속 2026-05-15) 성경 번역본 안내 카드 — 본문 데이터는 개역개정 단일.
     //   다른 번역본은 자리만 노출 ("준비 중"). 가입 시 selfCard.bibleVersion 박힘.
+    // (v115) 사용자 명시 "성경 커스텀은 다른 데에서" — 1차 베타 슬림 숨김.
     const bibleVersionCard = document.createElement('div');
     bibleVersionCard.id = 'settings-bible-version-card';
     bibleVersionCard.className = 'card-section';
+    bibleVersionCard.setAttribute('data-slim', 'hidden');
     bibleVersionCard.innerHTML = `
         <h3 class="section-title"><i class="section-icon" data-lucide="book-open"></i> 성경 번역본</h3>
         <p class="section-desc">
@@ -606,6 +663,7 @@ function injectExtraSections() {
         <div class="settings-referral-row">
             <input type="text" id="settings-referral-url" class="settings-referral-url" readonly>
             <button type="button" id="settings-referral-copy" class="settings-referral-copy">복사</button>
+            <button type="button" id="settings-referral-share" class="settings-referral-share">공유하기</button>
         </div>
         <p class="settings-referral-count" id="settings-referral-count">
             <strong>0명</strong> 함께하셨어요
@@ -650,9 +708,11 @@ function injectExtraSections() {
     appendToGroup('settings-group-body-meditation', dailyAlarmCard, container);
 
     // (#58 후속 2026-05-14) 생일 알람 카드 — 며칠 전 발화할지 체크박스 4개
+    // (v115) 사용자 명시 "생일 알람 베타에서 안 보여야" — 1차 베타 슬림 숨김.
     const birthdayAlarmCard = document.createElement('div');
     birthdayAlarmCard.id = 'settings-birthday-alarm-card';
     birthdayAlarmCard.className = 'card-section';
+    birthdayAlarmCard.setAttribute('data-slim', 'hidden');
     birthdayAlarmCard.innerHTML = `
         <h3 class="section-title"><i class="section-icon" data-lucide="cake"></i> 생일 알람</h3>
         <p class="section-desc">
@@ -893,45 +953,10 @@ function injectExtraSections() {
     `;
     appendToGroup('settings-group-body-more', shortcutCard, container);
 
-    // 경제 임계값 카드 (Phase F)
-    const economyCard = document.createElement('div');
-    economyCard.id = 'settings-economy-card';
-    economyCard.className = 'card-section';
-    economyCard.innerHTML = `
-        <h3 class="section-title"><i class="section-icon" data-lucide="wallet"></i> 경제 임계값</h3>
-        <p class="section-desc">
-            거래 금액을 <strong>소액 / 중액 / 고액 / 거액</strong> 네 단계로 분류하는 기준이에요.
-            정확한 금액은 자물쇠 안에 안전하게 보관되고, 검색·통계는 이 라벨로 동작해요.
-            라이프스타일에 맞게 조정해 주세요.
-        </p>
-        <div class="econ-thr-presets" id="econ-thr-presets"></div>
-        <div class="econ-thr-form">
-            <div class="econ-thr-row">
-                <label>소액 한계 (이 금액 <em>미만</em>)</label>
-                <input id="econ-thr-small" type="number" inputmode="numeric" min="1" /> 원
-            </div>
-            <div class="econ-thr-row">
-                <label>중액 한계 (소액~이 금액)</label>
-                <input id="econ-thr-medium" type="number" inputmode="numeric" min="1" /> 원
-            </div>
-            <div class="econ-thr-row">
-                <label>고액 한계 (중액~이 금액)</label>
-                <input id="econ-thr-large" type="number" inputmode="numeric" min="1" /> 원
-            </div>
-            <div class="econ-thr-row econ-thr-huge">
-                <label>거액</label>
-                <span id="econ-thr-huge-display">고액 한계 이상 (자동)</span>
-            </div>
-        </div>
-        <p class="section-desc" style="margin-top:8px; font-size:11px; color:var(--ink-secondary)">
-            ⚠️ 저장하면 정확 금액이 있는 옛 거래의 크기 라벨이 새 기준으로 다시 분류돼요.
-        </p>
-        <div id="econ-thr-status" style="margin: 8px 0; font-size: 13px; color: var(--ink-secondary);"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button id="econ-thr-save-btn" class="primary-btn">저장하기</button>
-        </div>
-    `;
-    appendToGroup('settings-group-body-more', economyCard, container);
+    // (v115) 경제 임계값 카드 제거 — 사용자 명시 "기능이 없으니 필요 없어 보이고".
+    //   1차 베타엔 경제 모듈 자체가 슬림에서 숨겨져 있고(경제 nav data-slim="hidden"),
+    //   카드 자체도 임계값 조정 UI인데 실 동작이 없어 사용자 혼란만 줘서 통째 제거.
+    //   경제 모듈 재기획 트랙(#54)에서 다시 자리잡힐 자리.
 
     // (히든 미션 트랙 v1 2026-05-15) 베타 + 14일 100% 클리어자 전용 진입 자리.
     //   사용자 명시 "설정 많이 안볼테니까 거기에 작은 카드 하나 넣고, 만렙 이후 콘텐츠 하나".
@@ -946,7 +971,7 @@ function injectExtraSections() {
             <span class="hm-card-sparkle">✨</span>
             <div class="hm-card-body">
                 <div class="hm-card-title">히든 미션</div>
-                <div class="hm-card-hint">조건부 잠금해제 (조건: 모든 미션 마침)</div>
+                <div class="hm-card-hint">14일 튜토리얼을 모두 마치면 열려요</div>
             </div>
         </div>
     `;
@@ -1826,14 +1851,24 @@ function bindEvents() {
     bindTierSettings();
     bindBibleVersionSettings();
 
+    // (v115) 화면 모드 카드 — 옛 인라인 자리에서 settings.js 동적 자리로 이전.
+    //   #theme-mode-row 는 이제 injectExtraSections 직후에야 생기므로, 여기서 다시 한 번
+    //   initThemeManager 호출해서 칩을 채워줘요. app.js 부팅 자리는 #theme-mode-row 없으면 조용히 통과.
+    import('./themeManager.js').then(({ initThemeManager }) => initThemeManager())
+        .catch(e => console.warn('[settings] themeManager init failed:', e));
+
+    // (v115) 화면 가리기 카드도 같은 패턴 — #sensitive-setting-toggle 이 동적이라 토글 이벤트 다시 바인딩.
+    import('./sensitiveMode.js').then(({ initSensitiveMode }) => initSensitiveMode())
+        .catch(e => console.warn('[settings] sensitiveMode init failed:', e));
+
     // ─── 자동 잠금 시간(분) ───
     bindAutoLockMinutes();
 
     // ─── 단축키 설정 카드 (Phase E-9/Step 1) ───
     bindShortcutSettings().catch(e => console.warn('[shortcuts] settings bind failed:', e));
 
-    // ─── 경제 임계값 카드 (Phase F) ───
-    bindEconomyThresholdSettings().catch(e => console.warn('[economy] threshold bind failed:', e));
+    // (v115) 경제 임계값 카드 — 카드 자리 자체 제거. bind 호출도 함께 폐기.
+    //   bindEconomyThresholdSettings 함수 자리는 그대로 둠 (경제 모듈 재기획 시 다시 자리잡힐 자리).
 }
 
 function bindAutoLockMinutes() {
