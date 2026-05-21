@@ -569,7 +569,7 @@ function injectExtraSections() {
                 다시 로그인하면 가입 직후 결로 돌아가요. <strong>되돌릴 수 X.</strong>
             </p>
             <p class="section-desc" style="font-size:11px;color:var(--ink-tertiary,#a8a8a3);margin-top:4px;">
-                이 카드는 <code style="font-size:10px;">${escapeHtml(_userEmail || '')}</code> 결로 자리잡혀 보여요. 다른 사용자에겐 자연 안 보여요.
+                이 카드는 <code style="font-size:10px;">${escapeHtmlInline(_userEmail || '')}</code> 결로 자리잡혀 보여요. 다른 사용자에겐 자연 안 보여요.
             </p>
             <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
                 <button id="btn-full-reset" class="text-btn" style="color: var(--dot-red, #c75a4a); border-color: var(--dot-red, #c75a4a);">
