@@ -254,13 +254,15 @@ function renderModal() {
                 ).join('')}
             </div>
 
+            <!-- (v114) "실제로 한 일" 자리 = 자세히 밖 기본 자리잡힙 (사용자 신고 v113 #5 자리 — 기록 리뷰 입력 자리 자리잡혀 X 해소) -->
+            <div class="qr-field qr-actual-field">
+                <label>뭐 했어요?</label>
+                <input type="text" id="qr-actual-input" class="qr-text-input" placeholder="이 시간에 뭐 했는지 적어 주세요" />
+            </div>
+
             <button id="qr-detail-toggle" class="qr-toggle-btn">조금 더 자세히 ▼</button>
 
             <div id="qr-detail-section" class="qr-detail hidden">
-                <div class="qr-field">
-                    <label>실제로 한 일</label>
-                    <input type="text" id="qr-actual-input" class="qr-text-input" placeholder="이 시간에 진짜 뭘 했어요?" />
-                </div>
                 <div class="qr-slider-row">
                     <label>결과는?</label>
                     <input type="range" id="qr-outcome-sat" min="1" max="5" value="3" class="neon-slider-dark" />

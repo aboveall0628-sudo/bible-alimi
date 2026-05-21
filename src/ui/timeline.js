@@ -465,9 +465,8 @@ function renderMobile() {
     // ── 계획 슬롯: 길이 드래그 + 길게 누름 삭제 + 톡 평가 (v112)
     list.querySelectorAll('.utl-mg-slot-plan').forEach(card => bindPlanSlot(card));
 
-    // ── 빈 자리 톡 — 레이어 결로 분기 (사용자 신고 v111 자리)
-    // 기록 자리(actual) = quickReview 모달 (시간 자동 + 평가) — 실제 무엇 했는지 자리
-    // 계획·통합 자리(plan/both) = 드롭다운 (미배치 목표 + 직접 입력)
+    // ── 빈 자리 톡 — 레이어 + 날짜 결로 분기 (v114 사용자 신고 #1 자리)
+    // 어제(day=0) = 보기만 / 오늘(day=1) = 기록·계획 자리 / 내일(day=2) = 시간표 자리잡힘(평가 X)
     if (container) {
         container.addEventListener('click', (e) => {
             if (e.target.closest('.utl-mg-slot')) return;
@@ -476,13 +475,21 @@ function renderMobile() {
             const y = e.clientY - rect.top;
             const absSlot = Math.max(0, Math.min(ALL_SLOTS - 1, Math.floor(y / rowH)));
             const day = Math.floor(absSlot / SLOTS_PER_DAY);
-            if (day !== 1) {
-                showToast(day === 0 ? '어제는 보기만 가능해요' : '내일은 보기만 가능해요');
+            if (day === 0) {
+                showToast('어제는 보기만 가능해요');
                 return;
             }
-            const slotInDay = absSlot - SLOTS_PER_DAY;
+            const slotInDay = absSlot - SLOTS_PER_DAY * day;
+            if (day === 2) {
+                // 내일 자리 = 시간표 자리잡힘 (평가 X). 드롭다운 자리잡힙 — 새 goal 자리잡힌 자리.
+                const dateObj = new Date(_date);
+                const tom = new Date(dateObj); tom.setDate(tom.getDate() + 1);
+                const tomStr = formatDateLocal(tom);
+                openMobileDropdown(container, slotInDay, y, rowH, { targetDate: tomStr, asNewGoal: true });
+                return;
+            }
+            // 오늘 자리
             if (_mobileLayer === 'actual') {
-                // 기록 자리 — 시간 자동 채워서 quickReview 모달 자연 자리잡힘
                 openQuickReview({
                     timeSlot: slotInDay,
                     cells: [], userId: _userId, date: _date,
@@ -490,8 +497,7 @@ function renderMobile() {
                     existingDot: null,
                 });
             } else {
-                // 계획·통합 자리 — 드롭다운 (미배치 목표 + 직접 입력)
-                openMobileDropdown(container, slotInDay, y, rowH);
+                openMobileDropdown(container, slotInDay, y, rowH, { targetDate: _date, asNewGoal: false });
             }
         });
     }
@@ -512,9 +518,12 @@ function renderMobile() {
 }
 
 // ── 빈 자리 톡 시 자리잡힌 드롭다운 ───────────────────────
-function openMobileDropdown(container, slot, yPx, rowH) {
+// opts: { targetDate, asNewGoal } — 내일 자리잡힌 자리 (asNewGoal=true)면 새 goal 자리잡힙
+function openMobileDropdown(container, slot, yPx, rowH, opts = {}) {
+    const { targetDate = _date, asNewGoal = false } = opts;
     closeMobileDropdown();
-    const unplaced = _decisions.filter(d => d.timeSlot == null);
+    // 미배치 목표 — 오늘 자리잡힌 자리만 자리잡힙. 내일 자리에는 자리잡혀 X
+    const unplaced = asNewGoal ? [] : _decisions.filter(d => d.timeSlot == null);
     const goalsHtml = unplaced.length > 0
         ? unplaced.map(g => {
             const title = g.title ?? g.text ?? '(이름 없음)';
@@ -544,8 +553,7 @@ function openMobileDropdown(container, slot, yPx, rowH) {
     _activeDropdown = dropdown;
 
     // 자리잡힌 목표 톡 = 시간표에 넣기
-    // placeGoal 시그니처: (dek, goal, timeSlot, durationSlots = 4)
-    // v110 자리 — userId·date 인자 잘못 자리잡혀 호출 실패. v111 에 시그니처 정합
+    // 오늘 자리 = placeGoal (기존 미배치 자리잡힙). 내일 자리 = 새 goal 자리잡힙 (saveGoal)
     dropdown.querySelectorAll('.utl-mg-dd-item').forEach(item => {
         item.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -559,7 +567,7 @@ function openMobileDropdown(container, slot, yPx, rowH) {
             }
             closeMobileDropdown();
             try {
-                await placeGoal(dek, goal, slot, 4); // default 1시간
+                await placeGoal(dek, goal, slot, 4);
                 showToast('시간표에 넣었어요');
                 if (_onChange) _onChange();
                 await refreshTimeline({ userId: _userId, date: _date });
@@ -570,21 +578,46 @@ function openMobileDropdown(container, slot, yPx, rowH) {
         });
     });
 
-    // 직접 입력 자리잡힙 — quickReview 모달 자리잡혀 자리 자연 자리잡힙
+    // 직접 입력 자리잡힙 — 오늘 자리 = quickReview 모달 / 내일 자리 = 새 goal 자리잡힙
     const form = dropdown.querySelector('.utl-mg-dd-form');
     const input = dropdown.querySelector('.utl-mg-dd-input');
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         const text = input.value.trim();
         if (!text) return;
         closeMobileDropdown();
-        openQuickReview({
-            timeSlot: slot,
-            cells: [], userId: _userId, date: _date,
-            plannedTask: text,
-            existingDot: null,
-        });
+        if (asNewGoal) {
+            // 내일 자리 — 새 goal 자리잡힙 (date=targetDate). 평가 X.
+            const dek = getDEK();
+            if (!dek) return;
+            try {
+                await saveGoal(dek, {
+                    userId: _userId,
+                    userDate: targetDate,
+                    title: text,
+                    text: text,
+                    timeSlot: slot,
+                    durationSlots: 4,
+                    period: 'daily',
+                    placedAt: Date.now(),
+                });
+                showToast('시간표에 넣었어요');
+                if (_onChange) _onChange();
+                await refreshTimeline({ userId: _userId, date: _date });
+            } catch (err) {
+                console.error('[newGoalDirect]', err);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
+            }
+        } else {
+            // 오늘 자리 — quickReview 모달 자리잡힙
+            openQuickReview({
+                timeSlot: slot,
+                cells: [], userId: _userId, date: _date,
+                plannedTask: text,
+                existingDot: null,
+            });
+        }
     });
     input.addEventListener('click', (e) => e.stopPropagation());
 
