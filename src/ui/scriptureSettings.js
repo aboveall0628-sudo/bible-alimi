@@ -25,24 +25,29 @@ export const FONT_SIZES = {
  *
  * id 명명: preset-* 로 시작 → 나중에 user-* (사용자 정의)와 구분.
  */
+// (2026-05-21 v128) 6 PRESETS → 5 PRESETS 자리잡힘. 사용자 명시:
+//   "성경 통독 / 구약 통독 / 신약 통독 / 시가서 묵상 / 100구절" — 5개 결.
+//   삭제: preset-mose-newtestament, preset-history-newtestament (사용자 결로 사라짐).
+//   신규: essentials100 (100구절) — 시가서 + 신약 두 파트 결로 입문 자리.
+//   이름 단순화: '매일성경 4파트 통독' → '성경 통독', '구약 3파트' → '구약 통독', '신약 중심' → '신약 통독'.
 export const PRESETS = [
     {
         id: 'preset-4parts',
-        name: '매일성경 4파트 통독',
-        desc: '시가서 / 모세·대선지서 / 역사·소선지서 / 신약 — 4갈래 동시 진행, 1년 1독',
+        name: '성경 통독',
+        desc: '시가서 · 모세·대선지서 · 역사·소선지서 · 신약 — 4갈래 동시 진행, 1년에 1독.',
         parts: [1, 2, 3, 4],
     },
     {
-        id: 'preset-newtestament',
-        name: '신약 중심',
-        desc: '복음서·서신서·계시록만. 짧게 1년 1독.',
-        parts: [4],
-    },
-    {
         id: 'preset-ot-three',
-        name: '구약 3파트',
+        name: '구약 통독',
         desc: '시가서 + 모세·대선지서 + 역사·소선지서. 신약은 잠시 내려둘 때.',
         parts: [1, 2, 3],
+    },
+    {
+        id: 'preset-newtestament',
+        name: '신약 통독',
+        desc: '복음서 · 서신서 · 계시록만. 짧게 1년에 1독.',
+        parts: [4],
     },
     {
         id: 'preset-poetry',
@@ -51,16 +56,10 @@ export const PRESETS = [
         parts: [1],
     },
     {
-        id: 'preset-mose-newtestament',
-        name: '모세·대선지서 + 신약',
-        desc: '뼈대(언약·예언) + 성취(예수·교회) — 두 축으로 흐름 잡기.',
-        parts: [2, 4],
-    },
-    {
-        id: 'preset-history-newtestament',
-        name: '역사·소선지서 + 신약',
-        desc: '하나님 백성의 이야기 + 복음. 서사 위주로 따라갈 때.',
-        parts: [3, 4],
+        id: 'essentials100',
+        name: '100구절',
+        desc: '시편의 기도 + 복음서의 예수님 — 핵심 구절부터 천천히 입문하는 결.',
+        parts: [1, 4],
     },
 ];
 

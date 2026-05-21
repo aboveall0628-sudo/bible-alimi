@@ -1385,9 +1385,12 @@ async function persistAll() {
     try {
         const track = draft.selectedTrack;
         const todayISO = today; // 이미 위에서 잡혀 있어요
-        if (track === 'essentials100' || track === 'preset-4parts') {
-            // essentials100 은 별도 카탈로그 자리 X — preset-4parts 결로 시작점 자리잡기 (오늘 = day 1).
-            //   추후 essentials100 별도 PRESET 자리잡힐 자리.
+        if (track === 'essentials100') {
+            // (2026-05-21 v128) essentials100 신규 PRESET 자리잡힘 — 시편(P1) + 신약(P4) 두 결.
+            setActivePlanId('essentials100');
+            setPartOverride('essentials100', 1, { abbr: '시', chapter: 1, anchorDate: todayISO });
+            setPartOverride('essentials100', 4, { abbr: '마', chapter: 1, anchorDate: todayISO });
+        } else if (track === 'preset-4parts') {
             setActivePlanId('preset-4parts');
             setPartOverride('preset-4parts', 1, { abbr: '욥',  chapter: 1, anchorDate: todayISO });
             setPartOverride('preset-4parts', 2, { abbr: '창',  chapter: 1, anchorDate: todayISO });
