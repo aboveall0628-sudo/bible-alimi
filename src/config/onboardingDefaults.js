@@ -227,7 +227,7 @@ export const RECOMMENDED_TRACKS_BY_LEVEL = {
             { id: 'essentials100',       icon: '🌱', label: '100구절 입문', desc: '핵심 100절. 곁들임 묵상에도 좋음.' },
             { id: 'preset-newtestament', icon: '✝', label: '신약 중심', desc: '신약 27권.' },
             { id: 'one-book',            icon: '📖', label: '한 권 통독', desc: '책 1권 깊이.' },
-            { id: 'custom',              icon: '🛠', label: '직접 만들기', desc: '내가 원하는 책 조합으로.', highlight: true, preparing: true },
+            // (v114) 옛 '직접 만들기 (곧 열려요)' 옵션 제거 — renderTrackStep 안 신규 [직접 만들기] 카드와 중복.
         ],
     },
 };

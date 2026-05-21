@@ -644,7 +644,7 @@ function renderBibleVersionStep(body) {
       <div class="onboarding-card">
         ${swanBubbleHTML('성경 본문은 어디서 가져오시나요?')}
         <p class="onboarding-help" style="font-size:13px; color:var(--ink-secondary); line-height:1.6; margin: 4px 0 12px;">
-          이 앱은 사용자가 자기 결로 본문을 가져오는 방식이에요.<br>
+          이 앱은 사용자가 직접 본문을 가져오는 방식이에요.<br>
           매일성경 앱·종이성경·인터넷 어디든 자유롭게 가져와서 묵상해요.
         </p>
         <div class="onboarding-bible-list" role="radiogroup" aria-label="성경 본문 가져오는 결">
@@ -691,9 +691,9 @@ function renderTrackStep(body) {
     const level = _state.draft.devotionalLevel || 'basic';
     const rec = RECOMMENDED_TRACKS_BY_LEVEL[level] || RECOMMENDED_TRACKS_BY_LEVEL.basic;
 
-    // (v111) one-book 선택 시 책 picker 자리 — 그대로 유지 (간단한 1권 통독 결).
+    // (v111) one-book 선택 시 책 picker — 그대로 유지 (간단한 1권 통독 결).
     const showBookPicker = _state.draft.selectedTrack === 'one-book' && !_state.draft.oneBookAbbr;
-    // (v111) 사용자가 [직접 만들기] 모달에서 자기 결로 자리잡은 plan
+    // (v111) 사용자가 [직접 만들기] 모달에서 만든 plan
     const customPlanName = _state.draft.customPlanName || '';
     const customSelected = _state.draft.selectedTrack === 'custom';
 
@@ -701,18 +701,25 @@ function renderTrackStep(body) {
       <div class="onboarding-card onboarding-card-track">
         ${swanBubbleHTML('어디서부터 묵상해보실래요? 원하시는 말씀을 골라주세요.')}
 
+        <!-- (v114) [직접 만들기] 맨 위 primary 자리. 사용자 결정 우선. -->
         <div class="onboarding-track-primary">
-          <button type="button" class="onboarding-track-card onboarding-track-card-primary${_state.draft.selectedTrack === rec.primary.id ? ' selected' : ''}"
+          <button type="button" class="onboarding-track-card onboarding-track-card-primary onboarding-track-card-custom${customSelected ? ' selected' : ''}"
+                  id="onboarding-track-custom">
+            <span class="onboarding-track-icon" aria-hidden="true">🪄</span>
+            <span class="onboarding-track-label">직접 만들기</span>
+            <span class="onboarding-track-desc">${customSelected && customPlanName ? `✓ ${escapeHtml(customPlanName)}` : '원하는 책·진행 속도 자유롭게 골라요.'}</span>
+          </button>
+        </div>
+
+        <p class="onboarding-track-others-head">추천도 한번 보실래요?</p>
+        <div class="onboarding-track-options">
+          <button type="button" class="onboarding-track-card onboarding-track-card-recommended${_state.draft.selectedTrack === rec.primary.id ? ' selected' : ''}"
                   data-track="${escapeAttr(rec.primary.id)}">
             <span class="onboarding-track-badge">추천</span>
             <span class="onboarding-track-icon" aria-hidden="true">${escapeHtml(rec.primary.icon)}</span>
             <span class="onboarding-track-label">${escapeHtml(rec.primary.label)}</span>
             <span class="onboarding-track-desc">${escapeHtml(rec.primary.desc)}</span>
           </button>
-        </div>
-
-        <p class="onboarding-track-others-head">다른 결도 둘러볼래요?</p>
-        <div class="onboarding-track-options">
           ${rec.options.map(opt => `
             <button type="button"
                     class="onboarding-track-card${_state.draft.selectedTrack === opt.id ? ' selected' : ''}${opt.highlight ? ' onboarding-track-card-highlight' : ''}${opt.preparing ? ' disabled' : ''}"
@@ -724,17 +731,9 @@ function renderTrackStep(body) {
                 ${opt.preparing ? '<span class="onboarding-track-chip-coming">곧 열려요</span>' : ''}
               </span>
               <span class="onboarding-track-desc">${escapeHtml(opt.desc)}</span>
-              ${opt.preparing ? '<span class="onboarding-track-coming-foot">1차 베타 후 열어볼 자리예요.</span>' : ''}
+              ${opt.preparing ? '<span class="onboarding-track-coming-foot">1차 베타 후 열려요.</span>' : ''}
             </button>
           `).join('')}
-
-          <!-- (v111) [직접 만들기] 카드 — v110 모달 자리 (시작일 자동 = 오늘) -->
-          <button type="button" class="onboarding-track-card onboarding-track-card-custom${customSelected ? ' selected' : ''}"
-                  id="onboarding-track-custom">
-            <span class="onboarding-track-icon" aria-hidden="true">🪄</span>
-            <span class="onboarding-track-label">직접 만들기</span>
-            <span class="onboarding-track-desc">${customSelected && customPlanName ? `✓ ${escapeHtml(customPlanName)}` : '원하는 책·진행 속도 자유롭게 자리잡혀요'}</span>
-          </button>
         </div>
 
         <div id="onboarding-book-picker" class="onboarding-book-picker"${showBookPicker ? '' : ' hidden'}>
@@ -1102,7 +1101,7 @@ function renderTimeboxStep(body) {
     body.innerHTML = `
       <div class="onboarding-card">
         ${swanBubbleHTML('오늘의 시간표에 넣어볼까요?')}
-        <label class="onboarding-label" for="onboarding-commitment-time">목표를 실천할 시간을 정해주세요. 시간표·캘린더에 자연 자리잡혀요.</label>
+        <label class="onboarding-label" for="onboarding-commitment-time">목표를 실천할 시간을 정해주세요. 시간표·캘린더에 자동으로 더해져요.</label>
         <input type="time" class="onboarding-input" id="onboarding-commitment-time"
                value="${escapeAttr(_state.draft.firstCommitmentTime || '19:00')}" />
         <p class="onboarding-sub onboarding-sub-mini">10분 전에 한 번 알림으로 알려드릴게요.</p>

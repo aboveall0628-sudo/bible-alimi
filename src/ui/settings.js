@@ -483,10 +483,10 @@ function injectExtraSections() {
             try {
                 const { getDEK } = await import('./lockScreen.js');
                 const dek = getDEK();
-                if (!dek) throw new Error('잠금 자리잡혀 있어요');
+                if (!dek) throw new Error('잠겨 있어요');
                 const { resetMissionProgress } = await import('../data/personRepo.js');
                 await resetMissionProgress(dek, _userId);
-                missionResetStatus.textContent = '✓ 리셋 완료. 새로고침하면 첫 진입 결로 자리잡혀 보여요.';
+                missionResetStatus.textContent = '✓ 리셋 완료. 새로고침하면 첫 진입 화면이 다시 보여요.';
                 btnMissionReset.textContent = orig;
             } catch (e) {
                 console.warn('[mission-reset] 실패:', e?.message || e);
@@ -2630,7 +2630,7 @@ export function openNewPlanModal(opts = {}) {
                 <div class="newplan-group" data-grp="${grpKey}">
                     <div class="newplan-group-title">
                         <span>${grp.name} <span class="newplan-group-desc">${grp.books.length}권</span></span>
-                        <button type="button" class="newplan-group-toggle" data-grp="${grpKey}">전체 자기 결로</button>
+                        <button type="button" class="newplan-group-toggle" data-grp="${grpKey}">전체 선택</button>
                     </div>
                     <div class="newplan-group-books">${items}</div>
                 </div>
@@ -2655,13 +2655,13 @@ export function openNewPlanModal(opts = {}) {
             </div>
             <div class="modal-body">
                 <label class="newplan-field">
-                    <span>이름 (비워두면 자동으로 자리잡혀요)</span>
+                    <span>이름 (비워두면 자동으로 정해져요)</span>
                     <input id="newplan-name" type="text" maxlength="40"
                            placeholder="예: 시편만 1년, 복음서 묵상, 욥기·전도서…">
                 </label>
                 <div class="newplan-field">
                     <span>어떤 책을 묵상하실래요?</span>
-                    <p class="setting-hint" style="margin: 4px 0 var(--sp-2);">한 권씩 골라도 좋고, 그룹 옆 <b>전체 자기 결로</b> 자리잡으면 한 번에 자기 결로.</p>
+                    <p class="setting-hint" style="margin: 4px 0 var(--sp-2);">한 권씩 골라도 좋고, 그룹 옆 <b>전체 선택</b> 누르면 한 번에 골라져요.</p>
                     <div id="newplan-books" class="newplan-books">${bookGroups}</div>
                 </div>
                 <div class="newplan-options-row${hideStartDate ? ' newplan-options-row-single' : ''}">
@@ -2737,7 +2737,7 @@ export function openNewPlanModal(opts = {}) {
             const inputs = grpEl.querySelectorAll('input[name="newplan-book"]');
             const allChecked = [...inputs].every(i => i.checked);
             inputs.forEach(i => { i.checked = !allChecked; });
-            btn.textContent = allChecked ? '전체 자기 결로' : '전체 자기 결로 X';
+            btn.textContent = allChecked ? '전체 선택' : '전체 풀기';
             refreshState();
             const checked = [...overlay.querySelectorAll('input[name="newplan-book"]:checked')];
             autoFillName(checked);
@@ -2813,8 +2813,8 @@ export function openNewPlanModal(opts = {}) {
             //   시작일이 오늘이면 "첫 본문 보러 갈까요?", 미래면 안내만.
             const startsToday = !startDate || startDate === todayISO;
             const startMsg = startsToday
-                ? `"${plan.name}" 자리잡혔어요. 오늘부터 시작해요.`
-                : `"${plan.name}" 자리잡혔어요. ${startDate}부터 시작해요.`;
+                ? `"${plan.name}" 만들었어요. 오늘부터 시작해요.`
+                : `"${plan.name}" 만들었어요. ${startDate}부터 시작해요.`;
             import('./quickReview.js').then(({ showToast }) => {
                 if (startsToday && typeof window.__sanctumSwitchView === 'function') {
                     showToast(startMsg + ' 첫 본문 보러 갈까요?', {
