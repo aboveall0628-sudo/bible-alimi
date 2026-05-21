@@ -212,12 +212,26 @@ async function init() {
 
     // 0-a. 비로그인 첫 진입 가드 — Firebase 세션 없으면 landing.html로
     //      ?login=true 가 붙어 있으면 랜딩에서 돌아온 것이므로 통과 후 자동 로그인 트리거
+    // (v131 2026-05-22) 사용자 피드백: 모바일 pull-to-refresh → 랜딩 가는 버그.
+    //   원인: Firebase Auth v10+은 IndexedDB 자리 자기 결로 자리잡힌 결로 `firebase:authUser:*` localStorage
+    //   자리 자리잡혀 있지 X 결로 자리잡힐 수 있어요. 가드 자리 확장 — 사용자 자리잡힌 결로
+    //   다른 localStorage 자리(sanctum.lastView·scriptureSettings 등) 자리잡혀 있으면
+    //   기존 사용자로 자기 결로 자리잡혀 자연 통과. signInWithCredential 자리에서 결국
+    //   인증 자리 자기 결로 자리잡혀요(토큰 만료시엔 그 때 자리잡힘 fallback 자기 결로).
     const _params = new URLSearchParams(location.search);
     _isLoginFlow = _params.get('login') === 'true';
     if (!_isLoginFlow) {
-        const hasAuthSession = Object.keys(localStorage)
+        const hasFirebaseSession = Object.keys(localStorage)
             .some(k => k.startsWith('firebase:authUser:'));
-        if (!hasAuthSession) {
+        // (v131) 기존 사용자 흔적 — Firebase localStorage 자리 잃었어도 기존 사용자 결로 자기 자리.
+        const hasReturningUserData = !!(
+            localStorage.getItem('sanctum.lastView') ||
+            localStorage.getItem('sanctum.scriptureSettings.v1') ||
+            localStorage.getItem('sanctum.userPlans.v1') ||
+            localStorage.getItem('sanctum.accentColor.v1') ||
+            localStorage.getItem('sanctum.referralCode')
+        );
+        if (!hasFirebaseSession && !hasReturningUserData) {
             location.replace('landing.html');
             return;
         }
@@ -396,6 +410,8 @@ async function init() {
 // (2026-05-21 v128) 모바일 피드백 2건 fix:
 //   ① 새로고침 → 첫화면 가는 버그: localStorage 'sanctum.lastView' 결로 마지막 뷰 복원
 //   ② 뒤로가기 → 랜딩페이지 가는 버그: popstate 안 sanctum 자리 아니면 다시 sanctum push (자연 트랩)
+// (v131 2026-05-22) ② 후속 — 사용자 명시 "한 번 더 뒤로가기 = 앱 나가기" 안내 토스트.
+//   안드로이드 패턴 자연. 1차 뒤로가기 = 토스트 + trap, 2차 (3초 안) = 자연 외부.
 const LAST_VIEW_KEY = 'sanctum.lastView';
 
 function getLastView() {
@@ -407,6 +423,9 @@ function setLastView(viewId) {
     try { localStorage.setItem(LAST_VIEW_KEY, viewId); }
     catch {}
 }
+
+let _backExitPending = false;
+let _backExitTimer = null;
 
 function setupBrowserNav() {
     if (typeof history === 'undefined' || typeof window === 'undefined') return;
@@ -421,18 +440,34 @@ function setupBrowserNav() {
     window.addEventListener('popstate', (e) => {
         const target = e.state && e.state.sanctum && e.state.view;
         if (target) {
+            // sanctum 자리 (정상 nav) — switchView 자연 자리잡힘.
             _navSilent = true;
             try { switchView(target); } catch (_) {}
             _navSilent = false;
-        } else {
-            // (v128) sanctum 자리 아닌 entry (랜딩·외부 자리) — 자연 트랩 결로 다시 sanctum 자리로 복원.
-            //   모바일 뒤로가기 결로 사용자가 외부 자리로 빠지지 X. lastView 자리로 자연 자리잡힘.
-            //   OS 레벨 뒤로가기·탭 닫기는 그대로 자리잡혀 사용자 갇힘 자리 X.
-            try {
-                const restoreView = getLastView();
-                history.pushState({ sanctum: true, view: restoreView }, '', location.pathname + location.search);
-            } catch (_) {}
+            return;
         }
+
+        // (v131) sanctum 자리 아닌 entry — 외부 자리로 나가려 함.
+        if (_backExitPending) {
+            // 두 번째 뒤로가기 (3초 안) = 진짜 종료. trap 안 자기 결로 자연 외부 자리.
+            _backExitPending = false;
+            clearTimeout(_backExitTimer);
+            return;
+        }
+
+        // 첫 번째 뒤로가기 — trap + 안내 토스트
+        _backExitPending = true;
+        try {
+            const restoreView = getLastView();
+            history.pushState({ sanctum: true, view: restoreView }, '', location.pathname + location.search);
+        } catch (_) {}
+
+        import('./quickReview.js').then(({ showToast }) => {
+            showToast('한 번 더 뒤로가기를 누르면 앱을 나가요');
+        }).catch(() => {});
+
+        clearTimeout(_backExitTimer);
+        _backExitTimer = setTimeout(() => { _backExitPending = false; }, 3000);
     });
 }
 
