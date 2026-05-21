@@ -3523,8 +3523,9 @@ html[data-note-font="serif"] .note-editor h3 {
     /* 모바일 통합 타임라인: 슬롯 카드 세로 스크롤 */
     .utl-header { display: none; }
     .utl-body {
-        display: block; max-height: none; padding: var(--sp-3);
+        display: block; max-height: none; padding: 0; /* 카드 안 padding 자리 자리잡혀 X — 시간표 자리 자연 차지 */
     }
+    .unified-timeline { padding: 0; }
     .utl-axis-col, .utl-plan-col, .utl-actual-col {
         display: none;
     }
@@ -3752,18 +3753,25 @@ html[data-note-font="serif"] .note-editor h3 {
          7) + FAB 자리 폐기 (SWAN 톡 자리와 충돌)
        기존 utl-mobile-tabs·utl-mobile-card·utl-mobile-guide-* CSS dead — 1.3차에 정리
        ═══════════════════════════════════════════════════════ */
+    /* 시간표 카드 padding 자리잡힙 (모바일) — 카드 안 카드 답답 자리 해소 */
+    #section-timeline.card-section { padding: var(--sp-2); }
+    #section-timeline .section-header-flex { padding: 0 var(--sp-2); margin-bottom: var(--sp-2); }
     .utl-mobile-list {
         position: relative;
         display: flex;
         flex-direction: column;
         padding: 0;
         background: var(--bg);
-        height: 100%;
-        min-height: 60vh;
-        overflow: hidden; /* 헤더 sticky + scroll 자체 자리잡힙 */
+        height: 65vh; /* 페이지 자리잡힌 자리 자연 — 시간표 안에서만 스크롤 */
+        max-height: calc(100vh - 180px);
+        overflow: hidden;
+        border-radius: 8px;
     }
-    /* 컨트롤 헤더 — 레이어 인디케이터 + 줌 */
+    /* 컨트롤 헤더 — 레이어 인디케이터 + 줌. sticky 자리잡힙 — 스크롤 시 따라옴 */
     .utl-mg-controls {
+        position: sticky;
+        top: 0;
+        z-index: 10;
         display: flex;
         align-items: center;
         justify-content: space-between;

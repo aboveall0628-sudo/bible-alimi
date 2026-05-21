@@ -13,7 +13,7 @@
  *    → callLLM('briefing', ...) 호출 전 가명화 (P_001/O_001/L_001)
  */
 
-import { saveDot, getAllDots } from '../data/dotsRepo.js';
+import { saveDot, getAllDots, deleteDot } from '../data/dotsRepo.js';
 import { getAllPersons, savePerson } from '../data/personRepo.js';
 import { getAllOrganizations, saveOrganization } from '../data/orgRepo.js';
 import { getDEK } from './lockScreen.js';
@@ -106,6 +106,10 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
     const ed = existingDot || null;
     const sat    = ed?.executionSatisfaction ?? 3;
     const outSat = ed?.outcomeSatisfaction   ?? 3;
+
+    // (v110) 삭제 버튼 — 기존 도트(existingDot)가 있을 때만 자리잡힙. 신규 자리는 자리잡혀 X.
+    const deleteBtn = document.getElementById('qr-delete-btn');
+    if (deleteBtn) deleteBtn.hidden = !ed;
 
     // 시간 입력 자리: timeSlot 이 null 이면 사용자가 직접 시간·길이를 고르게.
     // 시계부 "+ 추가" 흐름. 기존 도트 수정 / 슬롯에서 진입한 경우엔 숨김.
@@ -302,6 +306,8 @@ function renderModal() {
             </div>
 
             <div class="qr-actions">
+                <!-- (v110) existingDot 있을 때만 자리잡힙 — openQuickReview 에서 hidden 자리 토글 -->
+                <button id="qr-delete-btn" class="text-btn qr-delete-btn" type="button" hidden>이 기록 지우기</button>
                 <button id="qr-cancel-btn" class="text-btn">닫기</button>
                 <button id="qr-save-btn" class="primary-btn">저장하기</button>
             </div>
@@ -415,6 +421,7 @@ function bindEvents() {
     document.addEventListener('click', (e) => {
         if (e.target.id === 'qr-save-btn') handleSave();
         if (e.target.id === 'qr-cancel-btn') closeModal();
+        if (e.target.id === 'qr-delete-btn') handleDelete();
     });
 
     // 모달 배경 클릭 닫기
@@ -1023,6 +1030,26 @@ function renderCategoryChips() {
             <span class="qr-cat-label">${escapeHtml(c.label)}</span>
         </button>
     `).join('');
+}
+
+// (v110) 기존 도트 삭제 자리 — 사용자 신고 "평가 삭제가 안됨" 정합
+async function handleDelete() {
+    if (!_currentExistingDot?.id) return;
+    if (!confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) return;
+    const dek = getDEK();
+    if (!dek) {
+        showToast('잠금 해제 후 다시 시도해 주세요');
+        return;
+    }
+    try {
+        await deleteDot(_currentExistingDot.id);
+        showToast('기록을 지웠어요');
+        if (_onSaved) _onSaved({ deleted: true });
+        closeModal();
+    } catch (e) {
+        console.error('[quickReview.handleDelete]', e);
+        showToast('지우는 중에 잠깐 멈췄어요. 다시 시도해 보세요.');
+    }
 }
 
 async function handleSave() {

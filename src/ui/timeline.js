@@ -304,12 +304,13 @@ function renderMobile() {
     }
 
     // ── 계획 슬롯 (showPlan 일 때만 자리잡힙) ─────────────
+    // data-slot 자리 자리잡혀 자리 — id 자리 자리잡혀 X면 timeSlot 으로 자연 fallback (신규 자리잡힌 계획)
     const planSlotsHtml = showPlan ? planSlots.map(p => {
         const top = p.slot * rowH;
         const height = Math.max(rowH, p.duration * rowH - 2);
         const decisionAttr = p.id ? `data-decision-id="${escapeHtml(p.id)}"` : '';
         const gcalCls = p.gcal ? ' gcal-source' : '';
-        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls}" style="top:${top}px; height:${height}px" ${decisionAttr}>
+        return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" ${decisionAttr}>
             <span class="utl-mg-slot-label">${escapeHtml(p.label)}</span>
         </div>`;
     }).join('') : '';
@@ -394,12 +395,26 @@ function renderMobile() {
     list.querySelectorAll('.utl-mg-slot-actual').forEach(card => bindActualSlot(card));
 
     // ── 계획 슬롯: 톡 = 평가 진입 ──────────────────────
+    // 신규 자리잡힌 계획(id 자리잡힘 후 자리잡힘 X) 자리 — timeSlot 으로 fallback 자연
     list.querySelectorAll('.utl-mg-slot-plan').forEach(card => {
         card.addEventListener('click', (e) => {
             e.stopPropagation();
             const decisionId = card.dataset.decisionId;
-            const decision = _decisions.find(d => d.id === decisionId);
-            if (!decision) return;
+            const slotNum = parseInt(card.dataset.slot ?? '', 10);
+            let decision = decisionId ? _decisions.find(d => d.id === decisionId) : null;
+            if (!decision && !Number.isNaN(slotNum)) {
+                decision = _decisions.find(d => d.timeSlot === slotNum);
+            }
+            if (!decision) {
+                // fallback: 그 시간 자리에 새 도트 자리 자연 자리잡힙
+                openQuickReview({
+                    timeSlot: Number.isNaN(slotNum) ? null : slotNum,
+                    cells: [], userId: _userId, date: _date,
+                    plannedTask: '',
+                    existingDot: null,
+                });
+                return;
+            }
             const existing = _dots.find(d => d.timeSlot === decision.timeSlot);
             openQuickReview({
                 timeSlot: decision.timeSlot,
