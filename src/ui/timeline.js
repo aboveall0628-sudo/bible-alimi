@@ -95,6 +95,24 @@ function mobileSlotToTimeLabel(slot) {
     return `${period} ${displayH}:${String(m).padStart(2, '0')}`;
 }
 
+// (v115) 데스크탑 부분 통일 — 72h + 줌 + 어제·오늘·내일 + "×" + 4상태 + 드롭다운
+let _desktopZoom = 1; // 0.5x ~ 2x
+let _activeDesktopDropdown = null;
+function getDesktopRowHeight() {
+    return Math.max(8, Math.round(ROW_HEIGHT * _desktopZoom));
+}
+function loadDesktopPrefs() {
+    try {
+        const z = parseFloat(localStorage.getItem('sanctum.desktopZoom') || '1');
+        if (z >= 0.5 && z <= 2) _desktopZoom = z;
+    } catch (_) {}
+}
+function saveDesktopPrefs() {
+    try {
+        localStorage.setItem('sanctum.desktopZoom', String(_desktopZoom));
+    } catch (_) {}
+}
+
 /**
  * 타임라인 마운트 (앱 시작 시 1회)
  */
@@ -196,72 +214,256 @@ function renderDesktop() {
     const body = document.getElementById('utl-body');
     if (!body) return;
 
-    // 항상 0~23시 그리드를 그리고, 그 위에 결단/캘린더/도트 슬롯을 띄움.
-    // (빈 상태에도 그리드가 보여야 결단을 그 시간대로 끌어다 박을 수 있음)
+    // (v115) 데스크탑 부분 통일 — 72시간 + 줌 + "×" + 4상태 + 드롭다운
+    loadDesktopPrefs();
+    const desktopRowH = getDesktopRowHeight();
+    const ALL_SLOTS = SLOTS_PER_DAY * 3; // 어제 + 오늘 + 내일
+    const totalH = ALL_SLOTS * desktopRowH;
+
+    closeDesktopDropdown();
+    const prevScroll = body.scrollTop;
     body.innerHTML = '';
+
+    // 헤더 자리잡힙 — 줌 컨트롤
+    const header = document.createElement('div');
+    header.className = 'utl-desktop-header';
+    header.innerHTML = `
+        <div class="utl-desktop-controls">
+            <button type="button" class="utl-desktop-zoom-btn" data-zoom="out" aria-label="시간축 축소">−</button>
+            <span class="utl-desktop-zoom-label">${Math.round(_desktopZoom * 100)}%</span>
+            <button type="button" class="utl-desktop-zoom-btn" data-zoom="in" aria-label="시간축 확대">+</button>
+        </div>
+    `;
+    body.appendChild(header);
+
+    header.querySelectorAll('.utl-desktop-zoom-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.zoom === 'in') _desktopZoom = Math.min(2, Math.round((_desktopZoom + 0.25) * 100) / 100);
+            else _desktopZoom = Math.max(0.5, Math.round((_desktopZoom - 0.25) * 100) / 100);
+            saveDesktopPrefs();
+            renderDesktop();
+        });
+    });
+
+    // 스크롤 영역
+    const scrollArea = document.createElement('div');
+    scrollArea.className = 'utl-desktop-scroll';
 
     const axisCol = document.createElement('div');
     axisCol.className = 'utl-axis-col';
+    axisCol.style.height = `${totalH}px`;
     const planCol = document.createElement('div');
     planCol.className = 'utl-plan-col';
+    planCol.style.height = `${totalH}px`;
     const actualCol = document.createElement('div');
     actualCol.className = 'utl-actual-col';
+    actualCol.style.height = `${totalH}px`;
 
-    for (let i = 0; i < SLOTS_PER_DAY; i++) {
-        // 시간축
+    // 시간 라벨·셀 (72시간) — day=0 어제, 1 오늘, 2 내일
+    for (let absSlot = 0; absSlot < ALL_SLOTS; absSlot++) {
+        const day = Math.floor(absSlot / SLOTS_PER_DAY);
+        const slotInDay = absSlot % SLOTS_PER_DAY;
+        const dayKey = day === 0 ? 'yesterday' : day === 1 ? 'today' : 'tomorrow';
+
         const tick = document.createElement('div');
-        tick.className = 'utl-time-tick' + (i % 4 === 0 ? '' : i % 2 === 0 ? ' half' : ' minor');
-        if (i % 4 === 0) tick.textContent = `${String(Math.floor(i / 4)).padStart(2, '0')}:00`;
+        tick.className = 'utl-time-tick day-' + dayKey + (slotInDay % 4 === 0 ? '' : slotInDay % 2 === 0 ? ' half' : ' minor');
+        tick.style.height = `${desktopRowH}px`;
+        if (slotInDay % 4 === 0) {
+            tick.textContent = `${String(Math.floor(slotInDay / 4)).padStart(2, '0')}:00`;
+        }
         axisCol.appendChild(tick);
 
-        // 계획 셀
         const planCell = document.createElement('div');
-        planCell.className = 'utl-cell' + (i % 4 === 0 ? ' hour-mark' : i % 2 === 0 ? ' half-mark' : '');
-        planCell.dataset.slot = i;
+        planCell.className = 'utl-cell day-' + dayKey + (slotInDay % 4 === 0 ? ' hour-mark' : slotInDay % 2 === 0 ? ' half-mark' : '');
+        planCell.style.height = `${desktopRowH}px`;
+        planCell.dataset.absSlot = absSlot;
+        planCell.dataset.slot = slotInDay;
+        planCell.dataset.day = dayKey;
         planCell.dataset.lane = 'plan';
         planCol.appendChild(planCell);
 
-        // 실제 셀
         const actualCell = document.createElement('div');
-        actualCell.className = 'utl-cell' + (i % 4 === 0 ? ' hour-mark' : i % 2 === 0 ? ' half-mark' : '');
-        actualCell.dataset.slot = i;
+        actualCell.className = 'utl-cell day-' + dayKey + (slotInDay % 4 === 0 ? ' hour-mark' : slotInDay % 2 === 0 ? ' half-mark' : '');
+        actualCell.style.height = `${desktopRowH}px`;
+        actualCell.dataset.absSlot = absSlot;
+        actualCell.dataset.slot = slotInDay;
+        actualCell.dataset.day = dayKey;
         actualCell.dataset.lane = 'actual';
         actualCol.appendChild(actualCell);
     }
 
-    body.appendChild(axisCol);
-    body.appendChild(planCol);
-    body.appendChild(actualCol);
+    scrollArea.appendChild(axisCol);
+    scrollArea.appendChild(planCol);
+    scrollArea.appendChild(actualCol);
 
-    // 현재 시간 라인
-    if (isToday(_date)) {
-        const now = new Date();
-        const nowSlot = now.getHours() * 4 + now.getMinutes() / 15;
-        const line = document.createElement('div');
-        line.className = 'utl-now-line';
-        line.style.top = `${nowSlot * ROW_HEIGHT}px`;
-        body.appendChild(line);
+    // 날짜 구분선
+    for (let day = 0; day < 3; day++) {
+        const top = day * SLOTS_PER_DAY * desktopRowH;
+        const divider = document.createElement('div');
+        divider.className = 'utl-desktop-day-divider';
+        divider.style.top = `${top}px`;
+        divider.innerHTML = `<span class="utl-desktop-day-label">${day === 0 ? '어제' : day === 1 ? '오늘' : '내일'}</span>`;
+        scrollArea.appendChild(divider);
     }
 
-    // 박힌 결단 슬롯 그리기 (plan 레인)
-    // Phase E-6 C-2: GCal 이벤트도 동기화 후 _decisions 에 포함되므로 별도 렌더링 불필요.
-    // gcalEventId 있는 목표는 createPlanSlot 안에서 📅 prefix 로 시각 구분.
-    _decisions.forEach(d => {
-        if (d.timeSlot == null) return;
-        const slotEl = createPlanSlot(d, 'decision');
-        positionSlot(slotEl, d.timeSlot, d.durationSlots || 4);
-        planCol.appendChild(slotEl);
-    });
-    // 도트 그리기 (actual 레인) — durationSlots 지원, 없으면 1슬롯
-    _dots.forEach(dot => {
-        if (dot.timeSlot == null) return;
-        const slotEl = createActualSlot(dot);
-        positionSlot(slotEl, dot.timeSlot, dot.durationSlots || 1);
-        actualCol.appendChild(slotEl);
-    });
+    // 현재 시간 라인 — 오늘 자리 안에서만
+    if (isToday(_date)) {
+        const now = new Date();
+        const nowAbsSlot = SLOTS_PER_DAY + now.getHours() * 4 + now.getMinutes() / 15;
+        const line = document.createElement('div');
+        line.className = 'utl-now-line';
+        line.style.top = `${nowAbsSlot * desktopRowH}px`;
+        scrollArea.appendChild(line);
+    }
+
+    // 슬롯 자리잡힙 — 어제·오늘·내일
+    const renderPlanList = (list, offset, dayKey) => {
+        list.forEach(d => {
+            if (d.timeSlot == null) return;
+            const slotEl = createPlanSlot(d, 'decision', dayKey);
+            positionSlot(slotEl, d.timeSlot + offset, d.durationSlots || 4, desktopRowH);
+            planCol.appendChild(slotEl);
+        });
+    };
+    renderPlanList(_decisionsYesterday, 0, 'yesterday');
+    renderPlanList(_decisions, SLOTS_PER_DAY, 'today');
+    renderPlanList(_decisionsTomorrow, SLOTS_PER_DAY * 2, 'tomorrow');
+
+    const renderActualList = (list, offset, dayKey) => {
+        list.forEach(dot => {
+            if (dot.timeSlot == null) return;
+            const slotEl = createActualSlot(dot, dayKey);
+            positionSlot(slotEl, dot.timeSlot + offset, dot.durationSlots || 1, desktopRowH);
+            actualCol.appendChild(slotEl);
+        });
+    };
+    renderActualList(_dotsYesterday, 0, 'yesterday');
+    renderActualList(_dots, SLOTS_PER_DAY, 'today');
+    renderActualList(_dotsTomorrow, SLOTS_PER_DAY * 2, 'tomorrow');
+
+    body.appendChild(scrollArea);
 
     bindCellEvents(planCol, 'plan');
     bindCellEvents(actualCol, 'actual');
+
+    // 스크롤 자리 복원 — 첫 진입이면 오늘 현재 시간 자리
+    requestAnimationFrame(() => {
+        if (prevScroll > 0) {
+            scrollArea.scrollTop = prevScroll;
+        } else if (isToday(_date)) {
+            const now = new Date();
+            const nowAbsSlot = SLOTS_PER_DAY + now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+            scrollArea.scrollTop = Math.max(0, (nowAbsSlot - 4) * desktopRowH);
+        } else {
+            scrollArea.scrollTop = Math.max(0, (SLOTS_PER_DAY + 9 * 4) * desktopRowH);
+        }
+    });
+}
+
+function closeDesktopDropdown() {
+    if (_activeDesktopDropdown) {
+        _activeDesktopDropdown.remove();
+        _activeDesktopDropdown = null;
+    }
+    document.removeEventListener('click', closeDesktopDropdownOnOutside);
+}
+function closeDesktopDropdownOnOutside(e) {
+    if (!_activeDesktopDropdown) return;
+    if (!_activeDesktopDropdown.contains(e.target)) closeDesktopDropdown();
+}
+
+// (v115) 데스크탑 plan 빈 셀 click 시 드롭다운 — 모바일 결 정합
+async function openDesktopDropdown(cell, slot, opts = {}) {
+    const { targetDate = _date, asNewGoal = false } = opts;
+    closeDesktopDropdown();
+    const unplaced = asNewGoal ? [] : _decisions.filter(d => d.timeSlot == null);
+    const goalsHtml = unplaced.length > 0
+        ? unplaced.map(g => {
+            const title = g.title ?? g.text ?? '(이름 없음)';
+            return `<li class="utl-desktop-dd-item" data-goal-id="${escapeHtml(g.id)}">
+                <span class="utl-desktop-dd-icon">◯</span>
+                <span class="utl-desktop-dd-text">${escapeHtml(title)}</span>
+            </li>`;
+        }).join('')
+        : '<li class="utl-desktop-dd-empty">자리잡힌 목표가 아직 없어요</li>';
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'utl-desktop-dropdown';
+    dropdown.innerHTML = `
+        <div class="utl-desktop-dd-header">
+            <span class="utl-desktop-dd-time">${slotToTime(slot)}</span>
+            <button type="button" class="utl-desktop-dd-close" aria-label="닫기">✕</button>
+        </div>
+        <ul class="utl-desktop-dd-list">${goalsHtml}</ul>
+        <div class="utl-desktop-dd-divider"></div>
+        <form class="utl-desktop-dd-form">
+            <input type="text" class="utl-desktop-dd-input" placeholder="할 일을 직접 적어 주세요" maxlength="100" autocomplete="off" />
+            <button type="submit" class="utl-desktop-dd-submit">추가</button>
+        </form>
+    `;
+    cell.appendChild(dropdown);
+    _activeDesktopDropdown = dropdown;
+
+    // 미배치 목표 톡 — 오늘 자리에만 자리잡힙
+    dropdown.querySelectorAll('.utl-desktop-dd-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const goalId = item.dataset.goalId;
+            const dek = getDEK();
+            if (!dek) return;
+            const goal = _decisions.find(d => d.id === goalId);
+            if (!goal) return;
+            closeDesktopDropdown();
+            try {
+                await placeGoal(dek, goal, slot, 4);
+                showToast('시간표에 넣었어요');
+                if (_onChange) _onChange();
+                await refreshTimeline({ userId: _userId, date: _date });
+            } catch (err) {
+                console.error('[desktopDropdown.placeGoal]', err);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
+            }
+        });
+    });
+
+    // 직접 입력 — 새 goal 자리잡힙 (오늘·내일 둘 다)
+    const form = dropdown.querySelector('.utl-desktop-dd-form');
+    const input = dropdown.querySelector('.utl-desktop-dd-input');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const text = input.value.trim();
+        if (!text) return;
+        closeDesktopDropdown();
+        const dek = getDEK();
+        if (!dek) return;
+        try {
+            await saveGoal(dek, {
+                userId: _userId,
+                userDate: targetDate,
+                title: text,
+                text: text,
+                timeSlot: slot,
+                durationSlots: 4,
+                period: 'daily',
+                placedAt: Date.now(),
+            });
+            showToast('시간표에 넣었어요');
+            if (_onChange) _onChange();
+            await refreshTimeline({ userId: _userId, date: _date });
+        } catch (err) {
+            console.error('[desktopDropdown.newGoal]', err);
+            showToast('잠깐 막혔어요. 다시 해 볼까요?');
+        }
+    });
+    input.addEventListener('click', (e) => e.stopPropagation());
+    dropdown.querySelector('.utl-desktop-dd-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeDesktopDropdown();
+    });
+
+    setTimeout(() => input.focus(), 50);
+    setTimeout(() => document.addEventListener('click', closeDesktopDropdownOnOutside), 0);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -956,24 +1158,27 @@ async function quickEvalDot(dot, evalKey) {
 }
 
 // ─── 슬롯 컴포넌트 ───
-function createPlanSlot(decision, source) {
+// (v115) day 인자 자리잡힙 — 어제·내일 자리 = 흐릿 + 자리잡힘·드래그 X
+function createPlanSlot(decision, source, dayKey = 'today') {
     const el = document.createElement('div');
-    // Phase E-6 C-2: GCal 출처 목표는 시각 구분 — gcal-source 클래스 + 📅 prefix.
     const gcalCls = decision.gcalEventId ? ' gcal-source' : '';
-    el.className = `utl-slot ${dotColorClassForDecision(decision)}${gcalCls}`;
+    const dayCls = ` day-${dayKey}`;
+    el.className = `utl-slot ${dotColorClassForDecision(decision)}${gcalCls}${dayCls}`;
     el.dataset.decisionId = decision.id;
     el.dataset.source = source;
+    el.dataset.day = dayKey;
     if (decision.gcalEventId) el.dataset.gcalId = decision.gcalEventId;
-    el.draggable = true;
+    el.draggable = (dayKey === 'today'); // 오늘 자리만 드래그
     const dur = decision.durationSlots || 4;
     const endSlot = (decision.timeSlot || 0) + dur;
     const titleText = decision.title ?? decision.text ?? '(아직 이름이 없어요)';
     const titleDisplay = decision.gcalEventId ? `📅 ${titleText}` : titleText;
+    const interactive = dayKey === 'today';
     el.innerHTML = `
-        <button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>
+        ${interactive ? '<button class="slot-delete" type="button" title="시간표에서 빼기" aria-label="시간표에서 빼기">×</button>' : ''}
         <span class="slot-time">${slotToTime(decision.timeSlot)}~${slotToTime(endSlot)}</span>
         <span class="slot-title">${escapeHtml(titleDisplay)}</span>
-        <span class="slot-resize" data-decision-id="${decision.id}" title="아래로 끌어 시간 늘리기"></span>
+        ${interactive ? `<span class="slot-resize" data-decision-id="${decision.id}" title="아래로 끌어 시간 늘리기"></span>` : ''}
     `;
     return el;
 }
@@ -991,29 +1196,40 @@ function createGcalSlot(ev) {
     return el;
 }
 
-function createActualSlot(dot) {
+// (v115) day 인자 + 인라인 4상태 평가 자리잡힙
+function createActualSlot(dot, dayKey = 'today') {
     const el = document.createElement('div');
-    // 워크플로우-발 도트는 시각 구별 (워크플로우 트랙 STEP 2)
     const fromWf = dot.linkedWorkflowStepId ? ' from-workflow' : '';
-    el.className = `utl-slot ${dotColorClass(dot)}${fromWf}`;
+    const evaluatedCls = dot.executed ? ' evaluated' : '';
+    el.className = `utl-slot ${dotColorClass(dot)}${fromWf}${evaluatedCls} day-${dayKey}`;
     el.dataset.dotId = dot.id;
+    el.dataset.day = dayKey;
     const dur = dot.durationSlots || 1;
     const endSlot = dot.timeSlot + dur;
     const timeLabel = dur > 1
         ? `${slotToTime(dot.timeSlot)}~${slotToTime(endSlot)}`
         : slotToTime(dot.timeSlot);
+    const interactive = dayKey === 'today';
+    const showEval = interactive && (dur * getDesktopRowHeight()) >= 56; // 너무 짧으면 4상태 자리잡힘 X
     el.innerHTML = `
-        <button class="slot-delete" type="button" title="이 기록 지우기" aria-label="이 기록 지우기">×</button>
+        ${interactive ? '<button class="slot-delete" type="button" title="이 기록 지우기" aria-label="이 기록 지우기">×</button>' : ''}
         <span class="slot-time">${timeLabel}</span>
         <span class="slot-title">${escapeHtml(dot.actualTask || dot.plannedTask || '(아직 평가 전이에요)')}</span>
-        <span class="slot-resize actual-resize" data-dot-id="${dot.id}" title="아래로 끌어 시간 늘리기"></span>
+        ${showEval ? `<div class="slot-quick-eval">
+            <button type="button" class="slot-eval-btn" data-eval="done" title="잘 했어요">😀</button>
+            <button type="button" class="slot-eval-btn" data-eval="partial" title="조금 했어요">🙂</button>
+            <button type="button" class="slot-eval-btn" data-eval="replaced" title="다른 걸 했어요">🔄</button>
+            <button type="button" class="slot-eval-btn" data-eval="skipped" title="못 했어요">😣</button>
+        </div>` : ''}
+        ${interactive ? `<span class="slot-resize actual-resize" data-dot-id="${dot.id}" title="아래로 끌어 시간 늘리기"></span>` : ''}
     `;
     return el;
 }
 
-function positionSlot(el, slot, duration) {
-    el.style.top = `${slot * ROW_HEIGHT}px`;
-    el.style.height = `${Math.max(1, duration) * ROW_HEIGHT - 2}px`;
+// (v115) rowH 인자 자리잡힙 — 데스크탑 줌 결로 자리잡힐 자리. 자리잡혀 X면 ROW_HEIGHT default.
+function positionSlot(el, slot, duration, rowH = ROW_HEIGHT) {
+    el.style.top = `${slot * rowH}px`;
+    el.style.height = `${Math.max(1, duration) * rowH - 2}px`;
 }
 
 // ─── 자동 스크롤 (드래그/리사이즈 중 화면 가장자리 시 스크롤) ───
@@ -1176,11 +1392,31 @@ function bindCellEvents(col, lane) {
         // actual 레인 빈 셀: mousedown → 드래그로 시간 범위 선택 → 인라인 입력
         cell.addEventListener('mousedown', (e) => {
             if (lane !== 'actual') return;
-            if (e.button !== 0) return;                  // 좌클릭만
-            if (e.target.closest('.utl-slot')) return;   // 기존 도트 위에선 무시 (평가는 슬롯 클릭으로)
+            if (e.button !== 0) return;
+            if (e.target.closest('.utl-slot')) return;
             e.preventDefault();
             const slot = parseInt(cell.dataset.slot);
             startActualCreateDrag(col, cell, slot);
+        });
+
+        // (v115) plan 레인 빈 셀 click → 드롭다운 (모바일 결 정합) — 오늘 자리만
+        cell.addEventListener('click', (e) => {
+            if (lane !== 'plan') return;
+            if (e.target.closest('.utl-slot')) return;
+            const day = cell.dataset.day;
+            if (day === 'yesterday') {
+                showToast('어제는 보기만 가능해요');
+                return;
+            }
+            const slot = parseInt(cell.dataset.slot);
+            if (day === 'tomorrow') {
+                const dateObj = new Date(_date);
+                const tom = new Date(dateObj); tom.setDate(tom.getDate() + 1);
+                const tomStr = formatDateLocal(tom);
+                openDesktopDropdown(cell, slot, { targetDate: tomStr, asNewGoal: true });
+            } else {
+                openDesktopDropdown(cell, slot, { targetDate: _date, asNewGoal: false });
+            }
         });
     });
 
@@ -1198,10 +1434,22 @@ function bindCellEvents(col, lane) {
             slot.classList.remove('dragging');
         });
 
+        // (v115) 인라인 4상태 평가 버튼 — actual 슬롯 자리잡힙
+        slot.querySelectorAll('.slot-eval-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const dotId = slot.dataset.dotId;
+                const dot = _dots.find(x => x.id === dotId);
+                if (!dot) return;
+                await quickEvalDot(dot, btn.dataset.eval);
+            });
+        });
+
         slot.addEventListener('click', (e) => {
-            // 리사이즈 핸들 / 삭제 버튼 클릭은 자체 핸들러가 처리
+            // 리사이즈 핸들 / 삭제 버튼 / 4상태 버튼 클릭은 자체 핸들러가 처리
             if (e.target.closest('.slot-resize')) return;
             if (e.target.closest('.slot-delete')) return;
+            if (e.target.closest('.slot-eval-btn')) return;
 
             const decisionId = slot.dataset.decisionId;
             const dotId = slot.dataset.dotId;

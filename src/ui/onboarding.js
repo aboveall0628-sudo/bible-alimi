@@ -40,7 +40,7 @@ import {
     CITY_PRESETS, TIMEZONE_OPTIONS, detectBrowserTimezone,
 } from '../config/onboardingDefaults.js';
 import {
-    setActivePlanId, addUserPlan, getActivePlan,
+    setActivePlanId, addUserPlan, getActivePlan, setPartOverride,
 } from './scriptureSettings.js';
 import {
     SYSTEM_FONT_SIZES, getSystemFontScale, setSystemFontScale, applySystemFontScale,
@@ -1378,30 +1378,38 @@ async function persistAll() {
         setScriptureFontSize(draft.scriptureFont);
     } catch (e) { console.warn('[onboarding] font persist failed:', e?.message || e); }
 
-    // 2.5) (S-E7) 묵상 트랙 — scriptureSettings localStorage 에 활성 계획 박음.
-    //      'one-book' 은 addUserPlan 으로 사용자 정의 계획을 만든 뒤 활성화.
+    // 2.5) (S-E7 / 2026-05-21 v122) 묵상 트랙 — scriptureSettings localStorage 에 활성 계획 박음.
+    //      preset 트랙은 오늘부터 day 1로 자기 결로 자리잡혀 자리.
+    //      예전 결: ANCHOR_DATE(2026-05-08) + ANCHOR_INDICES 기준으로 day 98 결로 자리잡혀 사용자 "왜 오늘 가입했는데 시편 56장이야?" 헷갈림.
+    //      새 결: setPartOverride 로 오늘 = 각 part chapter 1.
     try {
         const track = draft.selectedTrack;
-        if (track === 'essentials100') {
-            // essentials100 은 별도 트랙 카탈로그. scriptureSettings PRESETS 안에는 없음 —
-            //   해당 트랙은 큐티 수준별 추천 본문 흐름만 따로 살림. activePlanId 는 디폴트(preset-4parts) 유지.
-            //   추후 essentials100 을 PRESET 으로 박는 트랙 별도.
-        } else if (track === 'preset-4parts' || track === 'preset-newtestament') {
-            setActivePlanId(track);
+        const todayISO = today; // 이미 위에서 잡혀 있어요
+        if (track === 'essentials100' || track === 'preset-4parts') {
+            // essentials100 은 별도 카탈로그 자리 X — preset-4parts 결로 시작점 자리잡기 (오늘 = day 1).
+            //   추후 essentials100 별도 PRESET 자리잡힐 자리.
+            setActivePlanId('preset-4parts');
+            setPartOverride('preset-4parts', 1, { abbr: '욥',  chapter: 1, anchorDate: todayISO });
+            setPartOverride('preset-4parts', 2, { abbr: '창',  chapter: 1, anchorDate: todayISO });
+            setPartOverride('preset-4parts', 3, { abbr: '수',  chapter: 1, anchorDate: todayISO });
+            setPartOverride('preset-4parts', 4, { abbr: '마',  chapter: 1, anchorDate: todayISO });
+        } else if (track === 'preset-newtestament') {
+            setActivePlanId('preset-newtestament');
+            setPartOverride('preset-newtestament', 4, { abbr: '마', chapter: 1, anchorDate: todayISO });
         } else if (track === 'one-book' && draft.oneBookAbbr) {
             // (2026-05-18 후속) 66권 전체에서 검색 — 추천 5권 외 사용자가 직접 고른 책도 등록.
             const pick = ONE_BOOK_QUICK_PICKS.find(b => b.abbr === draft.oneBookAbbr)
                       || BIBLE_BOOKS_66.find(b => b.abbr === draft.oneBookAbbr);
             if (pick) {
                 // scriptureSettings.addUserPlan 시그니처: books = [[abbr, full, chapters], ...]
-                //   addUserPlan 안에서 자동으로 activePlanId 갱신 — setActivePlanId 별도 호출 X.
+                //   addUserPlan 안에서 자동으로 activePlanId 갱신 + anchorDate=오늘 자기 결.
                 addUserPlan({
                     name: `${pick.label} 통독`,
                     books: [[pick.abbr, pick.label, pick.chapters]],
                 });
             }
         } else if (track === 'custom') {
-            // 사용자가 추후 설정에서 직접 만들 자리. 디폴트 유지.
+            // [직접 만들기] 모달 안에서 이미 addUserPlan 호출됨 — anchorDate=오늘, activePlanId 자기 결로 자리잡힘. 추가 자리 X.
         }
     } catch (e) { console.warn('[onboarding] track persist failed:', e?.message || e); }
 

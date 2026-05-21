@@ -652,12 +652,13 @@ export function bindScriptureSettingsListener() {
 }
 
 /**
- * 묵상 노트 카드 안 하단에 sticky 복사 바를 만들어 둠 (한 번만)
- * 카드 안에서 스크롤할 때 따라옴.
+ * 말씀 카드 안 하단에 복사 바를 만들어 둠 (한 번만).
+ *   (2026-05-21 v122) 사용자 명시: 버튼은 말씀 읽는 자리 안에, 카드 접으면 함께 숨김.
+ *   #meditation-content (오늘의 말씀 collapsible-body) 안 마지막 자리 — 카드 접기·펴기 결로 자연 자리잡힘.
  */
 function ensureStickyCopyBar(scriptureContainer) {
-    const noteSection = document.getElementById('section-meditation');
-    if (!noteSection) return;
+    const scriptureBody = document.getElementById('meditation-content');
+    if (!scriptureBody) return;
     let bar = document.getElementById('scripture-copy-bar');
     if (!bar) {
         bar = document.createElement('div');
@@ -669,7 +670,11 @@ function ensureStickyCopyBar(scriptureContainer) {
                 📋 고른 구절을 묵상 노트에 붙여넣기 (0개)
             </button>
         `;
-        noteSection.appendChild(bar);
+        scriptureBody.appendChild(bar);
+    } else if (bar.parentElement !== scriptureBody) {
+        // 옛 자리(section-meditation 끝) → 새 자리(meditation-content 안)로 자기 결로 이동.
+        //   옛 사용자 자리 한 번만 이동, 다음 렌더부턴 자기 자리.
+        scriptureBody.appendChild(bar);
     }
     // 매 렌더마다 핸들러 재바인딩 — clone-replace로 이전 리스너 제거
     const oldBtn = bar.querySelector('#scripture-copy-to-note');

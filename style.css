@@ -1089,17 +1089,204 @@ html[data-note-font="serif"] .note-editor h3 {
     font-size: 11px; font-weight: 600; color: var(--text-secondary);
     text-transform: uppercase; letter-spacing: 0.04em;
 }
+/* (v115) 데스크탑 부분 통일 — 헤더 + scroll 분리. 72시간 + 줌 + 드롭다운 자리잡힙 */
 .utl-body {
+    display: block;
+    position: relative;
+}
+.utl-desktop-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+.utl-desktop-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.utl-desktop-zoom-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+.utl-desktop-zoom-btn:hover { background: var(--accent-soft); }
+.utl-desktop-zoom-label {
+    min-width: 42px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.utl-desktop-scroll {
     display: grid;
     grid-template-columns: 60px 1fr 1fr;
     position: relative;
-    max-height: 70vh; overflow-y: auto;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 .utl-axis-col, .utl-plan-col, .utl-actual-col {
-    display: grid;
-    grid-auto-rows: 16px;  /* 15분 = 16px → 1시간 = 64px */
+    display: block;  /* (v115) grid 결 자리잡힘 X — inline height 자리잡힙 */
     position: relative;
 }
+/* 날짜 구분선 (어제·오늘·내일) */
+.utl-desktop-day-divider {
+    position: absolute;
+    left: 60px;
+    right: 0;
+    height: 0;
+    border-top: 2px dashed var(--accent);
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 4;
+}
+.utl-desktop-day-divider:first-of-type { border-top: none; }
+.utl-desktop-day-label {
+    position: absolute;
+    top: -10px;
+    left: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+/* 어제·내일 자리 = 흐릿 */
+.utl-cell.day-yesterday, .utl-cell.day-tomorrow { opacity: 0.7; }
+.utl-slot.day-yesterday, .utl-slot.day-tomorrow {
+    opacity: 0.65;
+    cursor: default;
+}
+/* 인라인 4상태 평가 (actual 슬롯) */
+.slot-quick-eval {
+    display: flex;
+    gap: 3px;
+    padding: 2px 4px 3px;
+    margin-top: auto;
+}
+.slot-eval-btn {
+    flex: 1;
+    height: 22px;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+}
+.slot-eval-btn:hover { background: var(--accent-soft); }
+/* 데스크탑 드롭다운 */
+.utl-desktop-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+    max-height: 280px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.utl-desktop-dd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+}
+.utl-desktop-dd-time { font-size: 13px; font-weight: 600; color: var(--accent); }
+.utl-desktop-dd-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.utl-desktop-dd-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    overflow-y: auto;
+    max-height: 160px;
+}
+.utl-desktop-dd-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+.utl-desktop-dd-item:hover { background: var(--accent-soft); }
+.utl-desktop-dd-icon { color: var(--accent); font-size: 14px; flex-shrink: 0; }
+.utl-desktop-dd-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.utl-desktop-dd-empty {
+    padding: 16px 14px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.utl-desktop-dd-divider { height: 1px; background: var(--border); margin: 0; }
+.utl-desktop-dd-form {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--bg);
+}
+.utl-desktop-dd-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+}
+.utl-desktop-dd-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.utl-desktop-dd-submit {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+/* 빈 셀 hover — 클릭 가능 표시 */
+.utl-cell.day-today { cursor: pointer; }
+.utl-cell.day-today:hover { background: var(--accent-soft); }
+.utl-cell.day-tomorrow { cursor: pointer; }
+.utl-cell.day-tomorrow:hover { background: var(--accent-soft); opacity: 0.85; }
 .utl-time-tick {
     font-size: 10px; color: var(--text-secondary);
     text-align: right; padding-right: 6px;

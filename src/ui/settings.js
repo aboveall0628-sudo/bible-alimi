@@ -506,51 +506,8 @@ function injectExtraSections() {
         `;
         appendToGroup('settings-group-body-admin', tierCard, container);
 
-        // (2026-05-20 v97) 미션 진행도 리셋 카드 — 운영자 테스트 자리.
-        //   사용자 명시 "두 번째 Google 계정 쓰는데 한 번 지나간 자리 다시 못해서 갑갑".
-        //   selfCard 안 tutorialState + missionStatus 둘 다 비움 → 다음 진입에 첫 진입 결.
-        //   confirm 모달 + 본인 데이터(이름·생일·추천 코드 등)는 안 건드림.
-        const missionResetCard = document.createElement('div');
-        missionResetCard.id = 'settings-mission-reset-card';
-        missionResetCard.className = 'card-section';
-        missionResetCard.innerHTML = `
-            <h3 class="section-title"><i class="section-icon" data-lucide="rotate-ccw"></i> 미션 진행도 리셋 (운영자 테스트)</h3>
-            <p class="section-desc">
-                튜토리얼 미션 진행도를 처음 자리로 갈음. 다음 진입에서 미션 카드가 다시 첫 진입처럼 자리잡혀 보여요.
-                자기 카드(이름·생일·추천 코드 등)는 그대로, <strong>미션 진행도만</strong> 갈음돼요.
-            </p>
-            <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-                <button id="btn-mission-reset" class="text-btn" style="color: var(--dot-orange, #c5793a); border-color: var(--dot-orange, #c5793a);">
-                    미션 진행도 리셋
-                </button>
-                <span id="mission-reset-status" style="font-size: 12px; color: var(--ink-secondary, var(--text-secondary)); align-self: center;"></span>
-            </div>
-        `;
-        appendToGroup('settings-group-body-admin', missionResetCard, container);
-
-        const btnMissionReset = missionResetCard.querySelector('#btn-mission-reset');
-        const missionResetStatus = missionResetCard.querySelector('#mission-reset-status');
-        btnMissionReset?.addEventListener('click', async () => {
-            if (!confirm('미션 진행도를 리셋할까요?\n다음 진입에서 미션 카드가 처음부터 다시 자리잡혀 보여요. (자기 카드 데이터는 안 건드려요.)')) return;
-            btnMissionReset.disabled = true;
-            const orig = btnMissionReset.textContent;
-            btnMissionReset.textContent = '리셋하는 중…';
-            try {
-                const { getDEK } = await import('./lockScreen.js');
-                const dek = getDEK();
-                if (!dek) throw new Error('잠겨 있어요');
-                const { resetMissionProgress } = await import('../data/personRepo.js');
-                await resetMissionProgress(dek, _userId);
-                missionResetStatus.textContent = '✓ 리셋 완료. 새로고침하면 첫 진입 화면이 다시 보여요.';
-                btnMissionReset.textContent = orig;
-            } catch (e) {
-                console.warn('[mission-reset] 실패:', e?.message || e);
-                missionResetStatus.textContent = '리셋 잠깐 막혔어요: ' + (e?.message || e);
-                btnMissionReset.textContent = orig;
-                btnMissionReset.disabled = false;
-            }
-        });
-
+        // (v123 2026-05-21) 미션 진행도 리셋 카드 = 운영자 페이지(admin.js)로 이관.
+        //   설정 안 운영자 그룹 자리 슬림화 — 베타/전체 모드 토글만 남김.
     }
 
     // (v118 2026-05-21) 테스트 계정 통째 초기화 카드 — 화이트리스트 자리잡힌 이메일만 노출.

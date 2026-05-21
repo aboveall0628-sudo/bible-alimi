@@ -34,11 +34,9 @@ export function renderAdminView(container) {
     if (!container) return;
     // (2026-05-20 v93) 사용자 명시 — 피드백 관리 카드 최상단 + 사전/사후/전체 가입 3 버튼 시연 카드로 옮김.
     //   미확인 뱃지 자리 3 자리(사이드바 [설정]·운영자 nav·피드백 관리 열기) 자연 자리잡혀요.
+    // (v123 2026-05-21) page-header 자리 자체 제거 — 사이드바 [운영자] 항목 자체가 진입 결 자연 안내.
+    //   다른 메뉴(설정·홈 등)도 page-header 자리잡지 않음 → 일관성 자리.
     container.innerHTML = `
-        <header class="page-header">
-            <h1>🛠 운영자</h1>
-        </header>
-
         <section class="card-section admin-card">
             <h3 class="section-title"><i class="section-icon" data-lucide="inbox"></i> 피드백 관리</h3>
             <p class="section-desc">사용자 풍선·SWAN 사전·사후 설문 결과를 한 자리에서 봐요.</p>
@@ -107,6 +105,21 @@ export function renderAdminView(container) {
                     <span class="admin-flow-label">전체 가입 흐름 (랜딩→동의→온보딩→설문)</span>
                 </button>
             </div>
+        </section>
+
+        <section class="card-section admin-card">
+            <h3 class="section-title"><i class="section-icon" data-lucide="rotate-ccw"></i> 미션 진행도 리셋</h3>
+            <p class="section-desc">
+                튜토리얼 미션 진행도를 처음 자리로 갈음. 다음 진입에서 미션 카드가 다시 첫 진입처럼 보여요.
+                자기 카드(이름·생일·추천 코드 등)는 그대로, <strong>미션 진행도만</strong> 갈음돼요.
+            </p>
+            <div class="admin-flow-grid">
+                <button type="button" id="admin-mission-reset-btn" class="admin-flow-btn">
+                    <span class="admin-flow-emoji">🔄</span>
+                    <span class="admin-flow-label">미션 진행도 리셋</span>
+                </button>
+            </div>
+            <div id="admin-mission-reset-status" class="admin-mission-reset-status" style="font-size:12px;color:var(--ink-secondary,var(--text-secondary));margin-top:8px;"></div>
         </section>
     `;
 
@@ -178,11 +191,48 @@ export function renderAdminView(container) {
     // (2026-05-19 후속) 신규 사용자 흐름 시연 6 버튼
     bindFlowDemo(container);
 
+    // (v123 2026-05-21) 미션 진행도 리셋 — settings 자리에서 운영자 자리로 이관.
+    //   selfCard 안 tutorialState + missionStatus 둘 다 갈음 → 다음 진입에 첫 진입 결.
+    bindMissionResetCard(container);
+
     // (2026-05-20 Phase 1) 피드백 도착 알림 카드 자리잡기
     bindPushNotificationCard(container);
 
     // lucide 아이콘 재렌더 — switchView 직후 createIcons 호출 자리 정합
     try { if (window.lucide) window.lucide.createIcons(); } catch (_) {}
+}
+
+// (v123 2026-05-21) 미션 진행도 리셋 카드 자리 — 운영자 페이지 전용.
+//   사용자 명시 "두 번째 Google 계정 쓰는데 한 번 지나간 자리 다시 못해서 갑갑".
+//   confirm 모달 + 본인 데이터(이름·생일·추천 코드 등)는 안 건드림.
+function bindMissionResetCard(container) {
+    const btn = container.querySelector('#admin-mission-reset-btn');
+    const status = container.querySelector('#admin-mission-reset-status');
+    if (!btn || !status) return;
+
+    btn.addEventListener('click', async () => {
+        if (!confirm('미션 진행도를 리셋할까요?\n다음 진입에서 미션 카드가 처음부터 다시 자리잡혀 보여요. (자기 카드 데이터는 안 건드려요.)')) return;
+        btn.disabled = true;
+        const orig = btn.querySelector('.admin-flow-label')?.textContent || '미션 진행도 리셋';
+        const labelEl = btn.querySelector('.admin-flow-label');
+        if (labelEl) labelEl.textContent = '리셋하는 중…';
+        try {
+            const userId = window.currentUserId;
+            if (!userId || userId === 'anonymous') throw new Error('로그인 자리 확인이 안 돼요');
+            const { getDEK } = await import('./lockScreen.js');
+            const dek = getDEK();
+            if (!dek) throw new Error('잠겨 있어요');
+            const { resetMissionProgress } = await import('../data/personRepo.js');
+            await resetMissionProgress(dek, userId);
+            status.textContent = '✓ 리셋 완료. 새로고침하면 첫 진입 화면이 다시 보여요.';
+            if (labelEl) labelEl.textContent = orig;
+        } catch (e) {
+            console.warn('[admin-mission-reset] 실패:', e?.message || e);
+            status.textContent = '리셋 잠깐 막혔어요: ' + (e?.message || e);
+            if (labelEl) labelEl.textContent = orig;
+            btn.disabled = false;
+        }
+    });
 }
 
 // (2026-05-20 Phase 1) 피드백 도착 알림 카드 자리
