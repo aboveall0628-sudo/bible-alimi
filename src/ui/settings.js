@@ -42,7 +42,7 @@ import { TIERS, getTier, setTier } from '../config/featureFlags.js';
 // (2026-05-18 후속) 브라우저 알림 권한 상태·요청 + 매일 묵상 시각 자동 발화 재스케줄
 import { getNotificationPermission, requestNotificationPermission, scheduleDailyMeditationNotification, triggerNow as triggerNotifNow, clearLastFiredToday } from './notifications.js';
 import { BIBLE_VERSIONS, DEFAULT_BIBLE_VERSION } from '../config/onboardingDefaults.js';
-import { isSwanAdmin } from '../config/adminConfig.js';
+import { isSwanAdmin, isTestAccount } from '../config/adminConfig.js';
 import { ensureSelfCard, saveSelfCard } from '../data/personRepo.js';
 // (2026-05-18 v73) FAQ 카탈로그 — SWAN 채팅·설정 안내 두 자리 공통 출처
 // (v74) getVisibleFaqs — 슬림 모드에서 slimHidden:true 항목 자연 제외 (분별의 자리 등)
@@ -548,6 +548,80 @@ function injectExtraSections() {
                 missionResetStatus.textContent = '리셋 잠깐 막혔어요: ' + (e?.message || e);
                 btnMissionReset.textContent = orig;
                 btnMissionReset.disabled = false;
+            }
+        });
+
+    }
+
+    // (v118 2026-05-21) 테스트 계정 통째 초기화 카드 — 화이트리스트 자리잡힌 이메일만 노출.
+    //   사용자 명시 "테스트 계정 별도로 지정해놓고 계정 초기화하기 버튼 부여".
+    //   자기 카드·도트·묵상·인물·미션·튜토리얼·추천·환경 자리 등 통째 비움.
+    //   isTestAccount 가드 = sanctumswan@gmail.com 같은 명시 자리만. 본 운영자 자기 데이터 보호.
+    //   보안 그룹에 자리잡힘 (데이터 삭제 = 보안 자리).
+    if (isTestAccount(_userEmail)) {
+        const fullResetCard = document.createElement('div');
+        fullResetCard.id = 'settings-full-reset-card';
+        fullResetCard.className = 'card-section';
+        fullResetCard.innerHTML = `
+            <h3 class="section-title"><i class="section-icon" data-lucide="alert-triangle"></i> 테스트 계정 통째 초기화 <span style="font-size:11px;color:var(--dot-red,#c75a4a);font-weight:500;margin-left:6px;">⚠️ 위험</span></h3>
+            <p class="section-desc">
+                이 계정의 <strong>모든 데이터</strong>(자기 카드·도트·묵상·원칙·판례·목표·인물·조직·추천·미션·튜토리얼·환경 자리)를 통째 비움.
+                다시 로그인하면 가입 직후 결로 돌아가요. <strong>되돌릴 수 X.</strong>
+            </p>
+            <p class="section-desc" style="font-size:11px;color:var(--ink-tertiary,#a8a8a3);margin-top:4px;">
+                이 카드는 <code style="font-size:10px;">${escapeHtml(_userEmail || '')}</code> 결로 자리잡혀 보여요. 다른 사용자에겐 자연 안 보여요.
+            </p>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <button id="btn-full-reset" class="text-btn" style="color: var(--dot-red, #c75a4a); border-color: var(--dot-red, #c75a4a);">
+                    통째 초기화하기
+                </button>
+                <span id="full-reset-status" style="font-size: 12px; color: var(--ink-secondary, var(--text-secondary)); align-self: center;"></span>
+            </div>
+        `;
+        appendToGroup('settings-group-body-security', fullResetCard, container);
+
+        const btnFullReset = fullResetCard.querySelector('#btn-full-reset');
+        const fullResetStatus = fullResetCard.querySelector('#full-reset-status');
+        btnFullReset?.addEventListener('click', async () => {
+            const phrase = '초기화';
+            const input = prompt(
+                `⚠️ 정말 통째 초기화할까요?\n\n` +
+                `자기 카드·도트·묵상·원칙·판례·목표·인물·조직·추천·미션·튜토리얼·환경 자리 모두 사라져요.\n` +
+                `이 자리는 되돌릴 수 X.\n\n` +
+                `진행하려면 정확히 "${phrase}" 라고 적어주세요:`
+            );
+            if (input !== phrase) {
+                fullResetStatus.textContent = '초기화 취소';
+                return;
+            }
+            btnFullReset.disabled = true;
+            const orig = btnFullReset.textContent;
+            btnFullReset.textContent = '초기화하는 중…';
+            try {
+                // selfCard.referralCode 자리 가져와 referralCodes 자리도 함께 비움
+                const { getDEK } = await import('./lockScreen.js');
+                const dek = getDEK();
+                let referralCode = null;
+                if (dek) {
+                    try {
+                        const { getSelfCard } = await import('../data/personRepo.js');
+                        const self = await getSelfCard(dek, _userId);
+                        referralCode = self?.referralCode || null;
+                    } catch (_) {}
+                }
+                const { resetAllUserData } = await import('../data/userDataReset.js');
+                const report = await resetAllUserData(_userId, {
+                    referralCode,
+                    onStep: (msg) => { fullResetStatus.textContent = msg; },
+                });
+                console.log('[full-reset] 완료:', report);
+                fullResetStatus.textContent = '✓ 통째 초기화 완료. 새로고침해 주세요.';
+                btnFullReset.textContent = '✓ 완료 (새로고침 필요)';
+            } catch (e) {
+                console.warn('[full-reset] 실패:', e?.message || e);
+                fullResetStatus.textContent = '초기화 잠깐 막혔어요: ' + (e?.message || e);
+                btnFullReset.textContent = orig;
+                btnFullReset.disabled = false;
             }
         });
     }

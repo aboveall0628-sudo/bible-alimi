@@ -223,6 +223,21 @@ export const onFeedbackFinalized = onDocumentUpdated(
         if (after.endedAt == null) return;
         if (after.deletedAt != null) return;
 
+        // (2026-05-21 v118) 빈 세션 필터 — 사용자 응답 자리가 1턴 이하면 알림 X.
+        //   사용자 명시 "아무 내용 없이 컸다 켜기만해도 알림 오는 거 걸러야".
+        //   SWAN 인사만 자리잡힌 자리(0턴) + 사용자 한 마디 후 즉시 닫은 자리(1턴) 둘 다 거름.
+        //   사전·사후 설문(preSurvey·postSurvey)은 12+ 턴이라 자연 통과.
+        const turnList = (after.turns || []) as Array<{ role: string; text: string }>;
+        const userTurnCount = turnList.filter(t => t.role === 'user').length;
+        if (userTurnCount <= 1) {
+            logger.info('[feedbackNotify] skipped — userTurnCount <= 1', {
+                userTurnCount,
+                kind: after.kind,
+                feedbackId: event.params.feedbackId,
+            });
+            return;
+        }
+
         const payload = {
             userId: event.params.userId,
             feedbackId: event.params.feedbackId,
