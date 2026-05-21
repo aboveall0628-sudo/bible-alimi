@@ -98,6 +98,7 @@ function mobileSlotToTimeLabel(slot) {
 // (v115) 데스크탑 부분 통일 — 72h + 줌 + 어제·오늘·내일 + "×" + 4상태 + 드롭다운
 let _desktopZoom = 1; // 0.5x ~ 2x
 let _activeDesktopDropdown = null;
+let _activeDesktopDropdownBackdrop = null;
 function getDesktopRowHeight() {
     return Math.max(8, Math.round(ROW_HEIGHT * _desktopZoom));
 }
@@ -189,19 +190,21 @@ export async function refreshTimeline({ userId, date, scrollToNow = false }) {
  * 시간표 컨테이너의 현재 시간 라인을 상단 근처로 스크롤.
  * isToday일 때만 동작. 그 외 날짜는 09:00 근처로 스크롤(아침에 시작).
  */
+// (v117) 72시간 결 자리잡힙 — scrollArea 자리잡힌 자리 자리잡힙. 데스크탑·모바일 둘 다.
 export function scrollTimelineToNow() {
-    const body = document.getElementById('utl-body');
-    if (!body) return;
-    let targetSlot;
+    const scrollArea = document.querySelector('.utl-desktop-scroll');
+    const mobileScroll = document.querySelector('.utl-mg-scroll');
+    const target = scrollArea || mobileScroll;
+    if (!target) return;
+    const rowH = scrollArea ? getDesktopRowHeight() : getMobileRowHeight();
+    let targetAbsSlot;
     if (isToday(_date)) {
         const now = new Date();
-        targetSlot = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+        targetAbsSlot = SLOTS_PER_DAY + now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
     } else {
-        targetSlot = 9 * 4; // 09:00
+        targetAbsSlot = SLOTS_PER_DAY + 9 * 4; // 09:00
     }
-    // 현재 시간이 상단 안쪽으로 약간 들어오게 -2 슬롯 여유.
-    const top = Math.max(0, (targetSlot - 2) * ROW_HEIGHT);
-    body.scrollTop = top;
+    target.scrollTop = Math.max(0, (targetAbsSlot - 2) * rowH);
 }
 
 // ─── 렌더 ───
@@ -370,11 +373,14 @@ function closeDesktopDropdown() {
         _activeDesktopDropdown.remove();
         _activeDesktopDropdown = null;
     }
-    document.removeEventListener('click', closeDesktopDropdownOnOutside);
+    if (_activeDesktopDropdownBackdrop) {
+        _activeDesktopDropdownBackdrop.remove();
+        _activeDesktopDropdownBackdrop = null;
+    }
+    document.removeEventListener('keydown', escDesktopDropdown);
 }
-function closeDesktopDropdownOnOutside(e) {
-    if (!_activeDesktopDropdown) return;
-    if (!_activeDesktopDropdown.contains(e.target)) closeDesktopDropdown();
+function escDesktopDropdown(e) {
+    if (e.key === 'Escape') closeDesktopDropdown();
 }
 
 // (v115) 데스크탑 plan 빈 셀 click 시 드롭다운 — 모바일 결 정합
@@ -392,6 +398,11 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
         }).join('')
         : '<li class="utl-desktop-dd-empty">자리잡힌 목표가 아직 없어요</li>';
 
+    // (v117) modal overlay 결로 자리잡힙 — body 자리잡힌 자리 + backdrop + position fixed
+    // 사용자 신고 v116 #7 자리 — "안의 레이어에 갇혀있는 느낌" 해소
+    const backdrop = document.createElement('div');
+    backdrop.className = 'utl-desktop-dd-backdrop';
+
     const dropdown = document.createElement('div');
     dropdown.className = 'utl-desktop-dropdown';
     dropdown.innerHTML = `
@@ -406,8 +417,27 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
             <button type="submit" class="utl-desktop-dd-submit">추가</button>
         </form>
     `;
-    cell.appendChild(dropdown);
+
+    // 위치 자리잡힙 — cell rect 자리잡힌 자리. 화면 자리 안 자리잡힘
+    document.body.appendChild(backdrop);
+    document.body.appendChild(dropdown);
+    const rect = cell.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 4;
+    // 자리잡힌 자리 자리잡힌 자리잡혀 자리잡힌 자리 보정
+    if (left + 340 > window.innerWidth) left = window.innerWidth - 350;
+    if (left < 10) left = 10;
+    if (top + 320 > window.innerHeight) top = Math.max(10, rect.top - 320);
+    dropdown.style.left = `${left}px`;
+    dropdown.style.top = `${top}px`;
+
     _activeDesktopDropdown = dropdown;
+    _activeDesktopDropdownBackdrop = backdrop;
+
+    // backdrop 클릭 = 닫힙
+    backdrop.addEventListener('click', closeDesktopDropdown);
+    // ESC 자리잡힙
+    document.addEventListener('keydown', escDesktopDropdown);
 
     // 미배치 목표 톡 — 오늘 자리에만 자리잡힙
     dropdown.querySelectorAll('.utl-desktop-dd-item').forEach(item => {
@@ -468,7 +498,6 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
     });
 
     setTimeout(() => input.focus(), 50);
-    setTimeout(() => document.addEventListener('click', closeDesktopDropdownOnOutside), 0);
 }
 
 // ═══════════════════════════════════════════════════════════════
