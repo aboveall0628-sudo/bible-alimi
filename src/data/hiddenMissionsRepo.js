@@ -31,7 +31,7 @@ import {
     getHiddenMission,
     getNextHiddenMission,
     getActiveHiddenMissionIds,
-} from '../config/hiddenMissionsCatalog.js';
+} from '../config/hiddenMissionsCatalog.js'; // getHiddenMission 이미 import 자리
 import { MISSION_CATALOG, getActiveMissionIds } from '../config/missionCatalog.js';
 
 /**
@@ -43,6 +43,19 @@ function isAllTutorialMissionsClear(selfCard) {
     const tutorialState = selfCard.tutorialState || {};
     const activeIds = getActiveMissionIds();
     return activeIds.every((id) => !!tutorialState[id]?.completedAt);
+}
+
+/**
+ * 가입 후 N일 경과 여부 (v116 — 사용자 명시 "시작한지 한 달 쯤").
+ *   HM-1 requiresJoinDays: 30 자리. 14일 튜토리얼 끝난 후 자연 16일 더 묵상 유지 흐름.
+ *   selfCard.createdAt 기준. createdAt 없으면 false (가드).
+ */
+function isJoinedDaysReached(selfCard, requiredDays) {
+    if (!selfCard?.createdAt || typeof requiredDays !== 'number') return false;
+    const created = new Date(selfCard.createdAt).getTime();
+    if (!created || isNaN(created)) return false;
+    const elapsed = (Date.now() - created) / (1000 * 60 * 60 * 24);
+    return elapsed >= requiredDays;
 }
 
 /**
@@ -86,7 +99,12 @@ export async function checkUnlock(dek, userId) {
     const missionsOk = isAllTutorialMissionsClear(self);
     const postSurveyOk = await isPostSurveyComplete(dek, userId);
 
-    if (!cohortOk || !missionsOk || !postSurveyOk) return false;
+    // (v116) HM-1 자격 조건에 30일 경과 자리잡힘 — getHiddenMission('hm-01').unlockCondition.requiresJoinDays
+    const hm1 = getHiddenMission('hm-01');
+    const requiredDays = hm1?.unlockCondition?.requiresJoinDays || 0;
+    const joinDaysOk = requiredDays > 0 ? isJoinedDaysReached(self, requiredDays) : true;
+
+    if (!cohortOk || !missionsOk || !postSurveyOk || !joinDaysOk) return false;
 
     // 조건 모두 만족 → 잠금해제 자리잡기
     const next = {

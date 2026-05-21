@@ -51,8 +51,11 @@ export const HIDDEN_MISSIONS = {
         // 카테고리: 'survey' | 'interview' | 'content' | 'meditation' | 'invite'
         category: 'survey',
         // 잠금해제 조건 — checkUnlock 헬퍼가 모두 만족 여부 확인.
+        // (v116 2026-05-21) 사용자 명시 "시작한지 한 달 쯤" — requiresJoinDays: 30 추가.
+        //   14일 튜토리얼 끝난 후 16일 더 자연 묵상 유지 → 아직 쓰고 있는 사용자만 자연 발견.
         unlockCondition: {
             cohort: 'beta_v1',                   // 베타 코호트 (SWAN 트랙 A 진입 후 활성)
+            requiresJoinDays: 30,                 // 가입 후 30일 경과 (v116 신규)
             requiresAllMissionsClear: true,       // missionStatus 7 모듈 전부 'completed'
             requiresPostSurveyComplete: true,     // 사후 설문 완료 후 발현 (SWAN 트랙 A)
             prerequisiteHiddenMission: null,      // 첫 미션이라 선행 X
