@@ -4010,6 +4010,34 @@ html[data-note-font="serif"] .note-editor h3 {
         background: var(--accent-soft);
         transform: scale(0.94);
     }
+    /* (v113) 카드 우상단 "×" 톡 삭제 — 길게 누름 안내 X 자리 해소 */
+    .utl-mg-del {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        z-index: 3;
+        opacity: 0.55;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.1s ease, background 0.1s ease;
+    }
+    .utl-mg-del:hover,
+    .utl-mg-del:active {
+        opacity: 1;
+        background: var(--bg-elev);
+    }
     /* 리사이즈 핸들 — 카드 하단 모서리 드래그 */
     .utl-mg-resize {
         position: absolute;

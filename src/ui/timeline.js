@@ -364,7 +364,7 @@ function renderMobile() {
     }
 
     // ── 계획 슬롯 ─────────
-    // (v112) 오늘 자리 계획 = 길이 드래그 + 길게 누름 삭제 자리잡힙 (사용자 신고 7·8 정합)
+    // (v113) 오늘 자리 계획 = "×" 톡 삭제 + 하단 모서리 드래그 길이 자리잡힙 (사용자 신고 v112 #5 정합)
     const planSlotsHtml = showPlan ? planAll.map(p => {
         const top = p.slot * rowH;
         const height = Math.max(rowH, p.duration * rowH - 2);
@@ -373,17 +373,22 @@ function renderMobile() {
         const isTodayPlan = p.day === 'today';
         return `<div class="utl-mg-slot utl-mg-slot-plan${gcalCls} day-${p.day}" style="top:${top}px; height:${height}px" data-slot="${p.slot}" data-day="${p.day}" data-duration="${p.duration}" ${decisionAttr}>
             <span class="utl-mg-slot-label">${escapeHtml(p.label)}</span>
-            ${isTodayPlan ? '<span class="utl-mg-resize" aria-hidden="true"></span>' : ''}
+            ${isTodayPlan ? `
+                <button type="button" class="utl-mg-del" aria-label="시간표에서 빼기">×</button>
+                <span class="utl-mg-resize" aria-hidden="true"></span>
+            ` : ''}
         </div>`;
     }).join('') : '';
 
-    // ── 실제 슬롯 (인라인 4상태 + 리사이즈) ─────
+    // ── 실제 슬롯 (인라인 4상태 + 리사이즈 + "×" 삭제) ─────
+    // (v113) "×" 톡 삭제 자리잡힙 — 길게 누름 안내 X 자리 해소. 오늘 자리만 자리잡힙
     const actualSlotsHtml = showActual ? actualAll.map(a => {
         const top = a.slot * rowH;
         const height = Math.max(rowH, a.duration * rowH - 2);
         const fromWf = a.fromWorkflow ? ' from-workflow' : '';
         const evaluatedCls = a.executed ? ' evaluated' : '';
         const showEval = height >= 44;
+        const isTodayActual = a.day === 'today';
         return `<div class="utl-mg-slot utl-mg-slot-actual ${a.dotClass || 'dot-gray'}${fromWf}${evaluatedCls} day-${a.day}"
             style="top:${top}px; height:${height}px"
             data-dot-id="${escapeHtml(a.id)}" data-duration="${a.duration}" data-day="${a.day}">
@@ -394,7 +399,8 @@ function renderMobile() {
                 <button type="button" class="utl-mg-eval-btn" data-eval="replaced" aria-label="다른 걸 했어요">🔄</button>
                 <button type="button" class="utl-mg-eval-btn" data-eval="skipped" aria-label="못 했어요">😣</button>
             </div>` : ''}
-            <span class="utl-mg-resize" aria-hidden="true"></span>
+            ${isTodayActual ? '<button type="button" class="utl-mg-del" aria-label="삭제">×</button>' : ''}
+            ${isTodayActual ? '<span class="utl-mg-resize" aria-hidden="true"></span>' : ''}
         </div>`;
     }).join('') : '';
 
@@ -471,7 +477,7 @@ function renderMobile() {
             const absSlot = Math.max(0, Math.min(ALL_SLOTS - 1, Math.floor(y / rowH)));
             const day = Math.floor(absSlot / SLOTS_PER_DAY);
             if (day !== 1) {
-                showToast(day === 0 ? '어제는 보기만' : '내일은 보기만');
+                showToast(day === 0 ? '어제는 보기만 가능해요' : '내일은 보기만 가능해요');
                 return;
             }
             const slotInDay = absSlot - SLOTS_PER_DAY;
@@ -651,7 +657,7 @@ function bindPlanSlot(card) {
     if (day !== 'today') {
         card.addEventListener('click', (e) => {
             e.stopPropagation();
-            showToast(day === 'yesterday' ? '어제는 보기만' : '내일은 보기만');
+            showToast(day === 'yesterday' ? '어제는 보기만 가능해요' : '내일은 보기만 가능해요');
         });
         return;
     }
@@ -715,17 +721,14 @@ function bindPlanSlot(card) {
         });
     }
 
-    // 길게 누름 (500ms) = 삭제 (시간표에서 빼기 — unplaceGoal)
-    let pressTimer = null;
-    let didLongPress = false;
-    card.addEventListener('touchstart', (e) => {
-        if (e.target.closest('.utl-mg-resize')) return;
-        didLongPress = false;
-        pressTimer = setTimeout(async () => {
-            didLongPress = true;
+    // "×" 톡 = 시간표에서 빼기 (사용자 신고 v112 #5 — 길게 누름 안내 X 자리 해소)
+    const delBtn = card.querySelector('.utl-mg-del');
+    if (delBtn) {
+        delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('이 계획을 시간표에서 뺄까요?')) return;
             const decision = findDecision();
             if (!decision) return;
-            if (!confirm('이 계획을 시간표에서 뺄까요?')) return;
             const dek = getDEK();
             if (!dek) return;
             try {
@@ -737,17 +740,14 @@ function bindPlanSlot(card) {
                 console.error('[planSlot.unplace]', e);
                 showToast('잠깐 막혔어요. 다시 해 볼까요?');
             }
-        }, 500);
-    }, { passive: true });
-    card.addEventListener('touchend', () => clearTimeout(pressTimer));
-    card.addEventListener('touchcancel', () => clearTimeout(pressTimer));
-    card.addEventListener('touchmove', () => clearTimeout(pressTimer));
+        });
+    }
 
     // 톡 = 평가 진입
     card.addEventListener('click', (e) => {
         if (e.target.closest('.utl-mg-resize')) return;
+        if (e.target.closest('.utl-mg-del')) return;
         e.stopPropagation();
-        if (didLongPress) return;
         const decision = findDecision();
         if (!decision) {
             openQuickReview({
@@ -787,12 +787,32 @@ function bindActualSlot(card) {
     const handle = card.querySelector('.utl-mg-resize');
     if (handle) bindResizeHandle(handle, card, dot);
 
+    // "×" 톡 삭제 (v113) — 사용자 신고 v112 #5 자리 (길게 누름 안내 X 자리 해소)
+    const delBtn = card.querySelector('.utl-mg-del');
+    if (delBtn) {
+        delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('삭제할까요?')) return;
+            const dek = getDEK();
+            if (!dek) return;
+            try {
+                await deleteDot(dot.id);
+                showToast('지웠어요');
+                if (_onChange) _onChange();
+                await refreshTimeline({ userId: _userId, date: _date });
+            } catch (e) {
+                console.error('[actualSlot.delete]', e);
+                showToast('잠깐 막혔어요. 다시 해 볼까요?');
+            }
+        });
+    }
+
     // 길게 누름 = 모달 (자세히·삭제)
     let pressTimer = null;
     let didLongPress = false;
     let dragging = false;
     const onPressStart = (e) => {
-        if (e.target.closest('.utl-mg-eval-btn') || e.target.closest('.utl-mg-resize')) return;
+        if (e.target.closest('.utl-mg-eval-btn') || e.target.closest('.utl-mg-resize') || e.target.closest('.utl-mg-del')) return;
         didLongPress = false;
         dragging = false;
         pressTimer = setTimeout(() => {
@@ -812,7 +832,7 @@ function bindActualSlot(card) {
     card.addEventListener('touchcancel', onPressEnd);
     card.addEventListener('touchmove', onPressMove, { passive: true });
     card.addEventListener('click', (e) => {
-        if (e.target.closest('.utl-mg-eval-btn') || e.target.closest('.utl-mg-resize')) return;
+        if (e.target.closest('.utl-mg-eval-btn') || e.target.closest('.utl-mg-resize') || e.target.closest('.utl-mg-del')) return;
         e.stopPropagation();
         // 짧은 톡 — 4상태 자리잡혀 자연 자리. 추가 동작 X.
         // 만약 4상태 자리잡힘 X (카드 자리 너무 짧음) → 모달 자연 자리잡힙

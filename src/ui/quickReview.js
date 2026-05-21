@@ -123,7 +123,8 @@ export function openQuickReview({ timeSlot, cells, userId, date, plannedTask, de
         if (durInput)  durInput.value  = '1';                   // 기본 15분
     }
 
-    document.getElementById('qr-planned-task').textContent = plannedTask || '(따로 계획은 없었어요)';
+    // (v113) "(따로 계획은 없었어요)" fallback 자리잡힘 X — 사용자 신고 v112 #3 자리
+    document.getElementById('qr-planned-task').textContent = plannedTask || '';
     // 실제로 한 일 — 인라인에서 적은 게 있으면 그대로, 없으면 plannedTask 자동 채움.
     document.getElementById('qr-actual-input').value = ed?.actualTask || plannedTask || '';
     document.getElementById('qr-reason-input').value = ed?.reason || '';
