@@ -385,7 +385,7 @@ function escDesktopDropdown(e) {
 
 // (v115) 데스크탑 plan 빈 셀 click 시 드롭다운 — 모바일 결 정합
 async function openDesktopDropdown(cell, slot, opts = {}) {
-    const { targetDate = _date, asNewGoal = false } = opts;
+    const { targetDate = _date, asNewGoal = false, clickX, clickY } = opts;
     closeDesktopDropdown();
     const unplaced = asNewGoal ? [] : _decisions.filter(d => d.timeSlot == null);
     const goalsHtml = unplaced.length > 0
@@ -418,16 +418,15 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
         </form>
     `;
 
-    // 위치 자리잡힙 — cell rect 자리잡힌 자리. 화면 자리 안 자리잡힘
+    // (v118) 위치 = 클릭 좌표 자리잡힌 자리 (cell rect 자리잡힌 자리 자리잡혀 자리잡혀 X — 사용자 신고 v117 #1 자리)
     document.body.appendChild(backdrop);
     document.body.appendChild(dropdown);
-    const rect = cell.getBoundingClientRect();
-    let left = rect.left;
-    let top = rect.bottom + 4;
-    // 자리잡힌 자리 자리잡힌 자리잡혀 자리잡힌 자리 보정
+    let left = (typeof clickX === 'number') ? clickX : cell.getBoundingClientRect().left;
+    let top = (typeof clickY === 'number') ? clickY + 8 : cell.getBoundingClientRect().bottom + 4;
+    // 화면 자리 자리잡혀 자리잡힌 자리 보정
     if (left + 340 > window.innerWidth) left = window.innerWidth - 350;
     if (left < 10) left = 10;
-    if (top + 320 > window.innerHeight) top = Math.max(10, rect.top - 320);
+    if (top + 320 > window.innerHeight) top = Math.max(10, top - 320 - 16);
     dropdown.style.left = `${left}px`;
     dropdown.style.top = `${top}px`;
 
@@ -473,11 +472,12 @@ async function openDesktopDropdown(cell, slot, opts = {}) {
         const dek = getDEK();
         if (!dek) return;
         try {
+            // (v118) startDate 자리잡힙 — userDate·text는 encryptionPolicy 자리잡혀 자리잡혀 X
             await saveGoal(dek, {
                 userId: _userId,
-                userDate: targetDate,
+                startDate: targetDate,
+                endDate: targetDate,
                 title: text,
-                text: text,
                 timeSlot: slot,
                 durationSlots: 4,
                 period: 'daily',
@@ -828,11 +828,12 @@ function openMobileDropdown(container, slot, yPx, rowH, opts = {}) {
             const dek = getDEK();
             if (!dek) return;
             try {
+                // (v118) startDate 자리잡힙 — userDate·text는 encryptionPolicy 자리잡혀 자리잡혀 X
                 await saveGoal(dek, {
                     userId: _userId,
-                    userDate: targetDate,
+                    startDate: targetDate,
+                    endDate: targetDate,
                     title: text,
-                    text: text,
                     timeSlot: slot,
                     durationSlots: 4,
                     period: 'daily',
@@ -1376,13 +1377,15 @@ function bindCellEvents(col, lane) {
                 return;
             }
             const slot = parseInt(cell.dataset.slot);
+            const clickX = e.clientX;
+            const clickY = e.clientY;
             if (day === 'tomorrow') {
                 const dateObj = new Date(_date);
                 const tom = new Date(dateObj); tom.setDate(tom.getDate() + 1);
                 const tomStr = formatDateLocal(tom);
-                openDesktopDropdown(cell, slot, { targetDate: tomStr, asNewGoal: true });
+                openDesktopDropdown(cell, slot, { targetDate: tomStr, asNewGoal: true, clickX, clickY });
             } else {
-                openDesktopDropdown(cell, slot, { targetDate: _date, asNewGoal: false });
+                openDesktopDropdown(cell, slot, { targetDate: _date, asNewGoal: false, clickX, clickY });
             }
         });
     });
