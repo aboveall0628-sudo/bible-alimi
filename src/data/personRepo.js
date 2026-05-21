@@ -180,7 +180,40 @@ export async function getSelfCard(dek, userId) {
  */
 export async function ensureSelfCard(dek, userId) {
     const existing = await getSelfCard(dek, userId);
-    if (existing) return existing;
+    if (existing) {
+        // (2026-05-21) 기존 유저가 진입 시에도 실시간 추천인 수 업데이트 및 미션 검증/트리거
+        if (existing.referralCode) {
+            try {
+                const cnt = await getReferralCountByCode(existing.referralCode);
+                let changed = false;
+                if (cnt !== existing.referralCount) {
+                    existing.referralCount = cnt;
+                    changed = true;
+                }
+                if (cnt >= 1) {
+                    await markMissionComplete(dek, userId, 'invite_first_friend', {
+                        signal: 'referralCount:live',
+                    });
+                }
+                if (changed) {
+                    await saveSelfCard(dek, userId, existing);
+                }
+            } catch (e) {
+                console.warn('[ensureSelfCard] existing sync failed (ignored):', e?.message || e);
+            }
+        } else {
+            // 기존 유저인데 referralCode가 아직 없으면 생성해 줌
+            try {
+                const code = await generateUniqueReferralCode(existing.nicknames?.[0] || existing.name || '');
+                await registerReferralCode(code, userId);
+                existing.referralCode = code;
+                await saveSelfCard(dek, userId, existing);
+            } catch (e) {
+                console.warn('[ensureSelfCard] existing referralCode generation failed:', e);
+            }
+        }
+        return existing;
+    }
 
     const now = new Date().toISOString();
     const data = {
@@ -255,6 +288,9 @@ export async function ensureSelfCard(dek, userId) {
         referralCode: null,    // 아래에서 자동 생성
         referredBy: null,      // ?ref 박힘 또는 null
         referralCount: 0,
+        // (2026-05-21 v116) 사후 설문 마침 시점 — markMissionComplete 자동 등장 게이트 + 중복 방지용.
+        //   null = 아직 안 풀음 / ISO 문자열 = 마친 시점. postSurveyForm.finalize 안에서 자리잡힘.
+        postSurveyCompletedAt: null,
         // 메타
         lastSelfUpdatedAt: now,
         createdAt: now,
@@ -457,7 +493,40 @@ export async function markMissionComplete(dek, userId, missionId, opts = {}) {
         }).catch(() => { /* 분석 실패해도 흐름 영향 X */ });
     } catch (_) {}
 
+    // (2026-05-21 v116) 모든 튜토리얼 미션 100% 클리어 + 사후 설문 미완료 → 사후 설문 풀스크린 자동 등장.
+    //   "졸업 회로" 핵심 자리 — 1차 베타 핵심 7증거 중 사후 설문 자리잡기 + HM-1 발현 흐름 출발점.
+    //   닫기 가능, 다음 부팅 시 또 등장 (사용자 합의 2026-05-21).
+    import('../config/missionCatalog.js').then(({ getActiveMissionIds }) => {
+        const activeIds = getActiveMissionIds();
+        const allClear = activeIds.every((id) => !!next.tutorialState[id]?.completedAt);
+        if (allClear && !next.postSurveyCompletedAt) {
+            triggerPostSurveyAutoOpen(userId, next);
+        }
+    }).catch((e) => {
+        console.warn('[markMissionComplete] 사후 설문 자동 등장 게이트 체크 실패 (무시):', e?.message || e);
+    });
+
     return true;
+}
+
+/**
+ * 사후 설문 풀스크린 자동 등장 트리거.
+ *   window.__sanctumOpenPostSurveyForm 자리(app.js 부팅 시 노출)로 호출.
+ *   같은 tick 안 dispatchEvent 결과 화면 갱신과 충돌 안 나도록 setTimeout 0 사용.
+ */
+function triggerPostSurveyAutoOpen(userId, selfCard) {
+    if (typeof window === 'undefined') return;
+    if (typeof window.__sanctumOpenPostSurveyForm !== 'function') return;
+    setTimeout(() => {
+        try {
+            window.__sanctumOpenPostSurveyForm({
+                userId,
+                nickname: (selfCard.nicknames && selfCard.nicknames[0]) || selfCard.name || '',
+            });
+        } catch (e) {
+            console.warn('[triggerPostSurveyAutoOpen] 호출 실패:', e?.message || e);
+        }
+    }, 0);
 }
 
 /**

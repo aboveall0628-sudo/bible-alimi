@@ -128,6 +128,7 @@ function referralCardHtml(d) {
             <div class="sf-referral-row">
                 <input type="text" class="sf-referral-url" id="sf-referral-url" value="${escapeAttr(url)}" readonly>
                 <button type="button" class="sf-referral-copy" id="sf-referral-copy">복사</button>
+                <button type="button" class="sf-referral-share" id="sf-referral-share">공유하기</button>
             </div>
             <p class="sf-referral-count">
                 <strong>${count}명</strong> 함께하셨어요
@@ -240,6 +241,24 @@ function bindEvents(container) {
                 document.execCommand('copy');
                 copyBtn.textContent = '복사됨';
                 setTimeout(() => { copyBtn.textContent = '복사'; }, 1500);
+            }
+        });
+    }
+
+    // (2026-05-21) 내 추천 링크 — 공유 버튼
+    const shareBtn = container.querySelector('#sf-referral-share');
+    if (shareBtn && urlInput) {
+        shareBtn.addEventListener('click', async () => {
+            try {
+                const { showShareSheet } = await import('./shareSheet.js');
+                const name = _draft?.name || _draft?.nicknames?.[0] || '친구';
+                await showShareSheet({
+                    title: 'Sanctum OS 초대',
+                    text: `묵상과 삶을 깊이 있게 연결하는 나만의 영적 OS, Sanctum OS에 ${name}님이 초대하셨어요.`,
+                    url: urlInput.value
+                });
+            } catch (err) {
+                console.error('[selfProfile] share failed:', err);
             }
         });
     }
@@ -598,6 +617,22 @@ function injectStylesOnce() {
             transition: opacity var(--ease);
         }
         .sf-referral-copy:hover { opacity: 0.9; }
+        .sf-referral-share {
+            padding: 8px 14px;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color var(--ease), color var(--ease);
+        }
+        .sf-referral-share:hover {
+            background: var(--accent);
+            color: var(--surface-card, #fff);
+        }
         .sf-referral-count {
             margin: 0;
             font-size: 13px;

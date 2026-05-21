@@ -158,6 +158,8 @@ export async function renderTodayStartIntoView(userId, currentDate) {
     // (2026-05-16) 기도 체크인 2자리 — 묵상 전 감사·회개 + 묵상 후 기도. 둘 다 baseDate 기준 자연.
     bindPrayerCheck('yesterday-prayer-checkbox', 'prayedBefore', baseDate);
     bindPrayerCheck('prayer-after-checkbox', 'prayedAfter', baseDate);
+    // (2026-05-21 v116) 오늘 뷰 초대 카드 — referralCode 존재 시 노출
+    renderInviteCardToday(selfCard);
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
@@ -169,9 +171,12 @@ function renderYesterdayQuestionsCard(report, sourceDate, baseDate) {
     const introEl = section?.querySelector('.yesterday-questions-intro');
     if (!section || !listEl) return;
 
+    // (2026-05-21 v117) 첫 날 사용자 카드 깜빡임 차단 — 시작 자리에서 우선 숨기고, 질문 자리잡혔을 때만 노출.
+    //   기존 결: questions 비어있을 때만 hidden. 그 사이 잠깐 보이는 결 발생 가능. 시작 자리에서 명시 숨김.
+    section.classList.add('hidden');
+
     const questions = (report?.questionsForMeditation || []).filter(q => q && q.trim());
     if (questions.length === 0) {
-        section.classList.add('hidden');
         listEl.innerHTML = '';
         return;
     }
@@ -189,19 +194,20 @@ function renderYesterdayQuestionsCard(report, sourceDate, baseDate) {
         }
     }
 
-    // 라벨 + 안내 카피 분기 — daysDiff 1자리면 "어제", 2자리+ 면 거리감 명시 + 부드러운 권유.
+    // 라벨 + 안내 카피 분기 — daysDiff 1자리면 "어제", 2자리+ 면 거리감 명시.
+    // (v117) 사용자 명시 — 인트로 카피 깔끔하게 통일.
     let label, intro;
     if (daysDiff <= 1) {
         label = '어제 묵상이 남긴 질문';
-        intro = '하루 돌이켜보며 감사·회개로 잠깐 머물러 보세요. 그 자리에서 오늘의 말씀으로 자연스럽게 이어가요.';
+        intro = '어제 묵상이 남긴 질문을 보고, 기도해보세요.';
     } else if (sourceObj) {
         const m = sourceObj.getMonth() + 1;
         const dd = sourceObj.getDate();
         label = `지난 묵상이 남긴 질문 · ${m}월 ${dd}일 (${daysDiff}일 전)`;
-        intro = '그 사이 마음이 달라졌을 수 있어요. 지금 다시 마주해 봐도 좋고, 그냥 지나가도 돼요.';
+        intro = '지난 묵상이 남긴 질문을 보고, 기도해보세요.';
     } else {
         label = '지난 묵상이 남긴 질문';
-        intro = '그 사이 마음이 달라졌을 수 있어요. 지금 다시 마주해 봐도 좋고, 그냥 지나가도 돼요.';
+        intro = '지난 묵상이 남긴 질문을 보고, 기도해보세요.';
     }
 
     if (titleEl) {
@@ -231,9 +237,11 @@ function _fmtDate(d) {
 async function bindPrayerCheck(checkboxId, fieldName, baseDate) {
     const checkbox = document.getElementById(checkboxId);
     if (!checkbox) return;
+    const dateStr = _fmtDate(baseDate instanceof Date ? baseDate : new Date());
+    if (checkbox.dataset.prayerBound === fieldName && checkbox.dataset.prayerBoundDate === dateStr) return;
+
     const userId = window.__sanctumUserId;
     if (!userId) return;
-    const dateStr = _fmtDate(baseDate instanceof Date ? baseDate : new Date());
     const docId = `pc_${userId}_${dateStr}`;
 
     // 복원
@@ -255,6 +263,8 @@ async function bindPrayerCheck(checkboxId, fieldName, baseDate) {
     // cloneNode 패턴 — renderTodayStartIntoView 재진입 안전, listener 중복 방지
     const fresh = checkbox.cloneNode(true);
     fresh.checked = initial;
+    fresh.dataset.prayerBound = fieldName;
+    fresh.dataset.prayerBoundDate = dateStr;
     checkbox.parentNode.replaceChild(fresh, checkbox);
     fresh.addEventListener('change', async () => {
         try {
@@ -265,11 +275,29 @@ async function bindPrayerCheck(checkboxId, fieldName, baseDate) {
                 [fieldName]:  fresh.checked,
                 updatedAt:    serverTimestamp(),
             }, { merge: true });
+
+            // (2026-05-21) 감사 미션 트리거 변경:
+            // "어제 묵상이 남긴 질문" 아래의 "묵상 전 감사·회개 기도" (prayedBefore) 체크박스를 체크할 때
+            // gratitude_note 미션을 완료 처리합니다.
+            if (fieldName === 'prayedBefore' && fresh.checked) {
+                try {
+                    const { markMissionComplete } = await import('../data/personRepo.js');
+                    const dek = getDEK();
+                    if (dek) {
+                        await markMissionComplete(dek, userId, 'gratitude_note', {
+                            signal: 'prayerCheck:prayedBefore',
+                        });
+                    }
+                } catch (err) {
+                    console.error('[prayerCheck:gratitude_note] mission trigger failed:', err?.message || err);
+                }
+            }
         } catch (e) {
             console.error(`[prayerCheck:${fieldName}] save failed:`, e?.message || e);
             fresh.checked = !fresh.checked;
         }
     });
+
 }
 
 function renderLocked() {
@@ -1001,4 +1029,89 @@ function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
+}
+
+// ─── (2026-05-21 v116) 오늘 뷰 초대 카드 ──────────────────────
+//   사용자 지적: "초대 링크가 어디 있는지 모르겠다"
+//   selfCard.referralCode 가 있으면 오늘 뷰 상단에 compact 초대 카드 노출.
+//   복사·공유 버튼 + 초대 카운트.
+
+function renderInviteCardToday(selfCard) {
+    const slot = document.getElementById('invite-card-today');
+    if (!slot) return;
+
+    const code = selfCard?.referralCode;
+    if (!code) {
+        slot.innerHTML = '';
+        return;
+    }
+
+    const origin = (typeof window !== 'undefined' && window.location)
+        ? `${window.location.origin}${window.location.pathname.replace(/index\.html$/, '')}`
+        : '/';
+    const url = `${origin}?ref=${encodeURIComponent(code)}`;
+    const count = Number(selfCard.referralCount || 0);
+    const nickname = (selfCard.nicknames?.[0] || selfCard.name || '').trim();
+
+    slot.innerHTML = `
+        <div class="invite-today-card" id="invite-today-card">
+            <div class="invite-today-left">
+                <span class="invite-today-icon" aria-hidden="true">🔗</span>
+                <div class="invite-today-text">
+                    <span class="invite-today-title">친구 초대하기</span>
+                    <span class="invite-today-count">${count > 0 ? `${count}명 함께하셨어요` : '아직 초대한 분이 없어요'}</span>
+                </div>
+            </div>
+            <div class="invite-today-actions">
+                <button type="button" class="invite-today-copy" id="invite-today-copy">복사</button>
+                <button type="button" class="invite-today-share" id="invite-today-share">공유</button>
+            </div>
+        </div>
+    `;
+
+    // 복사 버튼
+    const copyBtn = slot.querySelector('#invite-today-copy');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(url);
+                copyBtn.textContent = '복사됨 ✓';
+                setTimeout(() => { copyBtn.textContent = '복사'; }, 1500);
+            } catch (_) {
+                // 폴백
+                const temp = document.createElement('textarea');
+                temp.value = url;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+                copyBtn.textContent = '복사됨 ✓';
+                setTimeout(() => { copyBtn.textContent = '복사'; }, 1500);
+            }
+        });
+    }
+
+    // 공유 버튼 — Web Share API 사용 가능 시 네이티브 공유, 아니면 복사 폴백
+    const shareBtn = slot.querySelector('#invite-today-share');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', async () => {
+            const shareText = nickname
+                ? `${nickname}님이 Sanctum OS에 초대합니다. 같이 묵상해요!`
+                : 'Sanctum OS에 초대합니다. 같이 묵상해요!';
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'Sanctum OS 초대', text: shareText, url });
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.warn('[invite] share failed:', e);
+                    }
+                }
+            } else {
+                // Web Share API 미지원 — 링크 복사 폴백
+                try { await navigator.clipboard.writeText(url); } catch (_) {}
+                shareBtn.textContent = '링크 복사됨';
+                setTimeout(() => { shareBtn.textContent = '공유'; }, 1500);
+            }
+        });
+    }
 }

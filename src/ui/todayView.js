@@ -1216,12 +1216,6 @@ async function saveMeditationDoc() {
                 // (2026-05-20 Phase 3) 신규 미션 트리거 5건 자리잡기
                 const text = `${sensitive.content || ''}\n${sensitive.prayer || ''}`;
 
-                // 1) 감사 한 줄 자리잡기 — 묵상 본문·기도에 "감사" 단어 자리
-                if (/감사/.test(text)) {
-                    await markMissionComplete(dek, _userId, 'gratitude_note', {
-                        signal: 'saveMeditationDoc:gratitude',
-                    });
-                }
 
                 // 2) 기도 섹션 자리잡기 — prayer 필드 비어있지 않음
                 if (sensitive.prayer && sensitive.prayer.trim()) {

@@ -607,12 +607,74 @@ export async function renderSidebarMissionFooter(containerId, dek, userId) {
     });
 }
 
-// ─── 헬퍼: missionId → view 이동 ────────────────────────────────────
+// ─── 헬퍼: missionId → view 이동 + 후속 액션 ─────────────────────────
+//   (2026-05-21 v116) 사용자 지적: "바로가기 눌러도 액션이 없어"
+//   뷰 전환 후 미션에 맞는 구체적 후속 액션(에디터 포커스, SWAN 열기, 카드 스크롤 등)을 실행.
+//   switchView 직후 DOM 렌더가 끝나야 하므로 requestAnimationFrame + 짧은 딜레이로 보장.
+
+/**
+ * 미션별 후속 액션. 뷰 전환이 끝난 뒤 호출됨.
+ * 반환값이 Promise 여도 OK (fire-and-forget).
+ */
+const POST_ROUTE_ACTIONS = {
+    // SWAN 말 걸기 — 풍선 자동 오픈
+    swan_first_chat: () => {
+        try {
+            import('./swanFeedback.js').then(m => m.openSwanFeedback()).catch(() => {
+                // 폴백: 풍선 버튼 직접 클릭
+                document.getElementById('swan-balloon-btn')?.click();
+            });
+        } catch (_) {}
+    },
+    // 감사·기도 — 묵상 에디터로 포커스
+    gratitude_note: () => focusMeditationNote(),
+    prayer_section: () => focusMeditationNote(),
+    // 새벽·자기 전 묵상 — 묵상 에디터로 포커스
+    morning_meditation: () => focusMeditationNote(),
+    evening_meditation: () => focusMeditationNote(),
+    // streak 미션 — 묵상 에디터로 포커스
+    meditation_streak_3: () => focusMeditationNote(),
+    meditation_streak_7: () => focusMeditationNote(),
+    meditation_streak_14: () => focusMeditationNote(),
+    // 실천 평가 후 리포트 — 묵상 에디터 영역으로 안내
+    first_review_then_daily_report: () => focusMeditationNote(),
+    // 테마 변경 — 설정 뷰 내 테마 카드로 스크롤
+    theme_change: () => scrollToElement('#settings-theme-mode-card'),
+    // 24단어 복구 코드 — 설정 뷰 내 보안 카드로 스크롤
+    recovery_code_view: () => scrollToElement('#settings-sensitive-card'),
+    // 친구 초대 — 프로필 뷰 내 추천 링크 카드로 스크롤
+    invite_first_friend: () => scrollToElement('.sf-referral-row'),
+    // 지난 묵상 다시 보기 — 뷰 자체가 'past'라 특별 액션 불필요
+    // settings_explore — 뷰 자체가 'settings'라 특별 액션 불필요
+};
+
+function focusMeditationNote() {
+    const el = document.getElementById('meditation-note');
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { try { el.focus(); } catch (_) {} }, 400);
+    }
+}
+
+function scrollToElement(selector) {
+    const el = document.querySelector(selector);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 시각적 하이라이트 펄스 — 1.5초간 반짝여서 위치 알려줌
+        el.classList.add('mission-route-highlight');
+        setTimeout(() => el.classList.remove('mission-route-highlight'), 1500);
+    }
+}
 
 function routeToMission(missionId) {
     const view = ROUTE_BY_MISSION[missionId] || 'today';
     if (typeof window !== 'undefined' && typeof window.__sanctumSwitchView === 'function') {
         window.__sanctumSwitchView(view);
+    }
+    // 후속 액션 — DOM 렌더 완료 후 실행 (switchView 안의 비동기 렌더를 기다리기 위해 짧은 딜레이)
+    const action = POST_ROUTE_ACTIONS[missionId];
+    if (action) {
+        requestAnimationFrame(() => setTimeout(action, 350));
     }
 }
 

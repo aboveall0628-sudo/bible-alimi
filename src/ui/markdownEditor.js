@@ -520,6 +520,57 @@ function setBlockTag(editor, tag) {
     const range = sel.getRangeAt(0);
     let node = range.startContainer;
     if (node.nodeType === 3) node = node.parentElement;
+
+    // LI 안에서 heading 요청 → li 추출 + heading 변환
+    let li = node;
+    while (li && li !== editor && li.tagName !== 'LI') {
+        li = li.parentElement;
+    }
+    if (li && li !== editor && li.tagName === 'LI') {
+        const parentList = li.parentElement;
+        if (parentList && /^(UL|OL)$/.test(parentList.tagName)) {
+            // li 내용을 target tag로 변환
+            const replacement = document.createElement(tag.toLowerCase());
+            while (li.firstChild) {
+                replacement.appendChild(li.firstChild);
+            }
+
+            // li 뒤에 남은 형제가 있으면 리스트를 분할
+            const afterItems = [];
+            let sibling = li.nextElementSibling;
+            while (sibling) {
+                afterItems.push(sibling);
+                sibling = sibling.nextElementSibling;
+            }
+
+            // heading을 리스트 뒤에 삽입
+            parentList.parentNode.insertBefore(replacement, parentList.nextSibling);
+
+            // 뒤쪽 형제가 있으면 새 리스트로 분리
+            if (afterItems.length > 0) {
+                const newList = document.createElement(parentList.tagName.toLowerCase());
+                afterItems.forEach(item => newList.appendChild(item));
+                parentList.parentNode.insertBefore(newList, replacement.nextSibling);
+            }
+
+            // 원래 li 제거 + 빈 리스트 정리
+            li.remove();
+            if (parentList.querySelectorAll(':scope > li').length === 0) {
+                parentList.remove();
+            }
+
+            // caret 복원
+            try {
+                const newRange = document.createRange();
+                newRange.selectNodeContents(replacement);
+                newRange.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+            } catch {}
+            return;
+        }
+    }
+
     // editor 안의 직속 블록 찾기 (h1/h2/h3/div/p)
     let block = node;
     while (block && block !== editor && !/^(H1|H2|H3|DIV|P)$/.test(block.tagName)) {

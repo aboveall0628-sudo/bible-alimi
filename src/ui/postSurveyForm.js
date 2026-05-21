@@ -742,6 +742,12 @@ function renderFinishCard(body) {
         }
 
         closeForm();  // onComplete 자연 호출 → onboarding step 10 자연 이어
+
+        // (2026-05-21 v116) 사후 설문 마침 직후 ✨ 안내 — HM-1 발현 출발점 알림.
+        //   "다음 날 묵상 후 ✨ 등장" 자리잡혀 있으니 사용자 기대감 살짝 자리잡고 모달 닫음.
+        try {
+            showToast('✨ 마무리해 주셔서 고마워요. 며칠 안에 새로운 자리가 자연스럽게 열려요.');
+        } catch (_) { /* 토스트 실패 무시 */ }
     });
 }
 
@@ -803,6 +809,23 @@ async function persistPostSurvey() {
         });
     } catch (e) {
         console.warn('[postSurveyForm] finalize 실패 — 본문은 저장됨:', e?.message || e);
+    }
+
+    // (2026-05-21 v116) selfCard.postSurveyCompletedAt 자리잡기 — markMissionComplete 자동 등장 게이트 중복 방지.
+    //   한 번 풀면 다음 부팅 시 다시 안 등장. 사용자가 명시적으로 [설정 → 사후 설문 풀기] 눌러야만 다시 진입.
+    try {
+        const { getSelfCard, saveSelfCard } = await import('../data/personRepo.js');
+        const { getDEK } = await import('./lockScreen.js');
+        const dek = getDEK();
+        if (dek) {
+            const self = await getSelfCard(dek, userId);
+            if (self && !self.postSurveyCompletedAt) {
+                self.postSurveyCompletedAt = new Date().toISOString();
+                await saveSelfCard(dek, userId, self);
+            }
+        }
+    } catch (e) {
+        console.warn('[postSurveyForm] postSurveyCompletedAt 자리잡기 실패 (무시):', e?.message || e);
     }
 
     console.log(`[postSurveyForm] 저장 끝 (id=${feedbackId})`);
