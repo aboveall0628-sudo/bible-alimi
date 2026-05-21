@@ -44,7 +44,7 @@ export const HIDDEN_MISSIONS = {
     'hm-01': {
         id: 'hm-01',
         order: 1,
-        icon: '🌱',
+        icon: 'sprout',
         title: '베타 개척자의 한 마디 — 다음 사람을 위해',
         // 1차 베타 활성. HM-1 반응 보고 HM-2~5 단계 확장.
         status: 'active',
@@ -142,7 +142,7 @@ export const HIDDEN_MISSIONS = {
     'hm-02': {
         id: 'hm-02',
         order: 2,
-        icon: '🎤',
+        icon: 'mic',
         title: '개발자 인터뷰 자발 신청',
         status: 'deferred',
         category: 'interview',
@@ -203,7 +203,7 @@ export const HIDDEN_MISSIONS = {
     'hm-03': {
         id: 'hm-03',
         order: 3,
-        icon: '📖',
+        icon: 'book-open',
         title: '개발자 간증 — 이 앱이 시작된 자리',
         status: 'deferred',
         category: 'content',
@@ -243,7 +243,7 @@ export const HIDDEN_MISSIONS = {
     'hm-04': {
         id: 'hm-04',
         order: 4,
-        icon: '🕊️',
+        icon: 'bird',
         title: '베타 개척자 전용 7일 묵상 시리즈',
         status: 'deferred',
         category: 'meditation',
@@ -282,7 +282,7 @@ export const HIDDEN_MISSIONS = {
     'hm-05': {
         id: 'hm-05',
         order: 5,
-        icon: '🤝',
+        icon: 'handshake',
         title: '친구 한 명 초대 — 2차 베타 시드',
         status: 'deferred',
         category: 'invite',

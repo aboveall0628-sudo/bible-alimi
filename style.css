@@ -8636,6 +8636,13 @@ body.dg-open { overflow: hidden; }
     line-height: 1;
     margin-bottom: 12px;
 }
+/* (v128 아이콘 통일) 모든 미션 아이콘 = lucide. 사이즈는 부모 컨테이너에서 결정 */
+.mission-gate-icon svg { width: 36px; height: 36px; stroke-width: 1.5; }
+.mission-rc-icon svg { width: 22px; height: 22px; stroke-width: 1.5; }
+.mission-rc-card-sm .mission-rc-icon svg { width: 18px; height: 18px; }
+.sidebar-mission-icon svg { width: 16px; height: 16px; stroke-width: 1.5; }
+.mission-hub-icon svg { width: 24px; height: 24px; stroke-width: 1.5; }
+.mission-achievement-icon svg { width: 28px; height: 28px; stroke-width: 1.5; }
 .mission-gate-title {
     font-size: 17px;
     font-weight: 600;
@@ -9623,10 +9630,14 @@ button.mission-progress-block:hover {
 .onboarding-track-icon {
     font-size: 1.4em;
     line-height: 1;
+    display: inline-flex; align-items: center;
 }
+/* (v128 아이콘 통일) lucide svg 크기 */
+.onboarding-track-icon svg { width: 20px; height: 20px; stroke-width: 1.5; }
 .onboarding-track-card-primary .onboarding-track-icon {
     font-size: 1.7em;
 }
+.onboarding-track-card-primary .onboarding-track-icon svg { width: 26px; height: 26px; }
 .onboarding-track-label {
     font-size: 0.95em;
     font-weight: 600;
@@ -9748,7 +9759,8 @@ button.mission-progress-block:hover {
     border-color: var(--accent, #6d7666);
     background: var(--accent-bg, #eef0ea);
 }
-.onboarding-book-icon { font-size: 1.2em; line-height: 1; }
+.onboarding-book-icon { font-size: 1.2em; line-height: 1; display: inline-flex; align-items: center; }
+.onboarding-book-icon svg { width: 18px; height: 18px; stroke-width: 1.5; }
 .onboarding-book-label {
     font-size: 0.9em;
     font-weight: 600;

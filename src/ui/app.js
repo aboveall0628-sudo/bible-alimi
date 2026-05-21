@@ -393,6 +393,21 @@ async function init() {
 }
 
 // (2026-05-16) 브라우저 history 와 internal nav 연결.
+// (2026-05-21 v128) 모바일 피드백 2건 fix:
+//   ① 새로고침 → 첫화면 가는 버그: localStorage 'sanctum.lastView' 결로 마지막 뷰 복원
+//   ② 뒤로가기 → 랜딩페이지 가는 버그: popstate 안 sanctum 자리 아니면 다시 sanctum push (자연 트랩)
+const LAST_VIEW_KEY = 'sanctum.lastView';
+
+function getLastView() {
+    try { return localStorage.getItem(LAST_VIEW_KEY) || 'today'; }
+    catch { return 'today'; }
+}
+
+function setLastView(viewId) {
+    try { localStorage.setItem(LAST_VIEW_KEY, viewId); }
+    catch {}
+}
+
 function setupBrowserNav() {
     if (typeof history === 'undefined' || typeof window === 'undefined') return;
     try {
@@ -409,9 +424,15 @@ function setupBrowserNav() {
             _navSilent = true;
             try { switchView(target); } catch (_) {}
             _navSilent = false;
+        } else {
+            // (v128) sanctum 자리 아닌 entry (랜딩·외부 자리) — 자연 트랩 결로 다시 sanctum 자리로 복원.
+            //   모바일 뒤로가기 결로 사용자가 외부 자리로 빠지지 X. lastView 자리로 자연 자리잡힘.
+            //   OS 레벨 뒤로가기·탭 닫기는 그대로 자리잡혀 사용자 갇힘 자리 X.
+            try {
+                const restoreView = getLastView();
+                history.pushState({ sanctum: true, view: restoreView }, '', location.pathname + location.search);
+            } catch (_) {}
         }
-        // sanctum 자리 아닌 entry (랜딩 등) 는 막지 않음 — 강제 트랩 자리 잡으면 사용자 갇힘.
-        //   landing.js 가 location.replace 쓰기로 한 자리라 자연스럽게 history 에서 사라짐.
     });
 }
 
@@ -608,9 +629,11 @@ async function onVaultUnlocked(dek) {
     // (본인 프로필 재기획 트랙 2026-05-14 S-D) 신규 사용자 첫 진입 자동 라우팅.
     //   selfCard.name 빈 값이면 onboarding 모달 강제. 완료 후 view-today 진입 + 미션 진행도 갱신.
     //   기존 사용자는 needsOnboarding=false 라 즉시 통과.
+    let needsOnboardingFlag = false;
     try {
         const onboarding = await import('./onboarding.js');
-        if (await onboarding.needsOnboarding(dek, currentUserId)) {
+        needsOnboardingFlag = await onboarding.needsOnboarding(dek, currentUserId);
+        if (needsOnboardingFlag) {
             onboarding.showOnboardingModal({
                 userId: currentUserId,
                 dek,
@@ -625,6 +648,16 @@ async function onVaultUnlocked(dek) {
         }
     } catch (e) {
         console.warn('[onboarding] auto-route check failed:', e?.message || e);
+    }
+
+    // (2026-05-21 v128) 모바일 새로고침 → 첫화면 가는 버그 fix:
+    //   기존 사용자(온보딩 안 자리)는 마지막 본 뷰 자리로 자연 복원.
+    //   신규 사용자는 onboarding 후 자연 switchView('today') 자리잡혀 자리.
+    if (!needsOnboardingFlag) {
+        const lastView = getLastView();
+        if (lastView && lastView !== 'today') {
+            try { switchView(lastView); } catch (_) { /* 폴백: 자연 today */ }
+        }
     }
 }
 
@@ -931,6 +964,9 @@ function switchView(viewId) {
     } else if (document.documentElement.dataset.mode === 'settings') {
         delete document.documentElement.dataset.mode;
     }
+
+    // (2026-05-21 v128) lastView 자리잡힘 — 새로고침 시 자연 복원 자리.
+    setLastView(viewId);
 
     _recordNav(viewId);
     // (2026-05-16) 브라우저 뒤로가기 자연 자리잡기 — view 전환 시 history 에 자리.

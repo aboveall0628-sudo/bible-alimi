@@ -193,40 +193,40 @@ export const RECOMMENDED_TRACKS_BY_LEVEL = {
     basic: {
         primary: {
             id: 'essentials100',
-            icon: '🌱',
+            icon: 'sprout',
             label: '100구절 입문',
             desc: '창조 → 죄 → 구원 → 종말까지 18주제 100절. 천천히 핵심부터.',
         },
         options: [
-            { id: 'one-book',     icon: '📖', label: '성경 한 권 통독', desc: '책 한 권을 정해서 처음부터 끝까지.' },
-            { id: 'preset-4parts', icon: '📜', label: '4파트 통독',     desc: '시가·역사·예언·신약 4파트.' },
+            { id: 'one-book',     icon: 'book-open', label: '성경 한 권 통독', desc: '책 한 권을 정해서 처음부터 끝까지.' },
+            { id: 'preset-4parts', icon: 'scroll-text', label: '4파트 통독',     desc: '시가·역사·예언·신약 4파트.' },
         ],
     },
     intermediate: {
         primary: {
             id: 'one-book',
-            icon: '📖',
+            icon: 'book-open',
             label: '성경 한 권 통독',
             desc: '책 한 권을 정해서 처음부터 끝까지 깊이 보기.',
         },
         options: [
-            { id: 'essentials100',       icon: '🌱', label: '100구절 입문', desc: '핵심 100절 빠르게.' },
-            { id: 'preset-4parts',       icon: '📜', label: '4파트 통독',   desc: '시가·역사·예언·신약.' },
-            { id: 'preset-newtestament', icon: '✝', label: '신약 중심',    desc: '신약 27권.' },
+            { id: 'essentials100',       icon: 'sprout', label: '100구절 입문', desc: '핵심 100절 빠르게.' },
+            { id: 'preset-4parts',       icon: 'scroll-text', label: '4파트 통독',   desc: '시가·역사·예언·신약.' },
+            { id: 'preset-newtestament', icon: 'cross', label: '신약 중심',    desc: '신약 27권.' },
         ],
     },
     advanced: {
         primary: {
             id: 'preset-4parts',
-            icon: '📜',
+            icon: 'scroll-text',
             label: '매일성경 4파트 통독',
             desc: '하루 4장씩 1년 1독. 시가·역사·예언·신약.',
         },
         // (S-E7.1 2026-05-15) 사용자 명시: 100구절 입문은 어느 레벨에든 자리.
         options: [
-            { id: 'essentials100',       icon: '🌱', label: '100구절 입문', desc: '핵심 100절. 곁들임 묵상에도 좋음.' },
-            { id: 'preset-newtestament', icon: '✝', label: '신약 중심', desc: '신약 27권.' },
-            { id: 'one-book',            icon: '📖', label: '한 권 통독', desc: '책 1권 깊이.' },
+            { id: 'essentials100',       icon: 'sprout', label: '100구절 입문', desc: '핵심 100절. 곁들임 묵상에도 좋음.' },
+            { id: 'preset-newtestament', icon: 'cross', label: '신약 중심', desc: '신약 27권.' },
+            { id: 'one-book',            icon: 'book-open', label: '한 권 통독', desc: '책 1권 깊이.' },
             // (v114) 옛 '직접 만들기 (곧 열려요)' 옵션 제거 — renderTrackStep 안 신규 [직접 만들기] 카드와 중복.
         ],
     },

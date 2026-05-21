@@ -39,7 +39,7 @@ export const MISSION_CATALOG = {
     // ─── 풀 모드 전용 (메인 사용자만) ──────────────────────────
     person_first_dot: {
         moduleId: 'persons',
-        icon: '📒',
+        icon: 'notebook',
         title: '첫 인물 카드 만들기',
         hint: '도트에 사람 1명 등장시키거나, 인물 카드 1장 만들기',
         unlockCopy: '인물 모듈이 열렸어요',
@@ -51,7 +51,7 @@ export const MISSION_CATALOG = {
     },
     org_first_dot: {
         moduleId: 'organizations',
-        icon: '🏛',
+        icon: 'building-2',
         title: '첫 조직 카드 만들기',
         hint: '도트에 조직 1곳 등장시키거나, 조직 카드 1장 만들기',
         unlockCopy: '조직 모듈이 열렸어요',
@@ -63,7 +63,7 @@ export const MISSION_CATALOG = {
     },
     economy_first_transaction: {
         moduleId: 'economy',
-        icon: '💰',
+        icon: 'wallet',
         title: '첫 거래 적기',
         hint: '오늘 들어오거나 나간 돈 한 줄 적기',
         unlockCopy: '경제 미션이 클리어됐어요',
@@ -75,7 +75,7 @@ export const MISSION_CATALOG = {
     },
     goal_first_save: {
         moduleId: 'goals',
-        icon: '🎯',
+        icon: 'target',
         title: '첫 목표 정하기',
         hint: '오늘·이번 주·이번 달 어디든 목표 1개 적기',
         unlockCopy: '목표 모듈이 열렸어요',
@@ -87,7 +87,7 @@ export const MISSION_CATALOG = {
     },
     decision_first_record: {
         moduleId: 'decisions',
-        icon: '📜',
+        icon: 'scroll-text',
         title: '첫 분별의 자리',
         hint: '결정 1개를 원칙·판례로 기록',
         unlockCopy: '분별의 자리가 열렸어요',
@@ -102,7 +102,7 @@ export const MISSION_CATALOG = {
     // ⚙️ 가장 가벼운 자리 (난이도 1)
     settings_explore: {
         moduleId: 'settings',
-        icon: '⚙️',
+        icon: 'settings',
         title: '설정 한 번 둘러보기',
         hint: '설정 화면 진입해서 카드들 살펴보기',
         unlockCopy: '설정 자리를 둘러봤어요',
@@ -114,7 +114,7 @@ export const MISSION_CATALOG = {
     },
     swan_first_chat: {
         moduleId: 'swan',
-        icon: '💬',
+        icon: 'message-circle',
         title: 'SWAN한테 말 한 번 걸기',
         hint: '우측 아래 풍선 클릭 → SWAN한테 한 마디',
         unlockCopy: 'SWAN과 한 번 자리잡혔어요',
@@ -126,7 +126,7 @@ export const MISSION_CATALOG = {
     },
     gratitude_note: {
         moduleId: 'meditation',
-        icon: '❤️',
+        icon: 'heart',
         title: '감사·회개 기도하기',
         hint: '어제 묵상 질문 아래 감사·회개 기도 체크하기',
         unlockCopy: '감사·회개 기도가 자리잡혔어요',
@@ -138,7 +138,7 @@ export const MISSION_CATALOG = {
     },
     prayer_section: {
         moduleId: 'meditation',
-        icon: '🙏',
+        icon: 'hand-helping',
         title: '기도 자리잡기',
         hint: '묵상에 기도 섹션 한 번 자리잡기',
         unlockCopy: '기도 자리가 열렸어요',
@@ -150,7 +150,7 @@ export const MISSION_CATALOG = {
     },
     theme_change: {
         moduleId: 'settings',
-        icon: '🎨',
+        icon: 'palette',
         title: '테마·폰트 한 번 갈아끼움',
         hint: '다크모드·강조색·시스템 폰트 1번 바꿔보기',
         unlockCopy: '결이 자기한테 맞춰졌어요',
@@ -162,7 +162,7 @@ export const MISSION_CATALOG = {
     },
     recovery_code_view: {
         moduleId: 'settings',
-        icon: '📜',
+        icon: 'key-round',
         title: '24단어 새로 만들기',
         hint: '보안 설정에서 새 24단어 한 번 만들어 종이에 적어두기',
         unlockCopy: '복구 자리가 자기 손 안에 자리잡혔어요',
@@ -177,7 +177,7 @@ export const MISSION_CATALOG = {
     //   v120 다이어트에서 plan_first_toggle 폐기 — 사용자 노출 자리 자체 X.
     any_meditation: {
         moduleId: 'meditation',
-        icon: '📖',
+        icon: 'book-open',
         title: '묵상 1회 자리잡기',
         hint: '어느 시점이든 묵상 노트 한 번 자리잡기',
         unlockCopy: '묵상 자리가 자기 결로 자리잡혔어요',
@@ -191,7 +191,7 @@ export const MISSION_CATALOG = {
     // 📖 묵상 결 (난이도 2)
     first_review_then_daily_report: {
         moduleId: 'reports',
-        icon: '📈',
+        icon: 'trending-up',
         title: '실천 평가 후 일일 리포트 보기',
         hint: '도트 1개 평가하고 → 그날 일일 리포트 열어보기',
         unlockCopy: '리포트 자리가 열렸어요',
@@ -203,7 +203,7 @@ export const MISSION_CATALOG = {
     },
     past_meditation_revisit: {
         moduleId: 'meditation',
-        icon: '📚',
+        icon: 'library',
         title: '지난 묵상 다시 보기',
         hint: '"지난 묵상" 화면에서 예전 묵상 1건 열어보기',
         unlockCopy: '지난 묵상 자리를 알게 됐어요',
@@ -215,7 +215,7 @@ export const MISSION_CATALOG = {
     },
     morning_meditation: {
         moduleId: 'meditation',
-        icon: '🌅',
+        icon: 'sunrise',
         title: '새벽 묵상 한 번',
         hint: '아침 5~8시 자리에서 묵상 1번',
         unlockCopy: '새벽 자리가 자리잡혔어요',
@@ -227,7 +227,7 @@ export const MISSION_CATALOG = {
     },
     evening_meditation: {
         moduleId: 'meditation',
-        icon: '🌙',
+        icon: 'moon',
         title: '자기 전 묵상 한 번',
         hint: '밤 9~12시 자리에서 묵상 1번',
         unlockCopy: '자기 전 자리가 자리잡혔어요',
@@ -241,7 +241,7 @@ export const MISSION_CATALOG = {
     // 🌱 묵상 streak (진행도 자리)
     meditation_streak_3: {
         moduleId: 'meditation',
-        icon: '🌱',
+        icon: 'sprout',
         title: '3일 연속 묵상하기',
         hint: '연속 3일 묵상 노트 1줄 이상',
         unlockCopy: '3일 연속 묵상이 자리잡았어요',
@@ -255,7 +255,7 @@ export const MISSION_CATALOG = {
     },
     meditation_streak_7: {
         moduleId: 'meditation',
-        icon: '🌿',
+        icon: 'leaf',
         title: '7일 연속 묵상하기',
         hint: '한 주 동안 매일 묵상',
         unlockCopy: '한 주 연속 묵상이 자리잡았어요',
@@ -269,7 +269,7 @@ export const MISSION_CATALOG = {
     },
     meditation_streak_14: {
         moduleId: 'meditation',
-        icon: '🌳',
+        icon: 'trees',
         title: '14일 연속 묵상하기',
         hint: '베타 기간 내내 매일 묵상 — 최상위 streak',
         unlockCopy: '14일 연속 묵상 — 깊이 자리잡았어요',
@@ -285,7 +285,7 @@ export const MISSION_CATALOG = {
     // 📊 리포트
     report_first_weekly: {
         moduleId: 'reports',
-        icon: '📊',
+        icon: 'bar-chart-3',
         title: '첫 주간 리포트',
         hint: '한 주 도트 쌓고 주간 리포트 생성',
         unlockCopy: '리포트 모듈이 열렸어요',
@@ -299,7 +299,7 @@ export const MISSION_CATALOG = {
     // 🔗 친구 초대 (네트워크 결)
     invite_first_friend: {
         moduleId: 'referral',
-        icon: '🔗',
+        icon: 'link',
         title: '친구 1명 초대하기',
         hint: '내 추천 링크로 가입자 1명 자리잡기',
         unlockCopy: '첫 친구가 자리잡혔어요',

@@ -134,7 +134,7 @@ export function openMissionGateModal(moduleId, ctx) {
 
     backdrop.innerHTML = `
       <div class="mission-gate-modal">
-        <div class="mission-gate-icon">${escapeHtml(mission.icon)}</div>
+        <div class="mission-gate-icon"><i data-lucide="${escapeAttr(mission.icon || 'sparkles')}"></i></div>
         <h2 class="mission-gate-title" id="mission-gate-title">${escapeHtml(mission.title)}</h2>
         <p class="mission-gate-hint">${escapeHtml(mission.hint)}</p>
         <p class="mission-gate-foot">${escapeHtml(mission.unlockCopy)}</p>
@@ -190,7 +190,7 @@ async function renderRecommendInModal(currentMissionId, dek, userId) {
       <div class="mission-gate-rec-cards">
         ${recs.map(r => `
           <button type="button" class="mission-rc-card mission-rc-card-sm" data-mission-id="${escapeHtml(r.missionId)}">
-            <span class="mission-rc-icon">${escapeHtml(r.mission.icon)}</span>
+            <span class="mission-rc-icon"><i data-lucide="${escapeAttr(r.mission.icon || 'sparkles')}"></i></span>
             <span class="mission-rc-title">${escapeHtml(r.mission.title)}</span>
           </button>
         `).join('')}
@@ -203,6 +203,9 @@ async function renderRecommendInModal(currentMissionId, dek, userId) {
             routeToMission(mid);
         });
     });
+
+    // (v128) lucide icon 자리잡힘 — DOM 추가 후 자연 자리잡힘.
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
 export function closeMissionGateModal() {
@@ -251,7 +254,8 @@ export async function renderMissionProgressBlock(containerId, dek, userId) {
         const m = MISSION_CATALOG[mid];
         const done = completedSet.has(mid);
         const cls = done ? 'mission-dot mission-dot-done' : 'mission-dot';
-        const tip = `${m.icon} ${m.title}${done ? ' — 완료' : ` — ${m.hint}`}`;
+        // (v128) icon은 이제 lucide name 결로 자리잡혀 tooltip엔 빼고 title만 노출
+        const tip = `${m.title}${done ? ' — 완료' : ` — ${m.hint}`}`;
         return `<span class="${cls}" title="${escapeHtml(tip)}" data-mission-id="${mid}" aria-label="${escapeHtml(tip)}"></span>`;
     }).join('');
 
@@ -340,7 +344,7 @@ export async function openMissionHubModal(dek, userId) {
             <ul class="mission-hub-list mission-hub-list-done">
               ${done.map(d => `
                 <li class="mission-hub-item mission-hub-item-done">
-                  <span class="mission-hub-icon" aria-hidden="true">${escapeHtml(d.mission.icon)}</span>
+                  <span class="mission-hub-icon" aria-hidden="true"><i data-lucide="${escapeAttr(d.mission.icon || 'sparkles')}"></i></span>
                   <span class="mission-hub-title">${escapeHtml(d.mission.title)}</span>
                   <span class="mission-hub-date">${formatKoreanDate(d.completedAt)}</span>
                 </li>
@@ -357,7 +361,7 @@ export async function openMissionHubModal(dek, userId) {
             <ul class="mission-hub-list">
               ${todo.map(t => `
                 <li class="mission-hub-item">
-                  <span class="mission-hub-icon" aria-hidden="true">${escapeHtml(t.mission.icon)}</span>
+                  <span class="mission-hub-icon" aria-hidden="true"><i data-lucide="${escapeAttr(t.mission.icon || 'sparkles')}"></i></span>
                   <div class="mission-hub-body">
                     <span class="mission-hub-title">${escapeHtml(t.mission.title)}</span>
                     <span class="mission-hub-hint">${escapeHtml(t.mission.hint)}</span>
@@ -535,7 +539,7 @@ export async function renderMissionRecommendCards(containerId, dek, userId) {
         }
         return `
       <button type="button" class="mission-rc-card" data-mission-id="${escapeHtml(r.missionId)}" aria-label="${escapeHtml(m.title)} 시작">
-        <span class="mission-rc-icon" aria-hidden="true">${escapeHtml(m.icon)}</span>
+        <span class="mission-rc-icon" aria-hidden="true"><i data-lucide="${escapeAttr(m.icon || 'sparkles')}"></i></span>
         <span class="mission-rc-title">${escapeHtml(m.title)}</span>
         <span class="mission-rc-hint">${escapeHtml(m.hint)}</span>
         ${progressLabel}
@@ -557,6 +561,9 @@ export async function renderMissionRecommendCards(containerId, dek, userId) {
             routeToMission(mid);
         });
     });
+
+    // (v128) lucide icon 자리잡힘
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
 // ─── 사이드바 풋터 미니 힌트 ────────────────────────────────────────
@@ -589,7 +596,7 @@ export async function renderSidebarMissionFooter(containerId, dek, userId) {
 
     const itemsHtml = recs.map(r => `
       <button type="button" class="sidebar-mission-item" data-mission-id="${escapeHtml(r.missionId)}" title="${escapeHtml(r.mission.title)}" aria-label="${escapeHtml(r.mission.title)}">
-        <span class="sidebar-mission-icon" aria-hidden="true">${escapeHtml(r.mission.icon)}</span>
+        <span class="sidebar-mission-icon" aria-hidden="true"><i data-lucide="${escapeAttr(r.mission.icon || 'sparkles')}"></i></span>
         <span class="sidebar-mission-label">${escapeHtml(r.mission.title)}</span>
       </button>
     `).join('');
@@ -607,6 +614,9 @@ export async function renderSidebarMissionFooter(containerId, dek, userId) {
             routeToMission(mid);
         });
     });
+
+    // (v128) lucide icon 자리잡힘
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
 // ─── 헬퍼: missionId → view 이동 + 후속 액션 ─────────────────────────
@@ -730,7 +740,7 @@ function showMissionAchievement(mission) {
         // (2026-05-20 v92) 사용자 명시: 자동 사라짐 X · 확인 버튼 자리 자리잡혀 닫힘. typing 자리 자연 자리.
         card.innerHTML = `
           <div class="mission-achievement-row">
-            <span class="mission-achievement-icon" aria-hidden="true">${escapeHtml(mission.icon || '🎯')}</span>
+            <span class="mission-achievement-icon" aria-hidden="true"><i data-lucide="${escapeAttr(mission.icon || 'target')}"></i></span>
             <div class="mission-achievement-body">
               <div class="mission-achievement-head">미션 완료</div>
               <div class="mission-achievement-title">${escapeHtml(mission.title || '')}</div>
@@ -766,6 +776,9 @@ function showMissionAchievement(mission) {
         // 자동 사라짐 자리 자리잡지 X — 사용자가 [확인] 또는 [×] 클릭해야 닫힘
         card.querySelector('.mission-achievement-close').addEventListener('click', dismiss);
         card.querySelector('.mission-achievement-ok').addEventListener('click', dismiss);
+
+        // (v128) lucide icon 자리잡힘
+        if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
     } catch (_) { /* 알림 실패는 무시 */ }
 }
 
@@ -777,4 +790,10 @@ function escapeHtml(s) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+// (v128) lucide icon name 결로 자리잡힌 자기 자리 — 알파벳·하이픈만 통과.
+function escapeAttr(s) {
+    if (s == null) return '';
+    return String(s).replace(/[^a-zA-Z0-9-]/g, '');
 }

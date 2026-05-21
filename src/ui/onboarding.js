@@ -374,6 +374,8 @@ function renderStep(step) {
             requestAnimationFrame(() => card.classList.add('onboarding-card-enter-active'));
         });
     }
+    // (v128 아이콘 통일) lucide 자리잡힘
+    if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
     activateSwanTyping();
 }
 
@@ -706,7 +708,7 @@ function renderTrackStep(body) {
         <div class="onboarding-track-primary">
           <button type="button" class="onboarding-track-card onboarding-track-card-primary onboarding-track-card-custom${customSelected ? ' selected' : ''}"
                   id="onboarding-track-custom">
-            <span class="onboarding-track-icon" aria-hidden="true">🪄</span>
+            <span class="onboarding-track-icon" aria-hidden="true"><i data-lucide="wand-2"></i></span>
             <span class="onboarding-track-label">직접 만들기</span>
             <span class="onboarding-track-desc">${customSelected && customPlanName ? `✓ ${escapeHtml(customPlanName)}` : '원하는 책·진행 속도 자유롭게 골라요.'}</span>
           </button>
@@ -717,7 +719,7 @@ function renderTrackStep(body) {
           <button type="button" class="onboarding-track-card onboarding-track-card-recommended${_state.draft.selectedTrack === rec.primary.id ? ' selected' : ''}"
                   data-track="${escapeAttr(rec.primary.id)}">
             <span class="onboarding-track-badge">추천</span>
-            <span class="onboarding-track-icon" aria-hidden="true">${escapeHtml(rec.primary.icon)}</span>
+            <span class="onboarding-track-icon" aria-hidden="true"><i data-lucide="${escapeAttr(rec.primary.icon || 'book-open')}"></i></span>
             <span class="onboarding-track-label">${escapeHtml(rec.primary.label)}</span>
             <span class="onboarding-track-desc">${escapeHtml(rec.primary.desc)}</span>
           </button>
@@ -726,7 +728,7 @@ function renderTrackStep(body) {
                     class="onboarding-track-card${_state.draft.selectedTrack === opt.id ? ' selected' : ''}${opt.highlight ? ' onboarding-track-card-highlight' : ''}${opt.preparing ? ' disabled' : ''}"
                     data-track="${escapeAttr(opt.id)}"
                     ${opt.preparing ? 'aria-disabled="true"' : ''}>
-              <span class="onboarding-track-icon" aria-hidden="true">${escapeHtml(opt.icon)}</span>
+              <span class="onboarding-track-icon" aria-hidden="true"><i data-lucide="${escapeAttr(opt.icon || 'book-open')}"></i></span>
               <span class="onboarding-track-label">
                 ${escapeHtml(opt.label)}
                 ${opt.preparing ? '<span class="onboarding-track-chip-coming">곧 열려요</span>' : ''}
@@ -741,13 +743,13 @@ function renderTrackStep(body) {
           <div class="onboarding-book-picker-head-row">
             <p class="onboarding-book-picker-head">어떤 책을 통독하실까요?</p>
             <button type="button" class="onboarding-book-toggle-all" id="onboarding-book-toggle-all"
-                    data-mode="quick">📚 전체 66권 보기</button>
+                    data-mode="quick">전체 66권 보기</button>
           </div>
           <div class="onboarding-book-grid" id="onboarding-book-grid-quick">
             ${ONE_BOOK_QUICK_PICKS.map(b => `
               <button type="button" class="onboarding-book-card${_state.draft.oneBookAbbr === b.abbr ? ' selected' : ''}"
                       data-book-abbr="${escapeAttr(b.abbr)}">
-                <span class="onboarding-book-icon" aria-hidden="true">📖</span>
+                <span class="onboarding-book-icon" aria-hidden="true"><i data-lucide="book-open"></i></span>
                 <span class="onboarding-book-label">${escapeHtml(b.label)}</span>
                 <span class="onboarding-book-desc">${escapeHtml(b.desc)}</span>
               </button>
@@ -859,12 +861,12 @@ function renderTrackStep(body) {
                 quickGrid.classList.remove('hidden');
                 allGrid.classList.add('hidden');
                 toggleBtn.dataset.mode = 'quick';
-                toggleBtn.textContent = '📚 전체 66권 보기';
+                toggleBtn.textContent = '전체 66권 보기';
             } else {
                 quickGrid.classList.add('hidden');
                 allGrid.classList.remove('hidden');
                 toggleBtn.dataset.mode = 'all';
-                toggleBtn.textContent = '✨ 추천 5권만 보기';
+                toggleBtn.textContent = '추천 5권만 보기';
             }
         });
     }
