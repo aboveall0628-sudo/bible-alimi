@@ -9,7 +9,14 @@
       "PowerShell($chromePaths = @\\('C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe', 'C:\\\\Program Files \\(x86\\)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe', 'C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe'\\); foreach \\($p in $chromePaths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } })",
       "PowerShell(Copy-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\og-image-out.png' 'c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\og-image.png' -Force; Remove-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\og-image-out.png' -Force; Remove-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\og-render.html' -Force; $f = Get-Item 'c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\og-image.png'; Write-Output \"✓ $\\($f.Name\\): $\\($f.Length\\) bytes\")",
       "PowerShell(Copy-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-32-out.png' 'c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\favicon-32.png' -Force; Copy-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-16-out.png' 'c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\favicon-16.png' -Force; Remove-Item 'C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-32-out.png','C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-16-out.png','C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-32-render.html','C:\\\\Users\\\\MSI\\\\AppData\\\\Local\\\\Temp\\\\favicon-16-render.html' -Force; Get-Item 'c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\favicon-32.png','c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\\\\assets\\\\favicon-16.png' | ForEach-Object { Write-Output \"$\\($_.Name\\): $\\($_.Length\\) bytes\" })",
-      "Bash(git commit -m 'fix\\(🎨 v101 전체 펼치기 우측 끝 자리\\) *)"
+      "Bash(git commit -m 'fix\\(🎨 v101 전체 펼치기 우측 끝 자리\\) *)",
+      "Bash(node --check \"c:/Users/MSI/Desktop/개발/Sanctum OS/src/ui/settings.js\")",
+      "Bash(powershell -Command \"Get-Content 'docs/현재상태_로드맵.md' -TotalCount 50\")",
+      "Bash(git restore *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\MSI\\\\Desktop\\\\개발\\\\Sanctum OS\" -Recurse -File -Filter \"*.vue\" -o ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 20 FullName)",
+      "Bash(xargs grep -l \"announcement\\\\|notice\\\\|broadcast\\\\|admin.*message\")",
+      "Bash(grep -E \"\\\\.js$\")"
     ]
   }
 }

@@ -158,8 +158,7 @@ export async function renderTodayStartIntoView(userId, currentDate) {
     // (2026-05-16) 기도 체크인 2자리 — 묵상 전 감사·회개 + 묵상 후 기도. 둘 다 baseDate 기준 자연.
     bindPrayerCheck('yesterday-prayer-checkbox', 'prayedBefore', baseDate);
     bindPrayerCheck('prayer-after-checkbox', 'prayedAfter', baseDate);
-    // (2026-05-21 v116) 오늘 뷰 초대 카드 — referralCode 존재 시 노출
-    renderInviteCardToday(selfCard);
+    // (v131 2026-05-21) 사용자 명시 "친구 초대하기도 어차피 지울거라 빨리 지워줘" — 카드 통째 폐기.
     if (typeof window.__sanctumRenderLucide === 'function') window.__sanctumRenderLucide();
 }
 
@@ -1031,87 +1030,5 @@ function escapeHtml(s) {
     ));
 }
 
-// ─── (2026-05-21 v116) 오늘 뷰 초대 카드 ──────────────────────
-//   사용자 지적: "초대 링크가 어디 있는지 모르겠다"
-//   selfCard.referralCode 가 있으면 오늘 뷰 상단에 compact 초대 카드 노출.
-//   복사·공유 버튼 + 초대 카운트.
-
-function renderInviteCardToday(selfCard) {
-    const slot = document.getElementById('invite-card-today');
-    if (!slot) return;
-
-    const code = selfCard?.referralCode;
-    if (!code) {
-        slot.innerHTML = '';
-        return;
-    }
-
-    const origin = (typeof window !== 'undefined' && window.location)
-        ? `${window.location.origin}${window.location.pathname.replace(/index\.html$/, '')}`
-        : '/';
-    const url = `${origin}?ref=${encodeURIComponent(code)}`;
-    const count = Number(selfCard.referralCount || 0);
-    const nickname = (selfCard.nicknames?.[0] || selfCard.name || '').trim();
-
-    slot.innerHTML = `
-        <div class="invite-today-card" id="invite-today-card">
-            <div class="invite-today-left">
-                <span class="invite-today-icon" aria-hidden="true">🔗</span>
-                <div class="invite-today-text">
-                    <span class="invite-today-title">친구 초대하기</span>
-                    <span class="invite-today-count">${count > 0 ? `${count}명 함께하셨어요` : '아직 초대한 분이 없어요'}</span>
-                </div>
-            </div>
-            <div class="invite-today-actions">
-                <button type="button" class="invite-today-copy" id="invite-today-copy">복사</button>
-                <button type="button" class="invite-today-share" id="invite-today-share">공유</button>
-            </div>
-        </div>
-    `;
-
-    // 복사 버튼
-    const copyBtn = slot.querySelector('#invite-today-copy');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(url);
-                copyBtn.textContent = '복사됨 ✓';
-                setTimeout(() => { copyBtn.textContent = '복사'; }, 1500);
-            } catch (_) {
-                // 폴백
-                const temp = document.createElement('textarea');
-                temp.value = url;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                temp.remove();
-                copyBtn.textContent = '복사됨 ✓';
-                setTimeout(() => { copyBtn.textContent = '복사'; }, 1500);
-            }
-        });
-    }
-
-    // 공유 버튼 — Web Share API 사용 가능 시 네이티브 공유, 아니면 복사 폴백
-    const shareBtn = slot.querySelector('#invite-today-share');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', async () => {
-            const shareText = nickname
-                ? `${nickname}님이 Sanctum OS에 초대합니다. 같이 묵상해요!`
-                : 'Sanctum OS에 초대합니다. 같이 묵상해요!';
-            if (navigator.share) {
-                try {
-                    await navigator.share({ title: 'Sanctum OS 초대', text: shareText, url });
-                } catch (e) {
-                    if (e.name !== 'AbortError') {
-                        console.warn('[invite] share failed:', e);
-                    }
-                }
-            } else {
-                // Web Share API 미지원 — 링크 복사 폴백
-                try { await navigator.clipboard.writeText(url); } catch (_) {}
-                shareBtn.textContent = '링크 복사됨';
-                setTimeout(() => { shareBtn.textContent = '공유'; }, 1500);
-            }
-        });
-    }
-}
+// (v131 2026-05-21) renderInviteCardToday 함수 통째 폐기 — 사용자 명시 "어차피 지울거라 빨리 지워줘".
+//   추천 링크 공유는 자기 프로필 자리에서만 자리잡힘.
